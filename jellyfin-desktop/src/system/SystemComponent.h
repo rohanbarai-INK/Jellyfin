@@ -54,6 +54,7 @@ public:
   Q_INVOKABLE QStringList networkAddresses() const;
 
   Q_INVOKABLE void openExternalUrl(const QString& url);
+  Q_INVOKABLE void showSubscriptionExpiredMessage();
 
   Q_INVOKABLE void runUserScript(QString script);
 

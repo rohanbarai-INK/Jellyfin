@@ -304,6 +304,11 @@
     <string name="login_invalid_credentials">Invalid username and/or password</string>
     <string name="login_server_unavailable">Unable to connect to server</string>
     <string name="login_username_field_empty">Username cannot be empty</string>
+    <string name="subscription_expired_title">Subscription Expired</string>
+    <string name="subscription_expired_message">Your subscription has expired. Renew access to continue.</string>
+    <string name="subscription_expired_message_with_date">Your subscription expired on %1$s. Renew access to continue.</string>
+    <string name="subscription_expired_qr_placeholder">Renewal link: %1$s\n(Show QR code here in a future update.)</string>
+    <string name="subscription_expired_log_out">Log Out</string>
     <string name="lbl_manage_servers">Manage servers</string>
     <string name="lbl_remove_users">This will also remove all associated accounts</string>
     <string name="lbl_remove_user_content">Remove account</string>

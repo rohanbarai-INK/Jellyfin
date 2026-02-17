@@ -38,6 +38,7 @@ class ServerUserRepositoryImpl(
 				name = userInfo.name,
 				accessToken = authInfo?.accessToken,
 				imageTag = userInfo.imageTag,
+				expiryDate = userInfo.expiryDate,
 				lastUsed = userInfo.lastUsed,
 			)
 		}

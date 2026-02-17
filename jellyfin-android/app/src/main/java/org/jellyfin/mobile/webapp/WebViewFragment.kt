@@ -24,6 +24,7 @@ import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.R
+import org.jellyfin.mobile.SubscriptionExpiredActivity
 import org.jellyfin.mobile.app.ApiClientController
 import org.jellyfin.mobile.app.AppPreferences
 import org.jellyfin.mobile.bridge.ExternalPlayer
@@ -107,6 +108,21 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
 
             override fun onErrorReceived() {
                 handleError()
+            }
+
+            override fun onUserExpired(expiryDate: String?) {
+                webViewBinding?.webView?.removeCallbacks(timeoutRunnable)
+                webViewBinding?.webView?.removeCallbacks(showLoadingContainerRunnable)
+
+                runOnUiThread {
+                    val redemptionUrl = "${server.hostname.trimEnd('/')}/web/#/redeem"
+                    val intent = Intent(requireContext(), SubscriptionExpiredActivity::class.java).apply {
+                        putExtra(SubscriptionExpiredActivity.EXTRA_REDEMPTION_URL, redemptionUrl)
+                        putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, expiryDate)
+                    }
+                    startActivity(intent)
+                    activity?.finishAfterTransition()
+                }
             }
         }
         externalPlayer = ExternalPlayer(requireContext(), this, requireActivity().activityResultRegistry)

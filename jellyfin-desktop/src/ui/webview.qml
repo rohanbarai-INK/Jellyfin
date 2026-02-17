@@ -55,6 +55,13 @@ Window
       web.triggerWebAction(action)
   }
 
+  function isSubscriptionExpiredUrl(url)
+  {
+    const value = String(url || "").toLowerCase()
+    return value.includes("subscription-expired") ||
+           (value.includes("subscription") && value.includes("expired"))
+  }
+
   Action
   {
     enabled: mainWindow.webDesktopMode
@@ -240,7 +247,13 @@ Window
     {
       console.log("WebEngineView size:", width, "x", height, "backgroundColor:", backgroundColor)
       forceActiveFocus()
-      mainWindow.reloadWebClient.connect(reload)
+      mainWindow.reloadWebClient.connect(function() {
+        if (mainWindow.isSubscriptionExpiredUrl(web.url)) {
+          console.log("Skipping forced reload on subscription-expired page:", web.url)
+          return
+        }
+        web.reload()
+      })
 
       // Handle CSP workaround from C++
       components.system.pageContentReady.connect(function(html, finalUrl, hadCSP) {

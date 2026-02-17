@@ -196,6 +196,25 @@
                 this.removeMediaDialog();
                 console.error(`media error: ${error}`);
 
+                const errorMessage = String(error || '');
+                const isExpired = typeof window.jmpIsSubscriptionExpiredError === 'function' &&
+                    window.jmpIsSubscriptionExpiredError(errorMessage);
+                if (isExpired) {
+                    if (typeof window.jmpShowSubscriptionExpiredDialog === 'function') {
+                        window.jmpShowSubscriptionExpiredDialog();
+                    }
+
+                    this.events.trigger(this, 'error', [{
+                        type: 'playbackerror',
+                        streamInfo: {
+                            mediaSource: {
+                                SupportsTranscoding: false
+                            }
+                        }
+                    }]);
+                    return;
+                }
+
                 const errorData = {
                     type: 'mediadecodeerror'
                 };

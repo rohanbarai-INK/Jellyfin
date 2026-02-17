@@ -20,6 +20,7 @@
 #include <QRegularExpression>
 #include <QPointer>
 #include <functional>
+#include <QMessageBox>
 
 #include <QtWebEngineCore/qtwebenginecoreglobal.h>
 
@@ -495,6 +496,16 @@ QStringList SystemComponent::networkAddresses() const
 void SystemComponent::openExternalUrl(const QString& url)
 {
   QDesktopServices::openUrl(QUrl(url));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+void SystemComponent::showSubscriptionExpiredMessage()
+{
+  QMessageBox::warning(
+    nullptr,
+    QObject::tr("Subscription Expired"),
+    QObject::tr("Your subscription has expired. Renew access to continue playback.")
+  );
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

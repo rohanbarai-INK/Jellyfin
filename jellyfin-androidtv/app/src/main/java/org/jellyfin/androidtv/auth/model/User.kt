@@ -11,6 +11,7 @@ sealed class User {
 	abstract val name: String
 	abstract val accessToken: String?
 	abstract val imageTag: String?
+	abstract val expiryDate: String?
 
 	abstract fun withToken(accessToken: String): User
 
@@ -34,6 +35,7 @@ data class PrivateUser(
 	override val name: String,
 	override val accessToken: String?,
 	override val imageTag: String?,
+	override val expiryDate: String?,
 	val lastUsed: Long,
 ) : User() {
 	override fun withToken(accessToken: String) = copy(accessToken = accessToken)
@@ -48,6 +50,7 @@ data class PublicUser(
 	override val name: String,
 	override val accessToken: String?,
 	override val imageTag: String?,
+	override val expiryDate: String?,
 ) : User() {
 	override fun withToken(accessToken: String) = copy(accessToken = accessToken)
 }

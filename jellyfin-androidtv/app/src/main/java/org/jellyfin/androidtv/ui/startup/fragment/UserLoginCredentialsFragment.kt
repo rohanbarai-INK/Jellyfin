@@ -1,5 +1,6 @@
 package org.jellyfin.androidtv.ui.startup.fragment
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -19,8 +20,10 @@ import org.jellyfin.androidtv.auth.model.AuthenticatingState
 import org.jellyfin.androidtv.auth.model.RequireSignInState
 import org.jellyfin.androidtv.auth.model.ServerUnavailableState
 import org.jellyfin.androidtv.auth.model.ServerVersionNotSupported
+import org.jellyfin.androidtv.auth.model.SubscriptionExpiredState
 import org.jellyfin.androidtv.auth.repository.ServerRepository
 import org.jellyfin.androidtv.databinding.FragmentUserLoginCredentialsBinding
+import org.jellyfin.androidtv.ui.startup.SubscriptionExpiredActivity
 import org.jellyfin.androidtv.ui.startup.UserLoginViewModel
 import org.koin.androidx.viewmodel.ext.android.activityViewModel
 
@@ -89,6 +92,13 @@ class UserLoginCredentialsFragment : Fragment() {
 						RequireSignInState -> binding.error.setText(R.string.login_invalid_credentials)
 						ServerUnavailableState,
 						is ApiClientErrorLoginState -> binding.error.setText(R.string.login_server_unavailable)
+						is SubscriptionExpiredState -> startActivity(
+							Intent(requireContext(), SubscriptionExpiredActivity::class.java).apply {
+								putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, state.expiryDate)
+							}
+						).also {
+							requireActivity().finishAfterTransition()
+						}
 						// Do nothing because the activity will respond to the new session
 						AuthenticatedState -> Unit
 						// Not initialized

@@ -61,6 +61,97 @@ window.NativeShell = {
     }
 };
 
+let subscriptionExpiredDialogShownAt = 0;
+
+function isPlaybackInfoUrl(url) {
+    if (!url) return false;
+    return /\/items\/[^/]+\/playbackinfo/i.test(url) || /\/playbackinfo/i.test(url);
+}
+
+function responseIndicatesExpiry(messageText) {
+    if (!messageText) return false;
+    const message = String(messageText).toLowerCase();
+    return (
+        message.includes('subscription expired') ||
+        message.includes('account expired') ||
+        (message.includes('subscription') && message.includes('renew')) ||
+        message.includes('errorcode":"subscriptionexpired') ||
+        message.includes('code":"subscriptionexpired')
+    );
+}
+
+function isSubscriptionExpiredResponse(statusCode, responseText) {
+    if (statusCode !== 403) return false;
+    // Some servers/proxies omit error bodies for 403 responses.
+    if (!responseText) return true;
+    return responseIndicatesExpiry(responseText);
+}
+
+function showSubscriptionExpiredDialog() {
+    const now = Date.now();
+    if (now - subscriptionExpiredDialogShownAt < 5000) return;
+    subscriptionExpiredDialogShownAt = now;
+
+    try {
+        window.api?.system?.showSubscriptionExpiredMessage?.();
+    } catch (error) {
+        console.error('Failed to show native subscription-expired dialog:', error);
+    }
+}
+
+window.jmpIsSubscriptionExpiredError = responseIndicatesExpiry;
+window.jmpShowSubscriptionExpiredDialog = showSubscriptionExpiredDialog;
+
+if (!window.__jmpFetchExpiryHookInstalled && typeof window.fetch === 'function') {
+    window.__jmpFetchExpiryHookInstalled = true;
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async function(resource, options) {
+        const response = await nativeFetch(resource, options);
+
+        let requestUrl = '';
+        if (typeof resource === 'string') requestUrl = resource;
+        else if (resource && typeof resource.url === 'string') requestUrl = resource.url;
+
+        if (isPlaybackInfoUrl(requestUrl) && response.status === 403) {
+            let responseText = '';
+            try {
+                responseText = await response.clone().text();
+            } catch (error) {
+                // Ignore parsing failures - keep the original response intact.
+            }
+
+            if (isSubscriptionExpiredResponse(response.status, responseText)) {
+                showSubscriptionExpiredDialog();
+            }
+        }
+
+        return response;
+    };
+}
+
+if (!window.__jmpXhrExpiryHookInstalled && window.XMLHttpRequest) {
+    window.__jmpXhrExpiryHookInstalled = true;
+    const nativeOpen = XMLHttpRequest.prototype.open;
+    const nativeSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this.__jmpRequestUrl = typeof url === 'string' ? url : String(url || '');
+        return nativeOpen.call(this, method, url, ...rest);
+    };
+
+    XMLHttpRequest.prototype.send = function(...args) {
+        this.addEventListener('load', () => {
+            const requestUrl = this.__jmpRequestUrl || '';
+            if (!isPlaybackInfoUrl(requestUrl)) return;
+            if (isSubscriptionExpiredResponse(this.status, this.responseText)) {
+                showSubscriptionExpiredDialog();
+            }
+        });
+
+        return nativeSend.apply(this, args);
+    };
+}
+
 function getDeviceProfile() {
     const CodecProfiles = [];
 

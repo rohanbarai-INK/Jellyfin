@@ -13,4 +13,5 @@ data class AuthenticationStoreUser(
 	@SerialName("last_used") val lastUsed: Long = Instant.now().toEpochMilli(),
 	@SerialName("image_tag") val imageTag: String? = null,
 	@SerialName("access_token") val accessToken: String? = null,
+	@SerialName("expiry_date") val expiryDate: String? = null,
 )

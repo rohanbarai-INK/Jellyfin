@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     val bluetoothPermissionHelper: BluetoothPermissionHelper = BluetoothPermissionHelper(this, get())
     val chromecast: IChromecast = Chromecast()
     private val permissionRequestHelper: PermissionRequestHelper by inject()
+    private var subscriptionExpiredActivityOpened = false
 
     var serviceBinder: RemotePlayerService.ServiceBinder? = null
         private set
@@ -169,6 +170,19 @@ class MainActivity : AppCompatActivity() {
                                 putParcelable(Constants.FRAGMENT_WEB_VIEW_EXTRA_SERVER, state.server)
                             },
                         )
+                    }
+                }
+                is ServerState.Expired -> {
+                    if (!subscriptionExpiredActivityOpened) {
+                        subscriptionExpiredActivityOpened = true
+                        val redemptionUrl = "${state.server.hostname.trimEnd('/')}/web/#/redeem"
+                        startActivity(
+                            Intent(this@MainActivity, SubscriptionExpiredActivity::class.java).apply {
+                                putExtra(SubscriptionExpiredActivity.EXTRA_REDEMPTION_URL, redemptionUrl)
+                                putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, state.expiryDate)
+                            },
+                        )
+                        finishAfterTransition()
                     }
                 }
             }

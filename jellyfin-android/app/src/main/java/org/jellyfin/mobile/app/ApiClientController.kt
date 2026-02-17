@@ -8,6 +8,16 @@ import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.DeviceInfo
+import org.json.JSONException
+import org.json.JSONObject
+import timber.log.Timber
+import java.net.HttpURLConnection
+import java.net.URLEncoder
+import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 
 class ApiClientController(
     private val appPreferences: AppPreferences,
@@ -16,6 +26,18 @@ class ApiClientController(
     private val serverDao: ServerDao,
     private val userDao: UserDao,
 ) {
+    data class SavedServerUser(
+        val server: ServerEntity,
+        val userId: String,
+        val accessToken: String,
+    )
+
+    data class UserExpiryStatus(
+        val expiryDateRaw: String?,
+        val expiryDate: Instant?,
+        val isExpired: Boolean,
+    )
+
     private val baseDeviceInfo: DeviceInfo
         get() = jellyfin.options.deviceInfo!!
 
@@ -45,7 +67,7 @@ class ApiClientController(
         return server
     }
 
-    suspend fun loadSavedServerUser() {
+    suspend fun loadSavedServerUser(): SavedServerUser? {
         val serverUser = withContext(Dispatchers.IO) {
             val serverId = appPreferences.currentServerId ?: return@withContext null
             val userId = appPreferences.currentUserId ?: return@withContext null
@@ -56,9 +78,16 @@ class ApiClientController(
 
         if (serverUser?.user?.accessToken != null) {
             configureApiClientUser(serverUser.user.userId, serverUser.user.accessToken)
+            return SavedServerUser(
+                server = serverUser.server,
+                userId = serverUser.user.userId,
+                accessToken = serverUser.user.accessToken,
+            )
         } else {
             resetApiClientUser()
         }
+
+        return null
     }
 
     suspend fun loadPreviouslyUsedServers(): List<ServerEntity> = withContext(Dispatchers.IO) {
@@ -84,5 +113,59 @@ class ApiClientController(
             accessToken = null,
             deviceInfo = baseDeviceInfo,
         )
+    }
+
+    suspend fun getUserExpiryStatus(server: ServerEntity, accessToken: String): UserExpiryStatus = withContext(Dispatchers.IO) {
+        val baseUrl = server.hostname.trimEnd('/')
+        val endpoint = "$baseUrl/Users/Me?api_key=${
+            URLEncoder.encode(accessToken, StandardCharsets.UTF_8.name())
+        }"
+        val request = URL(endpoint).openConnection() as HttpURLConnection
+        request.requestMethod = "GET"
+        request.connectTimeout = 10000
+        request.readTimeout = 10000
+        request.setRequestProperty("Accept", "application/json")
+
+        val body = try {
+            request.inputStream.bufferedReader().use { it.readText() }
+        } catch (error: Exception) {
+            val message = request.errorStream?.bufferedReader()?.use { it.readText() }
+            Timber.w(error, "Unable to retrieve current user for expiry check: %s", message)
+            null
+        } finally {
+            request.disconnect()
+        }
+
+        val expiryDateRaw = body
+            ?.let { response ->
+                try {
+                    JSONObject(response).optString("ExpiryDate", null)
+                } catch (error: JSONException) {
+                    Timber.w(error, "Unable to parse user response")
+                    null
+                }
+            }
+            ?.takeUnless(String::isBlank)
+        val expiryDate = parseExpiryDate(expiryDateRaw)
+        UserExpiryStatus(
+            expiryDateRaw = expiryDateRaw,
+            expiryDate = expiryDate,
+            isExpired = expiryDate != null && !expiryDate.isAfter(Instant.now()),
+        )
+    }
+
+    private fun parseExpiryDate(value: String?): Instant? {
+        if (value.isNullOrBlank()) return null
+
+        return runCatching { Instant.parse(value) }.getOrElse {
+            runCatching { OffsetDateTime.parse(value).toInstant() }.getOrElse {
+                runCatching { Instant.parse("${value}Z") }.getOrElse { error ->
+                    if (error is DateTimeParseException) {
+                        Timber.w(error, "Unable to parse ExpiryDate: %s", value)
+                    }
+                    null
+                }
+            }
+        }
     }
 }

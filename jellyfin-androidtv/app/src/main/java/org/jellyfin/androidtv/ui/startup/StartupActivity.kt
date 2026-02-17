@@ -26,6 +26,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.JellyfinApplication
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.isUserExpired
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.SessionRepositoryState
 import org.jellyfin.androidtv.auth.repository.UserRepository
@@ -36,6 +38,8 @@ import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.MediaManager
+import org.jellyfin.androidtv.ui.startup.SubscriptionExpiredActivity.Companion.EXTRA_EXPIRY_DATE
+import org.jellyfin.androidtv.util.sdk.expiryDateRaw
 import org.jellyfin.androidtv.ui.startup.fragment.SelectServerFragment
 import org.jellyfin.androidtv.ui.startup.fragment.ServerFragment
 import org.jellyfin.androidtv.ui.startup.fragment.SplashFragment
@@ -54,6 +58,7 @@ class StartupActivity : FragmentActivity() {
 		const val EXTRA_ITEM_ID = "ItemId"
 		const val EXTRA_ITEM_IS_USER_VIEW = "ItemIsUserView"
 		const val EXTRA_HIDE_SPLASH = "HideSplash"
+		const val EXTRA_FORCE_SERVER_SELECTION = "ForceServerSelection"
 	}
 
 	private val startupViewModel: StartupViewModel by viewModel()
@@ -115,6 +120,15 @@ class StartupActivity : FragmentActivity() {
 
 				val currentUser = userRepository.currentUser.first { it != null }
 				Timber.i("CurrentUser changed to ${currentUser?.id} while waiting for startup.")
+				val dtoExpiryDate = currentUser?.expiryDateRaw()
+				val expiryDate = dtoExpiryDate
+					?: startupViewModel.getServer(session.serverId)?.let { server ->
+						fetchExpiryDate(server.address, session.accessToken)
+					}
+				if (isUserExpired(expiryDate)) {
+					openSubscriptionExpiredActivity(expiryDate)
+					return@onEach
+				}
 
 				lifecycleScope.launch {
 					openNextActivity()
@@ -123,9 +137,14 @@ class StartupActivity : FragmentActivity() {
 				// Clear audio queue in case left over from last run
 				mediaManager.clearAudioQueue()
 
-				val server = startupViewModel.getLastServer()
-				if (server != null) showServer(server.id)
-				else showServerSelection()
+				val forceServerSelection = intent.getBooleanExtra(EXTRA_FORCE_SERVER_SELECTION, false)
+				if (forceServerSelection) {
+					showServerSelection()
+				} else {
+					val server = startupViewModel.getLastServer()
+					if (server != null) showServer(server.id)
+					else showServerSelection()
+				}
 			}
 		}.launchIn(lifecycleScope)
 
@@ -194,6 +213,13 @@ class StartupActivity : FragmentActivity() {
 	private fun showServerSelection() = supportFragmentManager.commit {
 		replace<StartupToolbarFragment>(R.id.content_view)
 		add<SelectServerFragment>(R.id.content_view)
+	}
+
+	private fun openSubscriptionExpiredActivity(expiryDate: String?) {
+		startActivity(Intent(this, SubscriptionExpiredActivity::class.java).apply {
+			putExtra(EXTRA_EXPIRY_DATE, expiryDate)
+		})
+		finishAfterTransition()
 	}
 
 	override fun onNewIntent(intent: Intent) {

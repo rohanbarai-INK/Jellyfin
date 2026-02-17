@@ -20,11 +20,15 @@ import org.jellyfin.androidtv.auth.model.RequireSignInState
 import org.jellyfin.androidtv.auth.model.Server
 import org.jellyfin.androidtv.auth.model.ServerUnavailableState
 import org.jellyfin.androidtv.auth.model.ServerVersionNotSupported
+import org.jellyfin.androidtv.auth.model.SubscriptionExpiredState
 import org.jellyfin.androidtv.auth.model.User
+import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.isUserExpired
 import org.jellyfin.androidtv.auth.store.AuthenticationPreferences
 import org.jellyfin.androidtv.auth.store.AuthenticationStore
 import org.jellyfin.androidtv.util.apiclient.JellyfinImage
 import org.jellyfin.androidtv.util.apiclient.JellyfinImageSource
+import org.jellyfin.androidtv.util.sdk.expiryDateRaw
 import org.jellyfin.androidtv.util.apiclient.getUrl
 import org.jellyfin.androidtv.util.apiclient.primaryImage
 import org.jellyfin.androidtv.util.sdk.forUser
@@ -119,16 +123,23 @@ class AuthenticationRepositoryImpl(
 	private fun authenticateAuthenticationResult(server: Server, result: AuthenticationResult) = flow {
 		val accessToken = result.accessToken ?: return@flow emit(RequireSignInState)
 		val userInfo = result.user ?: return@flow emit(RequireSignInState)
+		val expiryDate = resolveExpiryDate(server, userInfo, accessToken)
+		if (isUserExpired(expiryDate)) {
+			emit(SubscriptionExpiredState(expiryDate))
+			return@flow
+		}
+
 		val user = PrivateUser(
 			id = userInfo.id,
 			serverId = server.id,
 			name = userInfo.name!!,
 			accessToken = result.accessToken,
 			imageTag = userInfo.primaryImage?.tag,
+			expiryDate = expiryDate,
 			lastUsed = Instant.now().toEpochMilli(),
 		)
 
-		authenticateFinish(server, userInfo, accessToken)
+		authenticateFinish(server, userInfo, accessToken, expiryDate)
 		val success = setActiveSession(user, server)
 		if (success) {
 			emit(AuthenticatedState)
@@ -149,7 +160,12 @@ class AuthenticationRepositoryImpl(
 		} else try {
 			// Update user info
 			val userInfo by userApiClient.userApi.getCurrentUser()
-			authenticateFinish(server, userInfo, user.accessToken.orEmpty())
+			val expiryDate = resolveExpiryDate(server, userInfo, user.accessToken.orEmpty())
+			if (isUserExpired(expiryDate)) {
+				emit(SubscriptionExpiredState(expiryDate))
+				return@flow
+			}
+			authenticateFinish(server, userInfo, user.accessToken.orEmpty(), expiryDate)
 			emit(AuthenticatedState)
 		} catch (err: TimeoutException) {
 			Timber.e(err, "Failed to connect to server")
@@ -161,7 +177,7 @@ class AuthenticationRepositoryImpl(
 		}
 	}.flowOn(Dispatchers.IO)
 
-	private suspend fun authenticateFinish(server: Server, userInfo: UserDto, accessToken: String) {
+	private suspend fun authenticateFinish(server: Server, userInfo: UserDto, accessToken: String, expiryDate: String?) {
 		val currentUser = authenticationStore.getUser(server.id, userInfo.id)
 
 		val updatedUser = currentUser?.copy(
@@ -169,12 +185,18 @@ class AuthenticationRepositoryImpl(
 			lastUsed = Instant.now().toEpochMilli(),
 			imageTag = userInfo.primaryImage?.tag,
 			accessToken = accessToken,
+			expiryDate = expiryDate,
 		) ?: AuthenticationStoreUser(
 			name = userInfo.name!!,
 			imageTag = userInfo.primaryImage?.tag,
 			accessToken = accessToken,
+			expiryDate = expiryDate,
 		)
 		authenticationStore.putUser(server.id, userInfo.id, updatedUser)
+	}
+
+	private suspend fun resolveExpiryDate(server: Server, userInfo: UserDto, accessToken: String): String? {
+		return userInfo.expiryDateRaw() ?: fetchExpiryDate(server.address, accessToken)
 	}
 
 	private suspend fun setActiveSession(user: User, server: Server): Boolean {

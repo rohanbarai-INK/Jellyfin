@@ -30,6 +30,7 @@ import org.jellyfin.androidtv.auth.model.RequireSignInState
 import org.jellyfin.androidtv.auth.model.Server
 import org.jellyfin.androidtv.auth.model.ServerUnavailableState
 import org.jellyfin.androidtv.auth.model.ServerVersionNotSupported
+import org.jellyfin.androidtv.auth.model.SubscriptionExpiredState
 import org.jellyfin.androidtv.auth.model.User
 import org.jellyfin.androidtv.auth.repository.AuthenticationRepository
 import org.jellyfin.androidtv.auth.repository.ServerRepository
@@ -38,6 +39,7 @@ import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.databinding.FragmentServerBinding
 import org.jellyfin.androidtv.ui.ServerButtonView
 import org.jellyfin.androidtv.ui.card.UserCardView
+import org.jellyfin.androidtv.ui.startup.SubscriptionExpiredActivity
 import org.jellyfin.androidtv.ui.startup.StartupViewModel
 import org.jellyfin.androidtv.util.ListAdapter
 import org.jellyfin.androidtv.util.MarkdownRenderer
@@ -82,6 +84,13 @@ class ServerFragment : Fragment() {
 						UserLoginFragment.ARG_SERVER_ID to server.id.toString(),
 						UserLoginFragment.ARG_USERNAME to user.name,
 					))
+					is SubscriptionExpiredState -> startActivity(
+						android.content.Intent(requireContext(), SubscriptionExpiredActivity::class.java).apply {
+							putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, state.expiryDate)
+						}
+					).also {
+						requireActivity().finishAfterTransition()
+					}
 					// Errors
 					ServerUnavailableState,
 					is ApiClientErrorLoginState -> Toast.makeText(context, R.string.server_connection_failed, Toast.LENGTH_LONG).show()
@@ -246,4 +255,3 @@ class ServerFragment : Fragment() {
 		) : RecyclerView.ViewHolder(cardView)
 	}
 }
-

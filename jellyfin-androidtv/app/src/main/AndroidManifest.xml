@@ -121,6 +121,9 @@
         <activity-alias
             android:name=".startup.StartupActivity"
             android:targetActivity=".ui.startup.StartupActivity" />
+        <activity
+            android:name=".ui.startup.SubscriptionExpiredActivity"
+            android:exported="false" />
 
         <!-- Main application -->
         <activity

@@ -29,7 +29,21 @@ class MainViewModel(
 
     private suspend fun refreshServer() {
         val serverEntity = apiClientController.loadSavedServer()
-        _serverState.value = serverEntity?.let { entity -> ServerState.Available(entity) } ?: ServerState.Unset
+        if (serverEntity == null) {
+            _serverState.value = ServerState.Unset
+            return
+        }
+
+        val savedUser = apiClientController.loadSavedServerUser()
+        if (savedUser?.accessToken != null) {
+            val expiryStatus = apiClientController.getUserExpiryStatus(serverEntity, savedUser.accessToken)
+            if (expiryStatus.isExpired) {
+                _serverState.value = ServerState.Expired(serverEntity, expiryStatus.expiryDateRaw)
+                return
+            }
+        }
+
+        _serverState.value = ServerState.Available(serverEntity)
     }
 
     /**
@@ -46,4 +60,5 @@ sealed class ServerState {
     object Pending : ServerState()
     object Unset : ServerState()
     class Available(override val server: ServerEntity) : ServerState()
+    class Expired(override val server: ServerEntity, val expiryDate: String?) : ServerState()
 }

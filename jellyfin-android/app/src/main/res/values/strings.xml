@@ -8,6 +8,11 @@
     <string name="dialog_button_open_settings">Open settings</string>
     <string name="dialog_button_ignore">Ignore</string>
     <string name="toast_reopen_after_change">Please reopen the app after changes are made</string>
+    <string name="subscription_expired_title">Subscription Expired</string>
+    <string name="subscription_expired_message">Your account subscription has expired. Renew it to continue using this app.</string>
+    <string name="subscription_expired_message_with_date">Your account subscription expired on %1$s. Renew it to continue using this app.</string>
+    <string name="subscription_expired_manage_button">Manage Subscription</string>
+    <string name="subscription_expired_close_button">Close</string>
 
     <string name="connect_to_server_title">Connect to Server</string>
     <string name="host_input_hint">Host</string>

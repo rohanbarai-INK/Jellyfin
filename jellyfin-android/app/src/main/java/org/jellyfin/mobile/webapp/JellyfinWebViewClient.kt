@@ -14,15 +14,14 @@ import kotlinx.coroutines.launch
 import org.jellyfin.mobile.app.ApiClientController
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.utils.Constants
-import org.jellyfin.mobile.utils.initLocale
 import org.jellyfin.mobile.utils.inject
+import org.jellyfin.mobile.utils.initLocale
 import org.json.JSONException
 import org.json.JSONObject
 import timber.log.Timber
 import java.io.Reader
 import java.util.Locale
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 abstract class JellyfinWebViewClient(
@@ -35,6 +34,8 @@ abstract class JellyfinWebViewClient(
     abstract fun onConnectedToWebapp()
 
     abstract fun onErrorReceived()
+
+    abstract fun onUserExpired(expiryDate: String?)
 
     override fun shouldInterceptRequest(webView: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url
@@ -50,22 +51,34 @@ abstract class JellyfinWebViewClient(
             path.endsWith(Constants.CAST_SDK_PATH) -> assetsPathHandler.inject("native/chrome.cast.js")
             path.endsWith(Constants.SESSION_CAPABILITIES_PATH) -> {
                 coroutineScope.launch {
-                    val credentials = suspendCoroutine { continuation ->
+                    val credentials = suspendCoroutine<JSONObject?> { continuation ->
                         webView.evaluateJavascript(
                             "JSON.parse(window.localStorage.getItem('jellyfin_credentials'))",
                         ) { result ->
+                            if (result == "null") {
+                                continuation.resume(null)
+                                return@evaluateJavascript
+                            }
                             try {
                                 continuation.resume(JSONObject(result))
                             } catch (e: JSONException) {
-                                val message = "Failed to extract credentials"
-                                Timber.e(e, message)
-                                continuation.resumeWithException(Exception(message, e))
+                                Timber.e(e, "Failed to extract credentials")
+                                continuation.resume(null)
                             }
                         }
                     }
+                    if (credentials == null) return@launch
+
                     val storedServer = credentials.getJSONArray("Servers").getJSONObject(0)
                     val user = storedServer.getString("UserId")
                     val token = storedServer.getString("AccessToken")
+
+                    val expiryStatus = apiClientController.getUserExpiryStatus(server, token)
+                    if (expiryStatus.isExpired) {
+                        onUserExpired(expiryStatus.expiryDateRaw)
+                        return@launch
+                    }
+
                     apiClientController.setupUser(server.id, user, token)
                     webView.initLocale(user)
                 }
