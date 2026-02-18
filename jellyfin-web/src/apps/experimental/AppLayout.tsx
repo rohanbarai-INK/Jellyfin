@@ -10,6 +10,7 @@ import CustomCss from 'components/CustomCss';
 import ElevationScroll from 'components/ElevationScroll';
 import ThemeCss from 'components/ThemeCss';
 import { useApi } from 'hooks/useApi';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 import AppToolbar from './components/AppToolbar';
 import AppDrawer, { isDrawerPath } from './components/drawers/AppDrawer';
@@ -20,9 +21,10 @@ export const Component = () => {
     const [ isDrawerActive, setIsDrawerActive ] = useState(false);
     const { user } = useApi();
     const location = useLocation();
+    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
 
     const isMediumScreen = useMediaQuery((t: Theme) => t.breakpoints.up('md'));
-    const isDrawerAvailable = isDrawerPath(location.pathname) && Boolean(user) && !isMediumScreen;
+    const isDrawerAvailable = !isSubscriptionRestricted && isDrawerPath(location.pathname) && Boolean(user) && !isMediumScreen;
     const isDrawerOpen = isDrawerActive && isDrawerAvailable;
 
     const onToggleDrawer = useCallback(() => {

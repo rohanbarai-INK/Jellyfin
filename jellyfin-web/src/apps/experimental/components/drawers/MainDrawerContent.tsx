@@ -1,5 +1,7 @@
 import Favorite from '@mui/icons-material/Favorite';
 import Home from '@mui/icons-material/Home';
+import Logout from '@mui/icons-material/Logout';
+import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
 import Divider from '@mui/material/Divider';
 import Icon from '@mui/material/Icon';
 import List from '@mui/material/List';
@@ -17,6 +19,8 @@ import { useApi } from 'hooks/useApi';
 import { useUserViews } from 'hooks/useUserViews';
 import { useWebConfig } from 'hooks/useWebConfig';
 import globalize from 'lib/globalize';
+import Dashboard from 'utils/dashboard';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 import LibraryIcon from '../LibraryIcon';
 import DrawerHeaderLink from './DrawerHeaderLink';
@@ -27,8 +31,35 @@ const MainDrawerContent = () => {
     const { data: userViewsData } = useUserViews(user?.Id);
     const userViews = userViewsData?.Items || [];
     const webConfig = useWebConfig();
+    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
 
     const isHomeSelected = location.pathname === '/home' && (!location.search || location.search === '?tab=0');
+
+    if (isSubscriptionRestricted) {
+        return (
+            <List sx={{ paddingTop: 0 }}>
+                <ListItem disablePadding>
+                    <DrawerHeaderLink />
+                </ListItem>
+                <ListItem disablePadding>
+                    <ListItemLink to='/subscription'>
+                        <ListItemIcon>
+                            <WorkspacePremium />
+                        </ListItemIcon>
+                        <ListItemText primary='Subscription' />
+                    </ListItemLink>
+                </ListItem>
+                <ListItem disablePadding>
+                    <ListItemButton onClick={Dashboard.logout}>
+                        <ListItemIcon>
+                            <Logout />
+                        </ListItemIcon>
+                        <ListItemText primary={globalize.translate('ButtonSignOut')} />
+                    </ListItemButton>
+                </ListItem>
+            </List>
+        );
+    }
 
     return (
         <>

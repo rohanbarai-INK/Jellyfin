@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { ApiClient, ConnectResponse } from 'jellyfin-apiclient';
 
 import { ConnectionState, ServerConnections } from 'lib/jellyfin-apiclient';
+import { shouldRedirectHomeFromSubscription, shouldRedirectToSubscription, SUBSCRIPTION_ROUTE } from 'utils/subscription';
 
 import ConnectionErrorPage from './ConnectionErrorPage';
 import Loading from './loading/LoadingComponent';
@@ -24,7 +25,8 @@ enum BounceRoutes {
     Home = '/home',
     Login = '/login',
     SelectServer = '/selectserver',
-    StartWizard = '/wizard/start'
+    StartWizard = '/wizard/start',
+    Subscription = SUBSCRIPTION_ROUTE
 }
 
 type ConnectionRequiredProps = {
@@ -165,6 +167,16 @@ const ConnectionRequired: FunctionComponent<ConnectionRequiredProps> = ({
         if (level === AccessLevel.Admin) {
             try {
                 const user = await client?.getCurrentUser();
+                if (shouldRedirectToSubscription(user, location.pathname)) {
+                    navigateIfNotThere(BounceRoutes.Subscription);
+                    return;
+                }
+
+                if (shouldRedirectHomeFromSubscription(user, location.pathname)) {
+                    navigateIfNotThere(BounceRoutes.Home);
+                    return;
+                }
+
                 if (!user?.Policy?.IsAdministrator) {
                     console.warn('[ConnectionRequired] normal user attempted to access admin route');
                     bounce(await ServerConnections.connect())
@@ -179,8 +191,26 @@ const ConnectionRequired: FunctionComponent<ConnectionRequiredProps> = ({
             }
         }
 
+        if (level === AccessLevel.User) {
+            try {
+                const user = await client?.getCurrentUser();
+                if (shouldRedirectToSubscription(user, location.pathname)) {
+                    navigateIfNotThere(BounceRoutes.Subscription);
+                    return;
+                }
+
+                if (shouldRedirectHomeFromSubscription(user, location.pathname)) {
+                    navigateIfNotThere(BounceRoutes.Home);
+                    return;
+                }
+            } catch (ex) {
+                console.warn('[ConnectionRequired] error validating subscription status', ex);
+                return;
+            }
+        }
+
         setIsLoading(false);
-    }, [bounce, level]);
+    }, [bounce, level, location.pathname, navigateIfNotThere]);
 
     useEffect(() => {
         // Check connection status on initial page load

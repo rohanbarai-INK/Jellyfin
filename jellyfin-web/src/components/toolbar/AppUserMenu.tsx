@@ -8,6 +8,7 @@ import Logout from '@mui/icons-material/Logout';
 import PhonelinkLock from '@mui/icons-material/PhonelinkLock';
 import Settings from '@mui/icons-material/Settings';
 import Storage from '@mui/icons-material/Storage';
+import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -23,6 +24,7 @@ import { useQuickConnectEnabled } from 'hooks/useQuickConnect';
 import globalize from 'lib/globalize';
 import shell from 'scripts/shell';
 import Dashboard from 'utils/dashboard';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 export const ID = 'app-user-menu';
 
@@ -37,6 +39,7 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
 }) => {
     const { user } = useApi();
     const { data: isQuickConnectEnabled } = useQuickConnectEnabled();
+    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
 
     const onDownloadManagerClick = useCallback(() => {
         shell.openDownloadManager();
@@ -62,6 +65,49 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
         Dashboard.selectServer();
         onMenuClose();
     }, [ onMenuClose ]);
+
+    if (isSubscriptionRestricted) {
+        return (
+            <Menu
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right'
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right'
+                }}
+                id={ID}
+                keepMounted
+                open={open}
+                onClose={onMenuClose}
+            >
+                <MenuItem
+                    component={Link}
+                    to='/subscription'
+                    onClick={onMenuClose}
+                >
+                    <ListItemIcon>
+                        <WorkspacePremium />
+                    </ListItemIcon>
+                    <ListItemText>
+                        Subscription
+                    </ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={onLogoutClick}
+                >
+                    <ListItemIcon>
+                        <Logout />
+                    </ListItemIcon>
+                    <ListItemText>
+                        {globalize.translate('ButtonSignOut')}
+                    </ListItemText>
+                </MenuItem>
+            </Menu>
+        );
+    }
 
     return (
         <Menu

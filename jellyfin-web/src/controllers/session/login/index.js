@@ -23,13 +23,6 @@ import { getDefaultBackgroundClass } from '../../../components/cardbuilder/cardB
 import './login.scss';
 
 const enableFocusTransform = !browser.slow && !browser.edge;
-const subscriptionReminderUserName = 'test1';
-const subscriptionReminderTitle = 'Subscription Notice';
-const subscriptionReminderMessage = 'Your login will expire soon. Please continue the subscription.';
-
-function shouldShowSubscriptionReminder(user) {
-    return user?.Name?.toLowerCase() === subscriptionReminderUserName;
-}
 
 function authenticateUserByName(page, apiClient, url, username, password) {
     loading.show();
@@ -121,16 +114,7 @@ function authenticateQuickConnect(apiClient, targetUrl) {
 
 function onLoginSuccessful(user, accessToken, apiClient, url) {
     Dashboard.onServerChanged(user.Id, accessToken, apiClient);
-    Dashboard.navigate(url || 'home').then(function () {
-        if (!shouldShowSubscriptionReminder(user)) {
-            return;
-        }
-
-        Dashboard.alert({
-            title: subscriptionReminderTitle,
-            message: subscriptionReminderMessage
-        });
-    });
+    Dashboard.navigate(url || 'home');
 }
 
 function showManualForm(context, showCancel, focusPassword) {

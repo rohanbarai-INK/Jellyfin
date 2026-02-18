@@ -69,6 +69,16 @@ namespace Jellyfin.Server.Extensions
         }
 
         /// <summary>
+        /// Adds subscription expiry restrictions for authenticated users.
+        /// </summary>
+        /// <param name="appBuilder">The application builder.</param>
+        /// <returns>The updated application builder.</returns>
+        public static IApplicationBuilder UseExpiredSubscriptionRestriction(this IApplicationBuilder appBuilder)
+        {
+            return appBuilder.UseMiddleware<ExpiredSubscriptionMiddleware>();
+        }
+
+        /// <summary>
         /// Enables url decoding before binding to the application pipeline.
         /// </summary>
         /// <param name="appBuilder">The <see cref="IApplicationBuilder"/>.</param>

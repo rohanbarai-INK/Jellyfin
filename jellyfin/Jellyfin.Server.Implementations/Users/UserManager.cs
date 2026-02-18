@@ -462,16 +462,6 @@ namespace Jellyfin.Server.Implementations.Users
                     $"The {user.Username} account is currently disabled. Please consult with your administrator.");
             }
 
-            if (user.Status == UserStatus.Expired)
-            {
-                _logger.LogInformation(
-                    "Authentication request for {UserName} has been denied because the account has expired (IP: {IP}).",
-                    username,
-                    remoteEndPoint);
-                throw new SecurityException(
-                    $"The {user.Username} account has expired. Please redeem an access key.");
-            }
-
             if (!user.HasPermission(PermissionKind.EnableRemoteAccess) &&
                 !_networkManager.IsInLocalNetwork(remoteEndPoint))
             {

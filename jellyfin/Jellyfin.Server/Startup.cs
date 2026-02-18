@@ -208,6 +208,7 @@ namespace Jellyfin.Server
                 mainApp.UseQueryStringDecoding();
                 mainApp.UseRouting();
                 mainApp.UseAuthorization();
+                mainApp.UseExpiredSubscriptionRestriction();
 
                 mainApp.UseIPBasedAccessValidation();
                 mainApp.UseWebSocketHandler();

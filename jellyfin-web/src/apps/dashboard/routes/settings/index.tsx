@@ -8,7 +8,8 @@ import Typography from '@mui/material/Typography';
 import { useLocalizationOptions } from 'apps/dashboard/features/settings/api/useLocalizationOptions';
 import Loading from 'components/loading/LoadingComponent';
 import Page from 'components/Page';
-import { QUERY_KEY, useConfiguration } from 'hooks/useConfiguration';
+import { QUERY_KEY as CONFIGURATION_QUERY_KEY, useConfiguration } from 'hooks/useConfiguration';
+import { QUERY_KEY as NAMED_CONFIGURATION_QUERY_KEY, useNamedConfiguration } from 'hooks/useNamedConfiguration';
 import globalize from 'lib/globalize';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -24,6 +25,26 @@ import DirectoryBrowser from 'components/directorybrowser/directorybrowser';
 import { getConfigurationApi } from '@jellyfin/sdk/lib/utils/api/configuration-api';
 import { queryClient } from 'utils/query/queryClient';
 import { ActionData } from 'types/actionData';
+import {
+    DEFAULT_SUBSCRIPTION_PRICING,
+    normalizeSubscriptionPricing,
+    SUBSCRIPTION_CONFIG_KEY,
+    SubscriptionPricing
+} from 'utils/subscription';
+
+type SettingsActionData = ActionData & {
+    error?: string
+};
+
+const SUBSCRIPTION_PRICE_FIELDS: Array<{
+    name: keyof SubscriptionPricing
+    label: string
+}> = [
+    { name: 'OneMonthPrice', label: '1 Month Price (Rs)' },
+    { name: 'ThreeMonthPrice', label: '3 Months Price (Rs)' },
+    { name: 'SixMonthPrice', label: '6 Months Price (Rs)' },
+    { name: 'TwelveMonthPrice', label: '12 Months Price (Rs)' }
+];
 
 export const action = async ({ request }: ActionFunctionArgs) => {
     const api = ServerConnections.getCurrentApi();
@@ -31,6 +52,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const { data: config } = await getConfigurationApi(api).getConfiguration();
     const formData = await request.formData();
+    const parseSubscriptionPrice = (fieldName: keyof SubscriptionPricing) => {
+        const rawValue = formData.get(fieldName)?.toString().trim() ?? '';
+        if (!/^\d+$/.test(rawValue)) {
+            throw new Error('Subscription prices must be positive whole numbers.');
+        }
+
+        const parsedValue = Number(rawValue);
+        if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+            throw new Error('Subscription prices must be positive whole numbers.');
+        }
+
+        return parsedValue;
+    };
+
+    let subscriptionPricing: SubscriptionPricing;
+    try {
+        subscriptionPricing = {
+            OneMonthPrice: parseSubscriptionPrice('OneMonthPrice'),
+            ThreeMonthPrice: parseSubscriptionPrice('ThreeMonthPrice'),
+            SixMonthPrice: parseSubscriptionPrice('SixMonthPrice'),
+            TwelveMonthPrice: parseSubscriptionPrice('TwelveMonthPrice')
+        };
+    } catch (error) {
+        return {
+            isSaved: false,
+            error: error instanceof Error ? error.message : 'Invalid subscription pricing values.'
+        };
+    }
 
     config.ServerName = formData.get('ServerName')?.toString();
     config.UICulture = formData.get('UICulture')?.toString();
@@ -43,8 +92,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await getConfigurationApi(api)
         .updateConfiguration({ serverConfiguration: config });
 
+    await getConfigurationApi(api)
+        .updateNamedConfiguration({
+            key: SUBSCRIPTION_CONFIG_KEY,
+            body: subscriptionPricing
+        });
+
     void queryClient.invalidateQueries({
-        queryKey: [ QUERY_KEY ]
+        queryKey: [ CONFIGURATION_QUERY_KEY ]
+    });
+
+    void queryClient.invalidateQueries({
+        queryKey: [ NAMED_CONFIGURATION_QUERY_KEY, SUBSCRIPTION_CONFIG_KEY ]
     });
 
     return {
@@ -63,12 +122,18 @@ export const Component = () => {
         isPending: isLocalizationOptionsPending,
         isError: isLocalizationOptionsError
     } = useLocalizationOptions();
+    const {
+        data: subscriptionPricingData,
+        isPending: isSubscriptionPricingPending,
+        isError: isSubscriptionPricingError
+    } = useNamedConfiguration<Partial<SubscriptionPricing>>(SUBSCRIPTION_CONFIG_KEY);
 
     const navigation = useNavigation();
-    const actionData = useActionData() as ActionData | undefined;
+    const actionData = useActionData() as SettingsActionData | undefined;
     const isSubmitting = navigation.state === 'submitting';
     const [ cachePath, setCachePath ] = useState<string | null | undefined>('');
     const [ metadataPath, setMetadataPath ] = useState<string | null | undefined>('');
+    const subscriptionPricing = normalizeSubscriptionPricing(subscriptionPricingData || DEFAULT_SUBSCRIPTION_PRICING);
 
     const onCachePathChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         setCachePath(event.target.value);
@@ -120,7 +185,7 @@ export const Component = () => {
         }
     }, [config, isConfigPending, isConfigError]);
 
-    if (isConfigPending || isLocalizationOptionsPending) {
+    if (isConfigPending || isLocalizationOptionsPending || isSubscriptionPricingPending) {
         return <Loading />;
     }
 
@@ -131,7 +196,7 @@ export const Component = () => {
             className='type-interior mainAnimatedPage'
         >
             <Box className='content-primary'>
-                {isConfigError || isLocalizationOptionsError ? (
+                {isConfigError || isLocalizationOptionsError || isSubscriptionPricingError ? (
                     <Alert severity='error'>{globalize.translate('SettingsPageLoadError')}</Alert>
                 ) : (
                     <Form method='POST'>
@@ -141,6 +206,12 @@ export const Component = () => {
                             {!isSubmitting && actionData?.isSaved && (
                                 <Alert severity='success'>
                                     {globalize.translate('SettingsSaved')}
+                                </Alert>
+                            )}
+
+                            {!!actionData?.error && (
+                                <Alert severity='error'>
+                                    {actionData.error}
                                 </Alert>
                             )}
 
@@ -256,6 +327,24 @@ export const Component = () => {
                                     }
                                 }}
                             />
+
+                            <Typography variant='h2'>Subscription Pricing</Typography>
+
+                            {SUBSCRIPTION_PRICE_FIELDS.map(field => (
+                                <TextField
+                                    key={field.name}
+                                    name={field.name}
+                                    type='number'
+                                    label={field.label}
+                                    defaultValue={subscriptionPricing[field.name]}
+                                    slotProps={{
+                                        htmlInput: {
+                                            min: 1,
+                                            step: 1
+                                        }
+                                    }}
+                                />
+                            ))}
 
                             <Button type='submit' size='large'>
                                 {globalize.translate('Save')}

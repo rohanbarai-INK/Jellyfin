@@ -11,6 +11,7 @@ import { ServerConnections } from 'lib/jellyfin-apiclient';
 import { EventType } from 'constants/eventType';
 import { toApi } from 'utils/jellyfin-apiclient/compat';
 import { queryClient } from 'utils/query/queryClient';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 import dom from '../utils/dom';
 import layoutManager from '../components/layoutManager';
@@ -89,6 +90,10 @@ function getCurrentApiClient() {
     return ServerConnections.currentApiClient();
 }
 
+function isSubscriptionRestrictedUser(user) {
+    return isExpiredSubscriptionUser(user?.localUser || user);
+}
+
 function lazyLoadViewMenuBarImages() {
     import('../components/images/imageLoader').then((imageLoader) => {
         imageLoader.lazyChildren(skinHeader);
@@ -135,6 +140,7 @@ function retranslateUi() {
 
 function updateUserInHeader(user) {
     retranslateUi();
+    const isSubscriptionRestricted = isSubscriptionRestrictedUser(user);
 
     let hasImage;
 
@@ -155,29 +161,42 @@ function updateUserInHeader(user) {
     }
 
     if (user?.localUser) {
-        if (headerHomeButton) {
+        if (headerHomeButton && !isSubscriptionRestricted) {
             headerHomeButton.classList.remove('hide');
+        } else if (headerHomeButton) {
+            headerHomeButton.classList.add('hide');
         }
 
-        if (headerSearchButton) {
+        if (headerSearchButton && !isSubscriptionRestricted) {
             headerSearchButton.classList.remove('hide');
+        } else if (headerSearchButton) {
+            headerSearchButton.classList.add('hide');
         }
 
-        if (!layoutManager.tv) {
+        if (!layoutManager.tv && !isSubscriptionRestricted) {
             headerCastButton.classList.remove('hide');
+        } else {
+            headerCastButton.classList.add('hide');
         }
 
         const policy = user.Policy ? user.Policy : user.localUser.Policy;
 
         if (
-        // Button is present
-            headerSyncButton
+            !isSubscriptionRestricted
+                // Button is present
+                && headerSyncButton
                 // SyncPlay plugin is loaded
                 && pluginManager.ofType(PluginType.SyncPlay).length > 0
                 // SyncPlay enabled for user
                 && policy?.SyncPlayAccess !== 'None'
         ) {
             headerSyncButton.classList.remove('hide');
+        } else {
+            headerSyncButton.classList.add('hide');
+        }
+
+        if (mainDrawerButton && isSubscriptionRestricted) {
+            mainDrawerButton.classList.add('hide');
         }
     } else {
         headerHomeButton.classList.add('hide');
@@ -186,6 +205,10 @@ function updateUserInHeader(user) {
 
         if (headerSearchButton) {
             headerSearchButton.classList.add('hide');
+        }
+
+        if (mainDrawerButton) {
+            mainDrawerButton.classList.add('hide');
         }
     }
 
@@ -214,14 +237,29 @@ function updateClock() {
 }
 
 function showSearch() {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        Dashboard.navigate('subscription');
+        return;
+    }
+
     inputManager.handleCommand('search');
 }
 
 function onHeaderUserButtonClick() {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        Dashboard.navigate('subscription');
+        return;
+    }
+
     Dashboard.navigate('mypreferencesmenu');
 }
 
 function onHeaderHomeButtonClick() {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        Dashboard.navigate('subscription');
+        return;
+    }
+
     Dashboard.navigate('home');
 }
 
@@ -293,6 +331,10 @@ function getItemHref(item, context) {
 }
 
 function toggleMainDrawer() {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        return;
+    }
+
     if (navDrawerInstance.isVisible) {
         closeMainDrawer();
     } else {
@@ -323,8 +365,27 @@ function onMainDrawerSelect() {
 }
 
 function refreshLibraryInfoInDrawer(user) {
+    const isSubscriptionRestricted = isSubscriptionRestrictedUser(user);
     let html = '';
     html += '<div style="height:.5em;"></div>';
+
+    if (isSubscriptionRestricted) {
+        html += '<div class="userMenuOptions">';
+        html += '<h3 class="sidebarHeader">Subscription</h3>';
+        html += '<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder" data-itemid="subscription" href="#/subscription"><span class="material-icons navMenuOptionIcon workspace_premium" aria-hidden="true"></span><span class="navMenuOptionText">Subscription</span></a>';
+        html += `<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder btnLogout" data-itemid="logout" href="#"><span class="material-icons navMenuOptionIcon exit_to_app" aria-hidden="true"></span><span class="navMenuOptionText">${globalize.translate('ButtonSignOut')}</span></a>`;
+        html += '</div>';
+
+        navDrawerScrollContainer.innerHTML = html;
+
+        const btnLogout = navDrawerScrollContainer.querySelector('.btnLogout');
+        if (btnLogout) {
+            btnLogout.addEventListener('click', onLogoutClick);
+        }
+
+        return;
+    }
+
     html += `<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder" href="#/home"><span class="material-icons navMenuOptionIcon home" aria-hidden="true"></span><span class="navMenuOptionText">${globalize.translate('Home')}</span></a>`;
 
     // placeholder for custom menu links
@@ -437,6 +498,25 @@ function updateLibraryMenu(user) {
         return;
     }
 
+    if (isSubscriptionRestrictedUser(user)) {
+        const customMenuOptions = document.querySelector('.customMenuOptions');
+        if (customMenuOptions) {
+            customMenuOptions.innerHTML = '';
+        }
+
+        const libraryMenuOptions = document.querySelector('.libraryMenuOptions');
+        if (libraryMenuOptions) {
+            libraryMenuOptions.innerHTML = '';
+        }
+
+        const adminMenuOptions = document.querySelector('.adminMenuOptions');
+        if (adminMenuOptions) {
+            adminMenuOptions.remove();
+        }
+
+        return;
+    }
+
     const userId = Dashboard.getCurrentUserId();
     const apiClient = getCurrentApiClient();
 
@@ -507,6 +587,11 @@ function onSelectServerClick() {
 }
 
 function onSettingsClick() {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        Dashboard.navigate('subscription');
+        return;
+    }
+
     Dashboard.navigate('mypreferencesmenu');
 }
 
@@ -567,6 +652,7 @@ function updateLibraryNavLinks(page) {
 }
 
 function updateMenuForPageType(isDashboardPage, isLibraryPage) {
+    const isSubscriptionRestricted = isSubscriptionRestrictedUser(currentUser);
     let newPageType = 3;
     if (isDashboardPage) {
         newPageType = 2;
@@ -585,7 +671,14 @@ function updateMenuForPageType(isDashboardPage, isLibraryPage) {
 
         const bodyClassList = document.body.classList;
 
-        if (isLibraryPage) {
+        if (isSubscriptionRestricted) {
+            bodyClassList.remove('libraryDocument');
+            bodyClassList.add('hideMainDrawer');
+
+            if (navDrawerInstance) {
+                navDrawerInstance.setEdgeSwipeEnabled(false);
+            }
+        } else if (isLibraryPage) {
             bodyClassList.add('libraryDocument');
             bodyClassList.remove('hideMainDrawer');
 
@@ -797,10 +890,11 @@ pageClassOn('pageshow', 'page', function (e) {
     const isDashboardPage = page.classList.contains('type-interior');
     const isHomePage = page.classList.contains('homePage');
     const isLibraryPage = !isDashboardPage && page.classList.contains('libraryPage');
+    const isSubscriptionRestricted = isSubscriptionRestrictedUser(currentUser);
 
     if (!isDashboardPage) {
         if (mainDrawerButton) {
-            if (enableLibraryNavDrawer || (isHomePage && enableLibraryNavDrawerHome)) {
+            if (!isSubscriptionRestricted && (enableLibraryNavDrawer || (isHomePage && enableLibraryNavDrawerHome))) {
                 mainDrawerButton.classList.remove('hide');
             } else {
                 mainDrawerButton.classList.add('hide');
