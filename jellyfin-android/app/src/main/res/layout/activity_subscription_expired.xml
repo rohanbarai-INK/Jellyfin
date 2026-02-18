@@ -1,41 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/title"
+    <WebView
+        android:id="@+id/subscriptionWebView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="@string/subscription_expired_title"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5" />
+        android:layout_height="match_parent" />
 
-    <TextView
-        android:id="@+id/description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:text="@string/subscription_expired_message"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/manageSubscriptionButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/subscription_expired_manage_button" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/closeButton"
-        style="?attr/materialButtonOutlinedStyle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/subscription_expired_close_button" />
-
-</LinearLayout>
+</FrameLayout>

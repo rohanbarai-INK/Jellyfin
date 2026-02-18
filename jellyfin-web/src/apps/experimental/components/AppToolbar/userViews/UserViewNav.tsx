@@ -2,6 +2,7 @@ import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models/base
 import { CollectionType } from '@jellyfin/sdk/lib/generated-client/models/collection-type';
 import ArrowDropDown from '@mui/icons-material/ArrowDropDown';
 import Favorite from '@mui/icons-material/Favorite';
+import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
 import Button from '@mui/material/Button/Button';
 import Icon from '@mui/material/Icon';
 import { Theme } from '@mui/material/styles';
@@ -18,6 +19,7 @@ import useCurrentTab from 'hooks/useCurrentTab';
 import { useUserViews } from 'hooks/useUserViews';
 import { useWebConfig } from 'hooks/useWebConfig';
 import globalize from 'lib/globalize';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 import UserViewsMenu from './UserViewsMenu';
 
@@ -59,6 +61,8 @@ const UserViewNav = () => {
     const collectionType = searchParams.get('collectionType');
     const { activeTab } = useCurrentTab();
     const webConfig = useWebConfig();
+    const { user } = useApi();
+    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
 
     const isExtraLargeScreen = useMediaQuery((t: Theme) => t.breakpoints.up('xl'));
     const isLargeScreen = useMediaQuery((t: Theme) => t.breakpoints.up('lg'));
@@ -72,11 +76,10 @@ const UserViewNav = () => {
         return _maxViews - customLinks;
     }, [ isExtraLargeScreen, isLargeScreen, webConfig.menuLinks ]);
 
-    const { user } = useApi();
     const {
         data: userViews,
         isPending
-    } = useUserViews(user?.Id);
+    } = useUserViews(isSubscriptionRestricted ? undefined : user?.Id);
 
     const primaryViews = useMemo(() => (
         userViews?.Items?.slice(0, maxViews)
@@ -100,6 +103,20 @@ const UserViewNav = () => {
     const currentUserView = useMemo(() => (
         getCurrentUserView(userViews?.Items, location.pathname, libraryId, collectionType, activeTab)
     ), [ activeTab, collectionType, libraryId, location.pathname, userViews ]);
+
+    if (isSubscriptionRestricted) {
+        return (
+            <Button
+                variant='text'
+                color={location.pathname === '/subscription' ? 'primary' : 'inherit'}
+                startIcon={<WorkspacePremium />}
+                component={Link}
+                to='/subscription'
+            >
+                Subscription
+            </Button>
+        );
+    }
 
     if (isPending) return null;
 

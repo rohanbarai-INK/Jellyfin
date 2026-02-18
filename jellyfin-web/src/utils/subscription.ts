@@ -7,10 +7,19 @@ export interface SubscriptionPricing {
 
 export type UserWithSubscriptionState = {
     Status?: string | null
+    status?: string | null
     ExpiryDate?: string | null
+    expiryDate?: string | null
     Policy?: {
         IsAdministrator?: boolean | null
+        isAdministrator?: boolean | null
     } | null
+    policy?: {
+        IsAdministrator?: boolean | null
+        isAdministrator?: boolean | null
+    } | null
+    localUser?: UserWithSubscriptionState
+    LocalUser?: UserWithSubscriptionState
 } | null | undefined;
 
 export const SUBSCRIPTION_CONFIG_KEY = 'subscription';
@@ -50,11 +59,22 @@ export const isExpiredStatus = (status: string | null | undefined, expiryDate: s
 };
 
 export const isExpiredSubscriptionUser = (user: UserWithSubscriptionState) => {
-    if (!user || user.Policy?.IsAdministrator) {
+    if (!user) {
         return false;
     }
 
-    return isExpiredStatus(user.Status, user.ExpiryDate);
+    const localUser = (user.localUser || user.LocalUser || user) as UserWithSubscriptionState;
+    const policy = localUser?.Policy || localUser?.policy;
+    const isAdministrator = Boolean(policy?.IsAdministrator ?? policy?.isAdministrator);
+
+    if (isAdministrator) {
+        return false;
+    }
+
+    const status = localUser?.Status ?? localUser?.status;
+    const expiryDate = localUser?.ExpiryDate ?? localUser?.expiryDate;
+
+    return isExpiredStatus(status, expiryDate);
 };
 
 export const shouldRedirectToSubscription = (user: UserWithSubscriptionState, pathname: string) => (

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Jellyfin.Api.Constants;
 using Jellyfin.Api.Extensions;
@@ -37,6 +39,10 @@ namespace Jellyfin.Api.Controllers;
 [Route("Users")]
 public class UserController : BaseJellyfinApiController
 {
+    private const string FallbackClientName = "Jellyfin";
+    private const string FallbackClientVersion = "Unknown";
+    private const string FallbackDeviceName = "Unknown Device";
+    private const string FallbackDeviceIdPrefix = "generated-";
     private static readonly HashSet<int> _supportedSubscriptionDurations = new() { 1, 3, 6, 12 };
 
     private readonly IUserManager _userManager;
@@ -213,17 +219,18 @@ public class UserController : BaseJellyfinApiController
     public async Task<ActionResult<AuthenticationResult>> AuthenticateUserByName([FromBody, Required] AuthenticateUserByName request)
     {
         var auth = await _authContext.GetAuthorizationInfo(Request).ConfigureAwait(false);
+        var remoteEndPoint = HttpContext.GetNormalizedRemoteIP().ToString();
 
         try
         {
             var result = await _sessionManager.AuthenticateNewSession(new AuthenticationRequest
             {
-                App = auth.Client,
-                AppVersion = auth.Version,
-                DeviceId = auth.DeviceId,
-                DeviceName = auth.Device,
+                App = NormalizeOrFallback(auth.Client, FallbackClientName),
+                AppVersion = NormalizeOrFallback(auth.Version, FallbackClientVersion),
+                DeviceId = ResolveDeviceId(auth.DeviceId, Request, remoteEndPoint),
+                DeviceName = ResolveDeviceName(auth.Device, Request),
                 Password = request.Pw,
-                RemoteEndPoint = HttpContext.GetNormalizedRemoteIP().ToString(),
+                RemoteEndPoint = remoteEndPoint,
                 Username = request.Username
             }).ConfigureAwait(false);
 
@@ -234,6 +241,49 @@ public class UserController : BaseJellyfinApiController
             // rethrow adding IP address to message
             throw new SecurityException($"[{HttpContext.GetNormalizedRemoteIP()}] {e.Message}", e);
         }
+    }
+
+    private static string NormalizeOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value;
+    }
+
+    private static string ResolveDeviceName(string? deviceName, HttpRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(deviceName))
+        {
+            return deviceName;
+        }
+
+        var userAgent = request.Headers.UserAgent.ToString();
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            return FallbackDeviceName;
+        }
+
+        // Keep a short, readable device label for session lists.
+        const int maxLength = 128;
+        return userAgent.Length > maxLength
+            ? userAgent[..maxLength]
+            : userAgent;
+    }
+
+    private static string ResolveDeviceId(string? deviceId, HttpRequest request, string remoteEndPoint)
+    {
+        if (!string.IsNullOrWhiteSpace(deviceId))
+        {
+            return deviceId;
+        }
+
+        var userAgent = request.Headers.UserAgent.ToString();
+        var fingerprint = $"{remoteEndPoint}|{request.Host.Value}|{userAgent}";
+
+        var fingerprintBytes = Encoding.UTF8.GetBytes(fingerprint);
+        var hashBytes = SHA256.HashData(fingerprintBytes);
+        var hash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+        return FallbackDeviceIdPrefix + hash[..32];
     }
 
     /// <summary>

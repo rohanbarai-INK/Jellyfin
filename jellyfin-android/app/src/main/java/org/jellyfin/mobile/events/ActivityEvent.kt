@@ -17,4 +17,8 @@ sealed class ActivityEvent {
     data object SelectServer : ActivityEvent()
     data object ExitApp : ActivityEvent()
     data object OpenDownloads : ActivityEvent()
+    data class SubscriptionExpired(
+        val redirectUrl: String? = null,
+        val expiryDate: String? = null,
+    ) : ActivityEvent()
 }

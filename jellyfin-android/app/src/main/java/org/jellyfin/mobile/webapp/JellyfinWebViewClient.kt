@@ -13,6 +13,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.app.ApiClientController
 import org.jellyfin.mobile.data.entity.ServerEntity
+import org.jellyfin.mobile.subscription.SubscriptionExpiryDetector
+import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.jellyfin.mobile.utils.Constants
 import org.jellyfin.mobile.utils.inject
 import org.jellyfin.mobile.utils.initLocale
@@ -35,7 +37,15 @@ abstract class JellyfinWebViewClient(
 
     abstract fun onErrorReceived()
 
-    abstract fun onUserExpired(expiryDate: String?)
+    abstract fun onUserExpired(expiryDate: String?, redirectUrl: String? = null)
+
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        if (SubscriptionUrlResolver.isSubscriptionUrl(request.url.toString())) {
+            return false
+        }
+
+        return super.shouldOverrideUrlLoading(view, request)
+    }
 
     override fun shouldInterceptRequest(webView: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url
@@ -95,6 +105,20 @@ abstract class JellyfinWebViewClient(
     ) {
         val errorMessage = errorResponse.data?.run { bufferedReader().use(Reader::readText) }
         Timber.e("Received WebView HTTP %d error: %s", errorResponse.statusCode, errorMessage)
+
+        val responseHeaders = errorResponse.responseHeaders.orEmpty().mapValues { (_, value) -> listOf(value) }
+        val expiryInfo = SubscriptionExpiryDetector.detect(
+            statusCode = errorResponse.statusCode,
+            headers = responseHeaders,
+            responseBody = errorMessage,
+        )
+        if (request.isForMainFrame && expiryInfo != null) {
+            onUserExpired(
+                expiryDate = expiryInfo.expiryDate,
+                redirectUrl = expiryInfo.redirectUrl,
+            )
+            return
+        }
 
         if (request.isForMainFrame) onErrorReceived()
     }

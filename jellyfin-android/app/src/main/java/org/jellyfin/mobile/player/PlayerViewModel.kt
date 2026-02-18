@@ -26,6 +26,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.util.EventLogger
+import androidx.media3.datasource.HttpDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,6 +37,8 @@ import kotlinx.coroutines.withContext
 import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.R
 import org.jellyfin.mobile.app.PLAYER_EVENT_CHANNEL
+import org.jellyfin.mobile.events.ActivityEvent
+import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.player.interaction.PlayerEvent
 import org.jellyfin.mobile.player.interaction.PlayerLifecycleObserver
 import org.jellyfin.mobile.player.interaction.PlayerMediaSessionCallback
@@ -63,6 +66,8 @@ import org.jellyfin.mobile.utils.logTracks
 import org.jellyfin.mobile.utils.seekToOffset
 import org.jellyfin.mobile.utils.setPlaybackState
 import org.jellyfin.mobile.utils.toMediaMetadata
+import org.jellyfin.mobile.subscription.SubscriptionExpiryDetector
+import org.jellyfin.mobile.subscription.SubscriptionExpiryInfo
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.ApiClientException
 import org.jellyfin.sdk.api.client.extensions.displayPreferencesApi
@@ -111,6 +116,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
     val mediaSourceOrNull: JellyfinMediaSource?
         get() = queueManager.getCurrentMediaSourceOrNull()
     private val mediaSegmentRepository: MediaSegmentRepository by inject()
+    private val activityEventHandler: ActivityEventHandler by inject()
 
     // ExoPlayer
     private val _player = MutableLiveData<ExoPlayer?>()
@@ -752,6 +758,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
     }
 
     override fun onPlayerError(error: PlaybackException) {
+        val expiryInfo = detectSubscriptionExpiry(error)
+        if (expiryInfo != null) {
+            _error.postValue(getApplication<Application>().getString(R.string.subscription_expired_player_message))
+            stop()
+            activityEventHandler.emit(
+                ActivityEvent.SubscriptionExpired(
+                    redirectUrl = expiryInfo.redirectUrl,
+                    expiryDate = expiryInfo.expiryDate,
+                ),
+            )
+            return
+        }
+
         if (error.cause is MediaCodecDecoderException && !fallbackPreferExtensionRenderers) {
             Timber.e(error.cause, "Decoder failed, attempting to restart playback with decoder extensions preferred")
             playerOrNull?.run {
@@ -764,6 +783,40 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application),
         } else {
             _error.postValue(error.localizedMessage.orEmpty())
         }
+    }
+
+    private fun detectSubscriptionExpiry(error: PlaybackException): SubscriptionExpiryInfo? {
+        val responseException = error.findInvalidResponseCodeException() ?: return null
+        if (responseException.responseCode != 403) return null
+
+        val headers = responseException.headerFields.orEmpty()
+        val body = extractResponseBody(responseException)
+
+        return SubscriptionExpiryDetector.detect(
+            statusCode = responseException.responseCode,
+            headers = headers,
+            responseBody = body,
+        )
+    }
+
+    private fun PlaybackException.findInvalidResponseCodeException(): HttpDataSource.InvalidResponseCodeException? {
+        var throwable: Throwable? = this
+        while (throwable != null) {
+            if (throwable is HttpDataSource.InvalidResponseCodeException) {
+                return throwable
+            }
+            throwable = throwable.cause
+        }
+
+        return null
+    }
+
+    private fun extractResponseBody(exception: HttpDataSource.InvalidResponseCodeException): String? {
+        val responseBodyField = runCatching {
+            exception.javaClass.getDeclaredField("responseBody").apply { isAccessible = true }
+        }.getOrNull() ?: return null
+        val responseBodyBytes = responseBodyField.get(exception) as? ByteArray ?: return null
+        return responseBodyBytes.toString(Charsets.UTF_8)
     }
 
     override fun onCleared() {

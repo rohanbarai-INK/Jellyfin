@@ -119,6 +119,9 @@ class ActivityEventHandler(
                     finish()
                 }
             }
+            is ActivityEvent.SubscriptionExpired -> {
+                openSubscriptionExpiredActivity(event.redirectUrl, event.expiryDate)
+            }
         }
     }
 

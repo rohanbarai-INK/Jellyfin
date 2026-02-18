@@ -13,6 +13,7 @@
     <string name="subscription_expired_message_with_date">Your account subscription expired on %1$s. Renew it to continue using this app.</string>
     <string name="subscription_expired_manage_button">Manage Subscription</string>
     <string name="subscription_expired_close_button">Close</string>
+    <string name="subscription_expired_player_message">Subscription expired. Please renew to continue playback.</string>
 
     <string name="connect_to_server_title">Connect to Server</string>
     <string name="host_input_hint">Host</string>

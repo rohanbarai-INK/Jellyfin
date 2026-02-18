@@ -24,7 +24,6 @@ import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.R
-import org.jellyfin.mobile.SubscriptionExpiredActivity
 import org.jellyfin.mobile.app.ApiClientController
 import org.jellyfin.mobile.app.AppPreferences
 import org.jellyfin.mobile.bridge.ExternalPlayer
@@ -33,7 +32,10 @@ import org.jellyfin.mobile.bridge.NativeInterface
 import org.jellyfin.mobile.bridge.NativePlayer
 import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.databinding.FragmentWebviewBinding
+import org.jellyfin.mobile.events.ActivityEvent
+import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.setup.ConnectFragment
+import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.jellyfin.mobile.utils.AndroidVersion
 import org.jellyfin.mobile.utils.BackPressInterceptor
 import org.jellyfin.mobile.utils.Constants
@@ -52,6 +54,7 @@ import org.koin.android.ext.android.inject
 class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClient.FileChooserListener {
     val appPreferences: AppPreferences by inject()
     private val apiClientController: ApiClientController by inject()
+    private val activityEventHandler: ActivityEventHandler by inject()
     private val webappFunctionChannel: WebappFunctionChannel by inject()
     private lateinit var assetsPathHandler: AssetsPathHandler
     private lateinit var jellyfinWebViewClient: JellyfinWebViewClient
@@ -110,18 +113,17 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
                 handleError()
             }
 
-            override fun onUserExpired(expiryDate: String?) {
+            override fun onUserExpired(expiryDate: String?, redirectUrl: String?) {
                 webViewBinding?.webView?.removeCallbacks(timeoutRunnable)
                 webViewBinding?.webView?.removeCallbacks(showLoadingContainerRunnable)
 
                 runOnUiThread {
-                    val redemptionUrl = "${server.hostname.trimEnd('/')}/web/#/redeem"
-                    val intent = Intent(requireContext(), SubscriptionExpiredActivity::class.java).apply {
-                        putExtra(SubscriptionExpiredActivity.EXTRA_REDEMPTION_URL, redemptionUrl)
-                        putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, expiryDate)
-                    }
-                    startActivity(intent)
-                    activity?.finishAfterTransition()
+                    activityEventHandler.emit(
+                        ActivityEvent.SubscriptionExpired(
+                            redirectUrl = SubscriptionUrlResolver.resolve(server.hostname, redirectUrl),
+                            expiryDate = expiryDate,
+                        ),
+                    )
                 }
             }
         }
@@ -184,6 +186,11 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     }
 
     override fun onInterceptBackPressed(): Boolean {
+        if (SubscriptionUrlResolver.isSubscriptionUrl(webViewBinding?.webView?.url)) {
+            activity?.moveTaskToBack(true)
+            return true
+        }
+
         return connected && webappFunctionChannel.goBack()
     }
 

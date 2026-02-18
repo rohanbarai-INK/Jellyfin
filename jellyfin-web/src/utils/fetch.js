@@ -43,6 +43,33 @@ export function getFetchPromise(request) {
     return fetchWithTimeout(url, fetchRequest, request.timeout);
 }
 
+function handleSubscriptionExpiredResponse(response) {
+    if (response.status !== 403 || typeof window === 'undefined') {
+        return;
+    }
+
+    response.clone().json().then((payload) => {
+        if (!payload || payload.code !== 'SubscriptionExpired') {
+            return;
+        }
+
+        const currentHash = window.location.hash || '';
+        if (currentHash.startsWith('#/subscription')) {
+            return;
+        }
+
+        const redirectUrl = payload.redirectUrl;
+        if (typeof redirectUrl === 'string' && redirectUrl.includes('#/subscription')) {
+            window.location.href = redirectUrl;
+            return;
+        }
+
+        window.location.hash = '#/subscription';
+    }).catch(() => {
+        // Ignore non-json or malformed error payloads.
+    });
+}
+
 function fetchWithTimeout(url, options, timeoutMs) {
     console.debug(`fetchWithTimeout: timeoutMs: ${timeoutMs}, url: ${url}`);
 
@@ -100,6 +127,7 @@ export function ajax(request) {
                 return response;
             }
         } else {
+            handleSubscriptionExpiredResponse(response);
             return Promise.reject(response);
         }
     }, function (err) {

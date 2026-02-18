@@ -37,6 +37,7 @@ import org.jellyfin.mobile.utils.extensions.replaceFragment
 import org.jellyfin.mobile.utils.isWebViewSupported
 import org.jellyfin.mobile.webapp.RemotePlayerService
 import org.jellyfin.mobile.webapp.WebViewFragment
+import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
 import org.koin.androidx.fragment.android.setupKoinFragmentFactory
@@ -173,20 +174,32 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 is ServerState.Expired -> {
-                    if (!subscriptionExpiredActivityOpened) {
-                        subscriptionExpiredActivityOpened = true
-                        val redemptionUrl = "${state.server.hostname.trimEnd('/')}/web/#/redeem"
-                        startActivity(
-                            Intent(this@MainActivity, SubscriptionExpiredActivity::class.java).apply {
-                                putExtra(SubscriptionExpiredActivity.EXTRA_REDEMPTION_URL, redemptionUrl)
-                                putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, state.expiryDate)
-                            },
-                        )
-                        finishAfterTransition()
-                    }
+                    openSubscriptionExpiredActivity(expiryDate = state.expiryDate)
                 }
             }
         }
+    }
+
+    internal fun openSubscriptionExpiredActivity(redirectUrl: String? = null, expiryDate: String? = null) {
+        if (subscriptionExpiredActivityOpened) return
+
+        val serverHostname = when (val state = mainViewModel.serverState.value) {
+            is ServerState.Available -> state.server.hostname
+            is ServerState.Expired -> state.server.hostname
+            else -> (supportFragmentManager.findFragmentById(R.id.fragment_container) as? WebViewFragment)?.server?.hostname
+        }
+        val subscriptionUrl = SubscriptionUrlResolver.resolve(serverHostname, redirectUrl)
+        if (subscriptionUrl == null) return
+
+        subscriptionExpiredActivityOpened = true
+        startActivity(
+            Intent(this@MainActivity, SubscriptionExpiredActivity::class.java).apply {
+                putExtra(SubscriptionExpiredActivity.EXTRA_SUBSCRIPTION_URL, subscriptionUrl)
+                putExtra(SubscriptionExpiredActivity.EXTRA_SERVER_URL, serverHostname)
+                putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, expiryDate)
+            },
+        )
+        finishAfterTransition()
     }
 
     override fun onRequestPermissionsResult(

@@ -28,10 +28,10 @@ import DrawerHeaderLink from './DrawerHeaderLink';
 const MainDrawerContent = () => {
     const { user } = useApi();
     const location = useLocation();
-    const { data: userViewsData } = useUserViews(user?.Id);
+    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
+    const { data: userViewsData } = useUserViews(isSubscriptionRestricted ? undefined : user?.Id);
     const userViews = userViewsData?.Items || [];
     const webConfig = useWebConfig();
-    const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
 
     const isHomeSelected = location.pathname === '/home' && (!location.search || location.search === '?tab=0');
 

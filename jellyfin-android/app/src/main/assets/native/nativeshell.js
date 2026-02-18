@@ -35,6 +35,26 @@ let deviceId;
 let deviceName;
 let appName;
 let appVersion;
+const fallbackAppName = 'Jellyfin Android';
+const fallbackAppVersion = '0.0.0';
+const fallbackDeviceName = 'Android WebView';
+const fallbackDeviceIdStorageKey = 'jellyfin_mobile_fallback_device_id';
+
+function getFallbackDeviceId() {
+    try {
+        const existing = window.localStorage.getItem(fallbackDeviceIdStorageKey);
+        if (existing) {
+            return existing;
+        }
+
+        const generated = `jfa-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        window.localStorage.setItem(fallbackDeviceIdStorageKey, generated);
+        return generated;
+    } catch {
+        // WebView localStorage can be unavailable in rare cases.
+        return 'jfa-fallback-device';
+    }
+}
 
 window.NativeShell = {
     enableFullscreen() {
@@ -157,10 +177,10 @@ window.NativeShell.AppHost = {
     init() {
         const result = JSON.parse(window.NativeInterface.getDeviceInformation());
         // set globally so they can be used elsewhere
-        deviceId = result.deviceId;
-        deviceName = result.deviceName;
-        appName = result.appName;
-        appVersion = result.appVersion;
+        deviceId = result.deviceId || deviceId || getFallbackDeviceId();
+        deviceName = result.deviceName || deviceName || fallbackDeviceName;
+        appName = result.appName || appName || fallbackAppName;
+        appVersion = result.appVersion || appVersion || fallbackAppVersion;
     },
     getDefaultLayout() {
         return "mobile";
@@ -171,16 +191,16 @@ window.NativeShell.AppHost = {
     getDeviceProfile,
     getSyncProfile: getDeviceProfile,
     deviceName() {
-        return deviceName;
+        return deviceName || fallbackDeviceName;
     },
     deviceId() {
-        return deviceId;
+        return deviceId || getFallbackDeviceId();
     },
     appName() {
-        return appName;
+        return appName || fallbackAppName;
     },
     appVersion() {
-        return appVersion;
+        return appVersion || fallbackAppVersion;
     },
     exit() {
         window.NativeInterface.exitApp();

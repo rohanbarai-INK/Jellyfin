@@ -109,10 +109,15 @@ public class ExpiredSubscriptionMiddleware
             return PathEquals(path, "/Users/Me")
                 || IsCurrentUserRoute(path, userId)
                 || PathEquals(path, "/System/Info")
+                || PathEquals(path, "/System/Info/Public")
                 || PathEquals(path, "/System/Configuration/subscription")
                 || PathEquals(path, "/System/Endpoint")
                 || PathEquals(path, "/Playback/BitrateTest")
-                || PathEquals(path, "/DisplayPreferences/usersettings");
+                || PathEquals(path, "/DisplayPreferences/usersettings")
+                || PathEquals(path, "/Branding/Configuration")
+                || PathEquals(path, "/QuickConnect/Enabled")
+                || PathEquals(path, "/UserViews")
+                || PathEquals(path, "/SyncPlay/List");
         }
 
         if (HttpMethods.IsPost(method))

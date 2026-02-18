@@ -325,6 +325,10 @@ function onSyncButtonClicked() {
 }
 
 function getItemHref(item, context) {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        return '#/subscription';
+    }
+
     return appRouter.getRouteUrl(item, {
         context: context
     });
@@ -448,7 +452,17 @@ function refreshLibraryInfoInDrawer(user) {
     }
 }
 
-function onSidebarLinkClick() {
+function onSidebarLinkClick(e) {
+    if (isSubscriptionRestrictedUser(currentUser)) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        Dashboard.navigate('subscription');
+        return;
+    }
+
     const section = this.getElementsByClassName('sectionName')[0];
     const text = section ? section.innerHTML : this.innerHTML;
     LibraryMenu.setTitle(text);
@@ -574,6 +588,50 @@ function updateLibraryMenu(user) {
 
 function getTopParentId() {
     return getParameterByName('topParentId') || null;
+}
+
+function isSubscriptionHash(hash) {
+    return (hash || '').startsWith('#/subscription');
+}
+
+function enforceRestrictedSubscriptionRoute() {
+    if (!isSubscriptionRestrictedUser(currentUser)) {
+        return;
+    }
+
+    setTabs(null);
+
+    if (!isSubscriptionHash(window.location.hash || '')) {
+        Dashboard.navigate('subscription');
+    }
+}
+
+function onDocumentClickCapture(e) {
+    if (!isSubscriptionRestrictedUser(currentUser)) {
+        return;
+    }
+
+    const anchor = dom.parentWithTag(e.target, 'A');
+    if (!anchor) {
+        return;
+    }
+
+    const itemId = anchor.getAttribute('data-itemid') || '';
+    const href = anchor.getAttribute('href') || '';
+    const isLogoutLink = itemId === 'logout' || anchor.classList.contains('btnLogout');
+    const isSubscriptionLink = href.startsWith('#/subscription') || href.includes('#!/subscription');
+
+    if (isLogoutLink || isSubscriptionLink) {
+        return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') {
+        e.stopImmediatePropagation();
+    }
+
+    enforceRestrictedSubscriptionRoute();
 }
 
 function onMainDrawerClick(e) {
@@ -800,10 +858,11 @@ const skinHeader = document.querySelector('.skinHeader');
 let requiresUserRefresh = true;
 
 function setTabs (type, selectedIndex, builder) {
-    Events.trigger(document, EventType.SET_TABS, type ? [ type, selectedIndex, builder()] : []);
+    const shouldShowTabs = !!type && !isSubscriptionRestrictedUser(currentUser);
+    Events.trigger(document, EventType.SET_TABS, shouldShowTabs ? [ type, selectedIndex, builder()] : []);
 
     import('../components/maintabsmanager').then((mainTabsManager) => {
-        if (type) {
+        if (shouldShowTabs) {
             mainTabsManager.setTabs(viewManager.currentView(), selectedIndex, builder, function () {
                 return [];
             });
@@ -892,6 +951,14 @@ pageClassOn('pageshow', 'page', function (e) {
     const isLibraryPage = !isDashboardPage && page.classList.contains('libraryPage');
     const isSubscriptionRestricted = isSubscriptionRestrictedUser(currentUser);
 
+    if (isSubscriptionRestricted) {
+        LibraryMenu.setTabs(null);
+        if (!isSubscriptionHash(window.location.hash || '')) {
+            Dashboard.navigate('subscription');
+            return;
+        }
+    }
+
     if (!isDashboardPage) {
         if (mainDrawerButton) {
             if (!isSubscriptionRestricted && (enableLibraryNavDrawer || (isHomePage && enableLibraryNavDrawerHome))) {
@@ -947,6 +1014,8 @@ Events.on(playbackManager, 'playerchange', updateCastIcon);
 
 fetchServerName(getCurrentApiClient());
 loadNavDrawer();
+document.addEventListener('click', onDocumentClickCapture, true);
+window.addEventListener('hashchange', enforceRestrictedSubscriptionRoute);
 
 const LibraryMenu = {
     getTopParentId,
