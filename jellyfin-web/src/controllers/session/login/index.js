@@ -24,6 +24,52 @@ import './login.scss';
 
 const enableFocusTransform = !browser.slow && !browser.edge;
 
+function isTabKey(event) {
+    return event.key === 'Tab' || event.keyCode === 9 || event.which === 9;
+}
+
+function enforceManualLoginTabOrder(view) {
+    const usernameInput = view.querySelector('#txtManualName');
+    const passwordInput = view.querySelector('#txtManualPassword');
+    const rememberMeCheckbox = view.querySelector('.chkRememberLogin');
+
+    if (!usernameInput || !passwordInput || !rememberMeCheckbox) {
+        return;
+    }
+
+    usernameInput.addEventListener('keydown', function(event) {
+        if (!isTabKey(event) || event.shiftKey) {
+            return;
+        }
+
+        event.preventDefault();
+        passwordInput.focus();
+    });
+
+    passwordInput.addEventListener('keydown', function(event) {
+        if (!isTabKey(event)) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.shiftKey) {
+            usernameInput.focus();
+        } else {
+            rememberMeCheckbox.focus();
+        }
+    });
+
+    rememberMeCheckbox.addEventListener('keydown', function(event) {
+        if (!isTabKey(event) || !event.shiftKey) {
+            return;
+        }
+
+        event.preventDefault();
+        passwordInput.focus();
+    });
+}
+
 function authenticateUserByName(page, apiClient, url, username, password) {
     loading.show();
     apiClient.authenticateUserByName(username, password).then(function (result) {
@@ -261,6 +307,8 @@ export default function (view, params) {
     view.querySelector('.btnSelectServer').addEventListener('click', function () {
         Dashboard.selectServer();
     });
+
+    enforceManualLoginTabOrder(view);
 
     view.addEventListener('viewshow', function () {
         loading.show();

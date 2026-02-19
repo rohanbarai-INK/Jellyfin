@@ -74,9 +74,66 @@ describe('subscription redirect decisions', () => {
 describe('normalizeSubscriptionPricing', () => {
     test('uses defaults when values are missing or invalid', () => {
         expect(normalizeSubscriptionPricing({
+            BasePricePerMonth: 0,
             OneMonthPrice: 0,
             ThreeMonthPrice: -10,
-            SixMonthPrice: 450.5
+            SixMonthPrice: Number.NaN
         })).toEqual(DEFAULT_SUBSCRIPTION_PRICING);
+    });
+
+    test('accepts decimal pricing values', () => {
+        expect(normalizeSubscriptionPricing({
+            BasePricePerMonth: 120.5,
+            OneMonthPrice: 95.75,
+            ThreeMonthPrice: 260.25,
+            SixMonthPrice: 480.5,
+            TwelveMonthPrice: 900.9
+        })).toEqual({
+            BasePricePerMonth: 120.5,
+            OneMonthPrice: 95.75,
+            ThreeMonthPrice: 260.25,
+            SixMonthPrice: 480.5,
+            TwelveMonthPrice: 900.9
+        });
+    });
+
+    test('prefers plans array when valid', () => {
+        expect(normalizeSubscriptionPricing({
+            BasePricePerMonth: 100,
+            OneMonthPrice: 999,
+            ThreeMonthPrice: 999,
+            SixMonthPrice: 999,
+            TwelveMonthPrice: 999,
+            Plans: [
+                { Months: 1, Price: 101 },
+                { Months: 3, Price: 252 },
+                { Months: 6, Price: 455 },
+                { Months: 12, Price: 860 }
+            ]
+        })).toEqual({
+            BasePricePerMonth: 100,
+            OneMonthPrice: 101,
+            ThreeMonthPrice: 252,
+            SixMonthPrice: 455,
+            TwelveMonthPrice: 860
+        });
+    });
+
+    test('supports camelCase additive response shape', () => {
+        expect(normalizeSubscriptionPricing({
+            basePricePerMonth: 125.5,
+            plans: [
+                { months: 1, price: 100.5 },
+                { months: 3, price: 260.25 },
+                { months: 6, price: 500.75 },
+                { months: 12, price: 920.1 }
+            ]
+        })).toEqual({
+            BasePricePerMonth: 125.5,
+            OneMonthPrice: 100.5,
+            ThreeMonthPrice: 260.25,
+            SixMonthPrice: 500.75,
+            TwelveMonthPrice: 920.1
+        });
     });
 });

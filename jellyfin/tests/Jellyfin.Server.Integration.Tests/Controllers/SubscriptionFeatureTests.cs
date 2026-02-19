@@ -41,10 +41,12 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var config = await response.Content.ReadFromJsonAsync<SubscriptionConfiguration>(_jsonOptions);
             var defaultConfig = new SubscriptionConfiguration();
             Assert.NotNull(config);
+            Assert.Equal(defaultConfig.BasePricePerMonth, config.BasePricePerMonth);
             Assert.Equal(defaultConfig.OneMonthPrice, config.OneMonthPrice);
             Assert.Equal(defaultConfig.ThreeMonthPrice, config.ThreeMonthPrice);
             Assert.Equal(defaultConfig.SixMonthPrice, config.SixMonthPrice);
             Assert.Equal(defaultConfig.TwelveMonthPrice, config.TwelveMonthPrice);
+            AssertPlanBreakdown(config);
         }
 
         [Fact]
@@ -67,10 +69,12 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
 
             var config = await getResponse.Content.ReadFromJsonAsync<SubscriptionConfiguration>(_jsonOptions);
             Assert.NotNull(config);
+            Assert.Equal(updatedConfig.BasePricePerMonth, config.BasePricePerMonth);
             Assert.Equal(updatedConfig.OneMonthPrice, config.OneMonthPrice);
             Assert.Equal(updatedConfig.ThreeMonthPrice, config.ThreeMonthPrice);
             Assert.Equal(updatedConfig.SixMonthPrice, config.SixMonthPrice);
             Assert.Equal(updatedConfig.TwelveMonthPrice, config.TwelveMonthPrice);
+            AssertPlanBreakdown(config);
         }
 
         [Fact]
@@ -272,11 +276,38 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var defaultConfig = new SubscriptionConfiguration();
             return new SubscriptionConfiguration
             {
+                BasePricePerMonth = defaultConfig.BasePricePerMonth + 9.5m,
                 OneMonthPrice = defaultConfig.OneMonthPrice + 11,
                 ThreeMonthPrice = defaultConfig.ThreeMonthPrice + 33,
-                SixMonthPrice = defaultConfig.SixMonthPrice + 66,
-                TwelveMonthPrice = defaultConfig.TwelveMonthPrice + 99
+                SixMonthPrice = defaultConfig.SixMonthPrice + 66.5m,
+                TwelveMonthPrice = defaultConfig.TwelveMonthPrice + 99.75m
             };
+        }
+
+        private static void AssertPlanBreakdown(SubscriptionConfiguration config)
+        {
+            Assert.Collection(
+                config.Plans,
+                oneMonth =>
+                {
+                    Assert.Equal(1, oneMonth.Months);
+                    Assert.Equal(config.OneMonthPrice, oneMonth.Price);
+                },
+                threeMonth =>
+                {
+                    Assert.Equal(3, threeMonth.Months);
+                    Assert.Equal(config.ThreeMonthPrice, threeMonth.Price);
+                },
+                sixMonth =>
+                {
+                    Assert.Equal(6, sixMonth.Months);
+                    Assert.Equal(config.SixMonthPrice, sixMonth.Price);
+                },
+                twelveMonth =>
+                {
+                    Assert.Equal(12, twelveMonth.Months);
+                    Assert.Equal(config.TwelveMonthPrice, twelveMonth.Price);
+                });
         }
 
         private static string CreateTestPassword()

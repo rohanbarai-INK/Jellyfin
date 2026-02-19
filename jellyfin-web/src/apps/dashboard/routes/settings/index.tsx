@@ -29,6 +29,7 @@ import {
     DEFAULT_SUBSCRIPTION_PRICING,
     normalizeSubscriptionPricing,
     SUBSCRIPTION_CONFIG_KEY,
+    SubscriptionPricingConfig,
     SubscriptionPricing
 } from 'utils/subscription';
 
@@ -40,6 +41,7 @@ const SUBSCRIPTION_PRICE_FIELDS: Array<{
     name: keyof SubscriptionPricing
     label: string
 }> = [
+    { name: 'BasePricePerMonth', label: 'Base Price Per Month (Rs)' },
     { name: 'OneMonthPrice', label: '1 Month Price (Rs)' },
     { name: 'ThreeMonthPrice', label: '3 Months Price (Rs)' },
     { name: 'SixMonthPrice', label: '6 Months Price (Rs)' },
@@ -54,13 +56,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const formData = await request.formData();
     const parseSubscriptionPrice = (fieldName: keyof SubscriptionPricing) => {
         const rawValue = formData.get(fieldName)?.toString().trim() ?? '';
-        if (!/^\d+$/.test(rawValue)) {
-            throw new Error('Subscription prices must be positive whole numbers.');
+        if (!rawValue) {
+            throw new Error('Subscription prices must be positive numbers.');
         }
 
         const parsedValue = Number(rawValue);
-        if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-            throw new Error('Subscription prices must be positive whole numbers.');
+        if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+            throw new Error('Subscription prices must be positive numbers.');
         }
 
         return parsedValue;
@@ -69,6 +71,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     let subscriptionPricing: SubscriptionPricing;
     try {
         subscriptionPricing = {
+            BasePricePerMonth: parseSubscriptionPrice('BasePricePerMonth'),
             OneMonthPrice: parseSubscriptionPrice('OneMonthPrice'),
             ThreeMonthPrice: parseSubscriptionPrice('ThreeMonthPrice'),
             SixMonthPrice: parseSubscriptionPrice('SixMonthPrice'),
@@ -126,7 +129,7 @@ export const Component = () => {
         data: subscriptionPricingData,
         isPending: isSubscriptionPricingPending,
         isError: isSubscriptionPricingError
-    } = useNamedConfiguration<Partial<SubscriptionPricing>>(SUBSCRIPTION_CONFIG_KEY);
+    } = useNamedConfiguration<SubscriptionPricingConfig>(SUBSCRIPTION_CONFIG_KEY);
 
     const navigation = useNavigation();
     const actionData = useActionData() as SettingsActionData | undefined;
@@ -339,8 +342,8 @@ export const Component = () => {
                                     defaultValue={subscriptionPricing[field.name]}
                                     slotProps={{
                                         htmlInput: {
-                                            min: 1,
-                                            step: 1
+                                            min: 0.01,
+                                            step: 0.01
                                         }
                                     }}
                                 />

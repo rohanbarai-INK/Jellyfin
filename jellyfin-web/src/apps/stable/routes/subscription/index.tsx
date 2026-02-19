@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -21,6 +20,7 @@ import events from 'utils/events';
 import {
     normalizeSubscriptionPricing,
     SUBSCRIPTION_CONFIG_KEY,
+    SubscriptionPricingConfig,
     SubscriptionPricing
 } from 'utils/subscription';
 
@@ -57,14 +57,37 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     }
 ];
 
+const getStatusErrorMessage = (statusCode: number | undefined) => {
+    if (statusCode === 401) {
+        return 'Unauthorized request. Sign out and sign in again, then retry.';
+    }
+
+    if (statusCode === 404) {
+        return 'Redeem endpoint not found. Make sure the backend has access key support.';
+    }
+
+    return undefined;
+};
+
+const getResponseErrorMessage = (responseData: unknown): string | undefined => {
+    if (typeof responseData === 'string' && responseData.trim()) {
+        return responseData;
+    }
+
+    if (!responseData || typeof responseData !== 'object') {
+        return undefined;
+    }
+
+    const payload = responseData as Record<string, unknown>;
+    const message = payload.message ?? payload.Message ?? payload.error ?? payload.Error;
+    return typeof message === 'string' && message.trim() ? message : undefined;
+};
+
 const getServerErrorMessage = async (err: unknown): Promise<string | undefined> => {
     if (err instanceof Response) {
-        if (err.status === 401) {
-            return 'Unauthorized request. Sign out and sign in again, then retry.';
-        }
-
-        if (err.status === 404) {
-            return 'Redeem endpoint not found. Make sure the backend has access key support.';
+        const statusMessage = getStatusErrorMessage(err.status);
+        if (statusMessage) {
+            return statusMessage;
         }
 
         const responseText = await err.text();
@@ -79,13 +102,9 @@ const getServerErrorMessage = async (err: unknown): Promise<string | undefined> 
 
     const statusCode = error.response?.status ?? error.status;
     const responseData = error.response?.data;
-
-    if (statusCode === 401) {
-        return 'Unauthorized request. Sign out and sign in again, then retry.';
-    }
-
-    if (statusCode === 404) {
-        return 'Redeem endpoint not found. Make sure the backend has access key support.';
+    const statusMessage = getStatusErrorMessage(statusCode);
+    if (statusMessage) {
+        return statusMessage;
     }
 
     if (typeof error.text === 'function') {
@@ -95,19 +114,7 @@ const getServerErrorMessage = async (err: unknown): Promise<string | undefined> 
         }
     }
 
-    if (typeof responseData === 'string' && responseData.trim()) {
-        return responseData;
-    }
-
-    if (responseData && typeof responseData === 'object') {
-        const payload = responseData as Record<string, unknown>;
-        const message = payload.message ?? payload.Message ?? payload.error ?? payload.Error;
-        if (typeof message === 'string' && message.trim()) {
-            return message;
-        }
-    }
-
-    return undefined;
+    return getResponseErrorMessage(responseData);
 };
 
 const getPlanPrice = (pricing: SubscriptionPricing, durationMonths: PlanDuration) => {
@@ -123,6 +130,10 @@ const getPlanPrice = (pricing: SubscriptionPricing, durationMonths: PlanDuration
     }
 };
 
+const formatPrice = (value: number) => (
+    Number.isInteger(value) ? value.toString() : value.toFixed(2)
+);
+
 export const Component = () => {
     const navigate = useNavigate();
     const { user } = useApi();
@@ -135,7 +146,7 @@ export const Component = () => {
         data: pricingConfig,
         isPending,
         isError
-    } = useNamedConfiguration<Partial<SubscriptionPricing>>(SUBSCRIPTION_CONFIG_KEY);
+    } = useNamedConfiguration<SubscriptionPricingConfig>(SUBSCRIPTION_CONFIG_KEY);
 
     const pricing = useMemo(
         () => normalizeSubscriptionPricing(pricingConfig),
@@ -188,6 +199,10 @@ export const Component = () => {
         Dashboard.logout();
     }, []);
 
+    const onPlanCardClick = useCallback(() => {
+        // Intentionally empty until payment flow is implemented.
+    }, []);
+
     if (isPending) {
         return <Loading />;
     }
@@ -203,7 +218,11 @@ export const Component = () => {
                 sx={{
                     minHeight: '100%',
                     background: 'linear-gradient(145deg, rgba(25, 48, 79, 0.35) 0%, rgba(10, 18, 30, 0.85) 65%, rgba(7, 11, 18, 0.95) 100%)',
-                    py: {
+                    pt: {
+                        xs: 10,
+                        md: 6
+                    },
+                    pb: {
                         xs: 4,
                         md: 6
                     },
@@ -220,7 +239,15 @@ export const Component = () => {
                     }}
                 >
                     <Stack spacing={4}>
-                        <Stack spacing={1}>
+                        <Stack
+                            spacing={1}
+                            sx={{
+                                pr: {
+                                    xs: 8,
+                                    sm: 0
+                                }
+                            }}
+                        >
                             <Typography variant='h3' sx={{ fontWeight: 700 }}>
                                 Subscription Required
                             </Typography>
@@ -248,64 +275,172 @@ export const Component = () => {
                                     sm: 'repeat(2, minmax(0, 1fr))',
                                     lg: 'repeat(4, minmax(0, 1fr))'
                                 },
-                                gap: 2
+                                gap: 2,
+                                alignItems: 'stretch'
                             }}
                         >
-                            {SUBSCRIPTION_PLANS.map(plan => (
-                                <Card
-                                    key={plan.durationMonths}
-                                    sx={{
-                                        position: 'relative',
-                                        borderRadius: 3,
-                                        border: plan.isPopular ? '1px solid rgba(87, 173, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.12)',
-                                        background: plan.isPopular
-                                            ? 'linear-gradient(160deg, rgba(17, 43, 84, 0.9) 0%, rgba(11, 22, 42, 0.95) 100%)'
-                                            : 'linear-gradient(160deg, rgba(17, 24, 37, 0.86) 0%, rgba(9, 14, 25, 0.95) 100%)',
-                                        boxShadow: plan.isPopular
-                                            ? '0 14px 30px rgba(5, 11, 23, 0.42)'
-                                            : '0 10px 22px rgba(4, 8, 16, 0.3)'
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack spacing={1.5}>
+                            {SUBSCRIPTION_PLANS.map(plan => {
+                                const actualPrice = getPlanPrice(pricing, plan.durationMonths);
+                                const originalPrice = pricing.BasePricePerMonth * plan.durationMonths;
+                                const savingsAmount = originalPrice - actualPrice;
+                                const hasSavings = savingsAmount > 0;
+                                const savingsPercent = hasSavings && originalPrice > 0 ? Math.trunc((savingsAmount / originalPrice) * 100) : 0;
+
+                                let cardBorder = '1px solid rgba(255, 255, 255, 0.12)';
+                                let cardBackground = 'linear-gradient(160deg, rgba(17, 24, 37, 0.86) 0%, rgba(9, 14, 25, 0.95) 100%)';
+                                let cardShadow = '0 10px 22px rgba(4, 8, 16, 0.3)';
+                                let hoverBackground = 'linear-gradient(160deg, rgba(28, 40, 60, 0.92) 0%, rgba(13, 22, 37, 0.98) 100%)';
+                                let contentTopPadding = 3;
+
+                                if (plan.isPopular) {
+                                    cardBorder = '1px solid rgba(87, 173, 255, 0.75)';
+                                    cardBackground = 'linear-gradient(160deg, rgba(17, 43, 84, 0.9) 0%, rgba(11, 22, 42, 0.95) 100%)';
+                                    cardShadow = '0 14px 30px rgba(5, 11, 23, 0.42)';
+                                    hoverBackground = 'linear-gradient(160deg, rgba(26, 62, 118, 0.95) 0%, rgba(14, 31, 61, 0.98) 100%)';
+                                }
+
+                                const highlightedCardStyles = {
+                                    borderColor: 'rgba(111, 199, 255, 0.95)',
+                                    background: hoverBackground,
+                                    boxShadow: '0 0 0 1px rgba(128, 210, 255, 0.35), 0 20px 38px rgba(4, 10, 21, 0.45)'
+                                };
+
+                                return (
+                                    <Box
+                                        key={plan.durationMonths}
+                                        sx={{
+                                            position: 'relative',
+                                            overflow: 'visible',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            height: '100%',
+                                            transition: 'transform 300ms ease',
+                                            '@media (hover: hover) and (pointer: fine)': {
+                                                '&:hover': {
+                                                    transform: 'scale(1.03)'
+                                                },
+                                                '&:hover .subscriptionPlanCard': highlightedCardStyles
+                                            },
+                                            '@media (hover: none), (pointer: coarse)': {
+                                                '&:active': {
+                                                    transform: 'scale(1.03)'
+                                                },
+                                                '&:active .subscriptionPlanCard': highlightedCardStyles
+                                            }
+                                        }}
+                                    >
+                                        {plan.isPopular && (
                                             <Box
                                                 sx={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center'
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: '50%',
+                                                    transform: 'translate(-50%, -50%)',
+                                                    zIndex: 10,
+                                                    pointerEvents: 'none'
                                                 }}
                                             >
-                                                <Typography variant='h6' sx={{ fontWeight: 700 }}>
-                                                    {plan.title}
-                                                </Typography>
-                                                {plan.isPopular && (
-                                                    <Chip
-                                                        label='Most Popular'
-                                                        size='small'
-                                                        color='primary'
-                                                        sx={{ fontWeight: 600 }}
-                                                    />
-                                                )}
+                                                <Box
+                                                    component='span'
+                                                    sx={{
+                                                        display: 'inline-block',
+                                                        px: 1.5,
+                                                        py: 0.45,
+                                                        borderRadius: 999,
+                                                        fontSize: 12,
+                                                        fontWeight: 600,
+                                                        lineHeight: 1.2,
+                                                        whiteSpace: 'nowrap',
+                                                        color: '#fff',
+                                                        background: 'linear-gradient(90deg, #ff9800 0%, #ff5722 100%)',
+                                                        boxShadow: '0 10px 24px rgba(0, 0, 0, 0.3)'
+                                                    }}
+                                                >
+                                                    Most Popular
+                                                </Box>
                                             </Box>
-                                            <Typography sx={{ opacity: 0.8 }}>
-                                                {plan.description}
-                                            </Typography>
-                                            <Typography
-                                                variant='h4'
+                                        )}
+                                        <Card
+                                            className='subscriptionPlanCard'
+                                            onClick={onPlanCardClick}
+                                            sx={{
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                flexGrow: 1,
+                                                height: '100%',
+                                                borderRadius: 3,
+                                                border: cardBorder,
+                                                background: cardBackground,
+                                                boxShadow: cardShadow,
+                                                cursor: 'pointer',
+                                                transition: 'box-shadow 300ms ease, border-color 300ms ease, background 300ms ease'
+                                            }}
+                                        >
+                                            <CardContent
                                                 sx={{
-                                                    mt: 1,
-                                                    fontWeight: 700
+                                                    p: 3,
+                                                    pt: contentTopPadding,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    flexGrow: 1
                                                 }}
                                             >
-                                                Rs {getPlanPrice(pricing, plan.durationMonths)}
-                                            </Typography>
-                                            <Typography sx={{ opacity: 0.75 }}>
-                                                {plan.durationMonths} month{plan.durationMonths === 1 ? '' : 's'}
-                                            </Typography>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
-                            ))}
+                                                <Stack spacing={1.5} sx={{ flexGrow: 1 }}>
+                                                    <Typography variant='h6' sx={{ fontWeight: 700 }}>
+                                                        {plan.title}
+                                                    </Typography>
+                                                    <Typography sx={{ opacity: 0.8 }}>
+                                                        {plan.description}
+                                                    </Typography>
+                                                    <Stack spacing={0.6} sx={{ mt: 0.5 }}>
+                                                        {hasSavings && (
+                                                            <Typography
+                                                                sx={{
+                                                                    opacity: 0.65,
+                                                                    textDecoration: 'line-through'
+                                                                }}
+                                                            >
+                                                                Rs {formatPrice(originalPrice)}
+                                                            </Typography>
+                                                        )}
+                                                        <Typography
+                                                            variant='h4'
+                                                            sx={{
+                                                                fontWeight: 700
+                                                            }}
+                                                        >
+                                                            Rs {formatPrice(actualPrice)}
+                                                        </Typography>
+                                                        {hasSavings && (
+                                                            <Box
+                                                                sx={{
+                                                                    alignSelf: 'flex-start',
+                                                                    mt: 0.3,
+                                                                    px: 1.2,
+                                                                    py: 0.4,
+                                                                    borderRadius: 1.5,
+                                                                    fontSize: 13,
+                                                                    fontWeight: 700,
+                                                                    color: 'rgb(194, 240, 208)',
+                                                                    backgroundColor: 'rgba(34, 102, 63, 0.35)',
+                                                                    border: '1px solid rgba(96, 205, 140, 0.5)'
+                                                                }}
+                                                            >
+                                                                Save Rs {formatPrice(savingsAmount)} ({savingsPercent}%)
+                                                            </Box>
+                                                        )}
+                                                    </Stack>
+                                                </Stack>
+                                                <Typography sx={{ mt: 1.5, opacity: 0.75 }}>
+                                                    {plan.durationMonths} month{plan.durationMonths === 1 ? '' : 's'}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Box>
+                                );
+                            })}
                         </Box>
 
                         <Card

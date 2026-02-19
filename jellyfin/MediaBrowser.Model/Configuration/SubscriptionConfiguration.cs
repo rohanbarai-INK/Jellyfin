@@ -6,22 +6,55 @@ namespace MediaBrowser.Model.Configuration;
 public class SubscriptionConfiguration
 {
     /// <summary>
+    /// Gets or sets the base monthly price in rupees used for discount calculations.
+    /// </summary>
+    public decimal BasePricePerMonth { get; set; } = 100;
+
+    /// <summary>
     /// Gets or sets the one month plan price in rupees.
     /// </summary>
-    public int OneMonthPrice { get; set; } = 100;
+    public decimal OneMonthPrice { get; set; } = 100;
 
     /// <summary>
     /// Gets or sets the three month plan price in rupees.
     /// </summary>
-    public int ThreeMonthPrice { get; set; } = 250;
+    public decimal ThreeMonthPrice { get; set; } = 250;
 
     /// <summary>
     /// Gets or sets the six month plan price in rupees.
     /// </summary>
-    public int SixMonthPrice { get; set; } = 450;
+    public decimal SixMonthPrice { get; set; } = 450;
 
     /// <summary>
     /// Gets or sets the twelve month plan price in rupees.
     /// </summary>
-    public int TwelveMonthPrice { get; set; } = 850;
+    public decimal TwelveMonthPrice { get; set; } = 850;
+
+    /// <summary>
+    /// Gets the plan breakdown exposed for UI clients.
+    /// </summary>
+    public SubscriptionPlanConfigurationEntry[] Plans
+        => new[]
+        {
+            new SubscriptionPlanConfigurationEntry
+            {
+                Months = 1,
+                Price = OneMonthPrice
+            },
+            new SubscriptionPlanConfigurationEntry
+            {
+                Months = 3,
+                Price = ThreeMonthPrice
+            },
+            new SubscriptionPlanConfigurationEntry
+            {
+                Months = 6,
+                Price = SixMonthPrice
+            },
+            new SubscriptionPlanConfigurationEntry
+            {
+                Months = 12,
+                Price = TwelveMonthPrice
+            }
+        };
 }

@@ -141,6 +141,8 @@ function retranslateUi() {
 function updateUserInHeader(user) {
     retranslateUi();
     const isSubscriptionRestricted = isSubscriptionRestrictedUser(user);
+    const isSubscriptionPage = isSubscriptionHash(window.location.hash || '');
+    const isSimpleHeader = isSubscriptionRestricted || isSubscriptionPage;
 
     let hasImage;
 
@@ -167,13 +169,13 @@ function updateUserInHeader(user) {
             headerHomeButton.classList.add('hide');
         }
 
-        if (headerSearchButton && !isSubscriptionRestricted) {
+        if (headerSearchButton && !isSimpleHeader) {
             headerSearchButton.classList.remove('hide');
         } else if (headerSearchButton) {
             headerSearchButton.classList.add('hide');
         }
 
-        if (!layoutManager.tv && !isSubscriptionRestricted) {
+        if (!layoutManager.tv && !isSimpleHeader) {
             headerCastButton.classList.remove('hide');
         } else {
             headerCastButton.classList.add('hide');
@@ -182,7 +184,7 @@ function updateUserInHeader(user) {
         const policy = user.Policy ? user.Policy : user.localUser.Policy;
 
         if (
-            !isSubscriptionRestricted
+            !isSimpleHeader
                 // Button is present
                 && headerSyncButton
                 // SyncPlay plugin is loaded
@@ -591,7 +593,16 @@ function getTopParentId() {
 }
 
 function isSubscriptionHash(hash) {
-    return (hash || '').startsWith('#/subscription');
+    const value = (hash || '').trim();
+
+    if (!value) {
+        return false;
+    }
+
+    return value.startsWith('#/subscription')
+        || value.startsWith('#!/subscription')
+        || value.includes('#/subscription')
+        || value.includes('#!/subscription');
 }
 
 function enforceRestrictedSubscriptionRoute() {
@@ -603,6 +614,14 @@ function enforceRestrictedSubscriptionRoute() {
 
     if (!isSubscriptionHash(window.location.hash || '')) {
         Dashboard.navigate('subscription');
+    }
+}
+
+function onHashChange() {
+    enforceRestrictedSubscriptionRoute();
+
+    if (currentUser) {
+        updateUserInHeader(currentUser);
     }
 }
 
@@ -1015,7 +1034,7 @@ Events.on(playbackManager, 'playerchange', updateCastIcon);
 fetchServerName(getCurrentApiClient());
 loadNavDrawer();
 document.addEventListener('click', onDocumentClickCapture, true);
-window.addEventListener('hashchange', enforceRestrictedSubscriptionRoute);
+window.addEventListener('hashchange', onHashChange);
 
 const LibraryMenu = {
     getTopParentId,

@@ -5,6 +5,8 @@ import { useLocation } from 'react-router-dom';
 import { appRouter, PUBLIC_PATHS } from 'components/router/appRouter';
 import AppToolbar from 'components/toolbar/AppToolbar';
 import ServerButton from 'components/toolbar/ServerButton';
+import { useApi } from 'hooks/useApi';
+import { isExpiredSubscriptionUser } from 'utils/subscription';
 
 import RemotePlayButton from './RemotePlayButton';
 import SyncPlayButton from './SyncPlayButton';
@@ -23,6 +25,7 @@ const ExperimentalAppToolbar: FC<AppToolbarProps> = ({
     onDrawerButtonClick
 }) => {
     const location = useLocation();
+    const { user } = useApi();
 
     // The video osd does not show the standard toolbar
     if (location.pathname === '/video') return null;
@@ -32,10 +35,12 @@ const ExperimentalAppToolbar: FC<AppToolbarProps> = ({
 
     // Check if the current path is a public path to hide user content
     const isPublicPath = PUBLIC_PATHS.includes(location.pathname);
+    const isSubscriptionPage = location.pathname === '/subscription';
+    const isSimpleHeader = isExpiredSubscriptionUser(user) || isSubscriptionPage;
 
     return (
         <AppToolbar
-            buttons={!isPublicPath && (
+            buttons={!isPublicPath && !isSimpleHeader && (
                 <>
                     <SyncPlayButton />
                     <RemotePlayButton />
