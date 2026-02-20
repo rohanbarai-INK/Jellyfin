@@ -37,6 +37,7 @@ import org.jellyfin.mobile.utils.extensions.replaceFragment
 import org.jellyfin.mobile.utils.isWebViewSupported
 import org.jellyfin.mobile.webapp.RemotePlayerService
 import org.jellyfin.mobile.webapp.WebViewFragment
+import org.jellyfin.mobile.subscription.SubscriptionActivity
 import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.koin.android.ext.android.get
 import org.koin.android.ext.android.inject
@@ -200,6 +201,31 @@ class MainActivity : AppCompatActivity() {
             },
         )
         finishAfterTransition()
+    }
+
+    internal fun openSubscriptionManagement() {
+        when (val state = mainViewModel.serverState.value) {
+            is ServerState.Expired -> {
+                openSubscriptionExpiredActivity(expiryDate = state.expiryDate)
+            }
+            is ServerState.Available -> {
+                startActivity(
+                    Intent(this@MainActivity, SubscriptionActivity::class.java).apply {
+                        putExtra(SubscriptionActivity.EXTRA_SERVER_URL, state.server.hostname)
+                    },
+                )
+            }
+            else -> {
+                val serverUrl = (supportFragmentManager.findFragmentById(R.id.fragment_container) as? WebViewFragment)?.server?.hostname
+                if (serverUrl != null) {
+                    startActivity(
+                        Intent(this@MainActivity, SubscriptionActivity::class.java).apply {
+                            putExtra(SubscriptionActivity.EXTRA_SERVER_URL, serverUrl)
+                        },
+                    )
+                }
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(

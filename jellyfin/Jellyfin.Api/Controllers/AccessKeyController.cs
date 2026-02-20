@@ -94,4 +94,32 @@ public class AccessKeyController : BaseJellyfinApiController
             return Conflict(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Gets current subscription metadata for the authenticated user.
+    /// </summary>
+    /// <response code="200">Subscription metadata returned.</response>
+    /// <response code="400">User is not authenticated.</response>
+    /// <returns>A <see cref="CurrentSubscriptionResponse"/>.</returns>
+    [HttpGet("CurrentSubscription")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CurrentSubscriptionResponse>> GetCurrentSubscription()
+    {
+        var userId = User.GetUserId();
+        if (userId.IsEmpty())
+        {
+            return BadRequest("User is not authenticated.");
+        }
+
+        var result = await _accessKeyService.GetCurrentSubscription(userId).ConfigureAwait(false);
+        return new CurrentSubscriptionResponse
+        {
+            ExpiryDate = result.ExpiryDate,
+            Status = result.Status,
+            LastDurationMonths = result.LastDurationMonths,
+            LastRedeemedAt = result.LastRedeemedAt
+        };
+    }
 }

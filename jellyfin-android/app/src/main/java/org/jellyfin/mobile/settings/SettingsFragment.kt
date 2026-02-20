@@ -75,6 +75,16 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
     @Suppress("LongMethod")
     private fun buildSettingsScreen() = screen(requireContext()) {
         collapseIcon = true
+        categoryHeader(PREF_CATEGORY_ACCOUNT) {
+            titleRes = R.string.subscription_manage_category
+        }
+        pref(Constants.PREF_SUBSCRIPTION_MANAGEMENT) {
+            titleRes = R.string.subscription_manage_title
+            summaryRes = R.string.subscription_manage_summary
+            defaultOnClick {
+                requireMainActivity().openSubscriptionManagement()
+            }
+        }
         categoryHeader(PREF_CATEGORY_MUSIC_PLAYER) {
             titleRes = R.string.pref_category_music_player
         }
@@ -247,6 +257,7 @@ class SettingsFragment : Fragment(), BackPressInterceptor {
     }
 
     companion object {
+        const val PREF_CATEGORY_ACCOUNT = "pref_category_account"
         const val PREF_CATEGORY_MUSIC_PLAYER = "pref_category_music"
         const val PREF_CATEGORY_VIDEO_PLAYER = "pref_category_video"
         const val PREF_CATEGORY_DOWNLOADS = "pref_category_downloads"

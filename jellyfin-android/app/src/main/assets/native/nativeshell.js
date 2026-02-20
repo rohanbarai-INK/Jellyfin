@@ -12,6 +12,7 @@ const features = [
     "multiserver",
     "physicalvolumecontrol",
     "remotecontrol",
+    "subscriptionmanagement",
     "subtitleappearancesettings",
     "subtitleburnsettings"
 ];
@@ -99,6 +100,10 @@ window.NativeShell = {
 
     openDownloads() {
         window.NativeInterface.openDownloads();
+    },
+
+    openSubscription() {
+        window.NativeInterface.openSubscription();
     },
 
     selectServer() {

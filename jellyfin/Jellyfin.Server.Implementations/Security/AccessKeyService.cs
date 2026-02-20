@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
@@ -119,6 +120,35 @@ namespace Jellyfin.Server.Implementations.Security
                 user.ExpiryDate = updatedExpiryDate;
 
                 return new RedeemedAccessKeyResult(updatedExpiryDate, accessKey.DurationMonths, now);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<CurrentSubscriptionResult> GetCurrentSubscription(Guid userId)
+        {
+            if (userId.IsEmpty())
+            {
+                throw new ArgumentException("User id cannot be empty.", nameof(userId));
+            }
+
+            var user = _userManager.GetUserById(userId) ?? throw new ResourceNotFoundException("User not found.");
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var latestRedeemedKey = await dbContext.AccessKeys
+                    .Where(accessKey => accessKey.IsRedeemed
+                        && accessKey.RedeemedByUserId.HasValue
+                        && accessKey.RedeemedByUserId.Value.Equals(userId))
+                    .OrderByDescending(accessKey => accessKey.RedeemedAt)
+                    .ThenByDescending(accessKey => accessKey.CreatedAt)
+                    .FirstOrDefaultAsync()
+                    .ConfigureAwait(false);
+
+                return new CurrentSubscriptionResult(
+                    user.ExpiryDate,
+                    user.Status.ToString(),
+                    latestRedeemedKey?.DurationMonths,
+                    latestRedeemedKey?.RedeemedAt);
             }
         }
 

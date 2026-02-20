@@ -218,6 +218,87 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
+        [Fact]
+        [Priority(6)]
+        public async Task CurrentSubscription_ReturnsActiveStatusWithoutHistory()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"active-current-sub-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var response = await userClient.GetAsync("Keys/CurrentSubscription");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var payload = await response.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
+            Assert.NotNull(payload);
+            Assert.Equal("Active", payload.Status);
+            Assert.Null(payload.ExpiryDate);
+            Assert.Null(payload.LastDurationMonths);
+            Assert.Null(payload.LastRedeemedAt);
+
+            using var userResponse = await userClient.GetAsync("Users/Me");
+            Assert.Equal(HttpStatusCode.OK, userResponse.StatusCode);
+            var userDto = await userResponse.Content.ReadFromJsonAsync<UserDto>(_jsonOptions);
+            Assert.NotNull(userDto);
+            Assert.Equal(createdUser.Id, userDto.Id);
+        }
+
+        [Fact]
+        [Priority(7)]
+        public async Task CurrentSubscription_ReturnsLatestRedeemedPlan()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"redeemed-current-sub-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-1));
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var keyResponse = await adminClient.PostAsJsonAsync(
+                "Keys/Generate",
+                new GenerateAccessKeyRequest
+                {
+                    DurationMonths = 6
+                },
+                _jsonOptions);
+            Assert.Equal(HttpStatusCode.OK, keyResponse.StatusCode);
+
+            var generatedKey = await keyResponse.Content.ReadFromJsonAsync<GenerateAccessKeyResponse>(_jsonOptions);
+            Assert.NotNull(generatedKey);
+
+            using var redeemResponse = await userClient.PostAsJsonAsync(
+                "Keys/Redeem",
+                new RedeemAccessKeyRequest
+                {
+                    Key = generatedKey.Key
+                },
+                _jsonOptions);
+            Assert.Equal(HttpStatusCode.OK, redeemResponse.StatusCode);
+
+            using var currentSubscriptionResponse = await userClient.GetAsync("Keys/CurrentSubscription");
+            Assert.Equal(HttpStatusCode.OK, currentSubscriptionResponse.StatusCode);
+
+            var payload = await currentSubscriptionResponse.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
+            Assert.NotNull(payload);
+            Assert.Equal("Active", payload.Status);
+            Assert.Equal(6, payload.LastDurationMonths);
+            Assert.NotNull(payload.LastRedeemedAt);
+            Assert.NotNull(payload.ExpiryDate);
+            Assert.True(payload.ExpiryDate.Value > DateTime.UtcNow.AddMonths(5));
+        }
+
         private async Task<UserDto> CreateUser(HttpClient adminClient, string username, string password)
         {
             using var createResponse = await adminClient.PostAsJsonAsync(

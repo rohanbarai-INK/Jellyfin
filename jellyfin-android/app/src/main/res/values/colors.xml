@@ -21,4 +21,10 @@
     <!-- Skip Media Segment Button -->
     <color name="skip_media_segment_background">#202124</color>
     <color name="skip_media_segment_text">#DDDDDD</color>
+    <color name="subscription_progress_green">#2ECC71</color>
+    <color name="subscription_progress_orange">#FF9800</color>
+    <color name="subscription_progress_red">#FF5252</color>
+    <color name="subscription_card_stroke">#33FFFFFF</color>
+    <color name="subscription_popular_stroke">#579DFF</color>
+    <color name="subscription_last_plan_stroke">#5EF6BC</color>
 </resources>

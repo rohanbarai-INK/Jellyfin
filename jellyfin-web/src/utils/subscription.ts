@@ -141,6 +141,6 @@ export const shouldRedirectToSubscription = (user: UserWithSubscriptionState, pa
     isExpiredSubscriptionUser(user) && pathname !== SUBSCRIPTION_ROUTE
 );
 
-export const shouldRedirectHomeFromSubscription = (user: UserWithSubscriptionState, pathname: string) => (
-    pathname === SUBSCRIPTION_ROUTE && !isExpiredSubscriptionUser(user)
+export const shouldRedirectHomeFromSubscription = (_user: UserWithSubscriptionState, _pathname: string) => (
+    false
 );

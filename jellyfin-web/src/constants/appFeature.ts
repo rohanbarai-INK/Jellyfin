@@ -54,6 +54,8 @@ export enum AppFeature {
     SubtitleAppearance = 'subtitleappearancesettings',
     /** The app supports configuring subtitle burn-in */
     SubtitleBurnIn = 'subtitleburnsettings',
+    /** The app supports opening native subscription management */
+    SubscriptionManagement = 'subscriptionmanagement',
     /** The app can open URLs in a blank page. */
     TargetBlank = 'targetblank'
 }

@@ -65,8 +65,8 @@ describe('subscription redirect decisions', () => {
         expect(shouldRedirectToSubscription(expiredUser, '/subscription')).toBe(false);
     });
 
-    test('redirects active users away from subscription page', () => {
-        expect(shouldRedirectHomeFromSubscription(activeUser, '/subscription')).toBe(true);
+    test('allows active users to stay on subscription page', () => {
+        expect(shouldRedirectHomeFromSubscription(activeUser, '/subscription')).toBe(false);
         expect(shouldRedirectHomeFromSubscription(expiredUser, '/subscription')).toBe(false);
     });
 });

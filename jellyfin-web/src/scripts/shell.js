@@ -20,6 +20,13 @@ export default {
             window.NativeShell.openDownloadManager();
         }
     },
+    openSubscription: () => {
+        if (window.NativeShell?.openSubscription) {
+            window.NativeShell.openSubscription();
+            return true;
+        }
+        return false;
+    },
     openUrl: function(url, target) {
         if (window.NativeShell?.openUrl) {
             window.NativeShell.openUrl(url, target);

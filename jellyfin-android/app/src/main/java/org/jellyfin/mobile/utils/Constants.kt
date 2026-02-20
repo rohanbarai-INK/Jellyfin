@@ -29,6 +29,8 @@ object Constants {
     const val PREF_IGNORE_BATTERY_OPTIMIZATIONS = "pref_ignore_battery_optimizations"
     const val PREF_IGNORE_WEBVIEW_CHECKS = "pref_ignore_webview_checks"
     const val PREF_IGNORE_BLUETOOTH_PERMISSION = "pref_ignore_bluetooth_permission"
+    const val PREF_SUBSCRIPTION_MANAGEMENT = "pref_subscription_management"
+    const val PREF_SUBSCRIPTION_AUTO_RENEW_VISUAL = "pref_subscription_auto_renew_visual"
     const val PREF_DOWNLOAD_METHOD = "pref_download_method"
     const val PREF_MUSIC_NOTIFICATION_ALWAYS_DISMISSIBLE = "pref_music_notification_always_dismissible"
     const val PREF_VIDEO_PLAYER_TYPE = "pref_video_player_type"

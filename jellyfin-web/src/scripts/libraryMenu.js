@@ -421,6 +421,7 @@ function refreshLibraryInfoInDrawer(user) {
         }
 
         html += `<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder btnSettings" data-itemid="settings" href="#"><span class="material-icons navMenuOptionIcon settings" aria-hidden="true"></span><span class="navMenuOptionText">${globalize.translate('Settings')}</span></a>`;
+        html += '<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder btnSubscription" data-itemid="subscription" href="#/subscription"><span class="material-icons navMenuOptionIcon workspace_premium" aria-hidden="true"></span><span class="navMenuOptionText">Subscription</span></a>';
         html += `<a is="emby-linkbutton" class="navMenuOption lnkMediaFolder btnLogout" data-itemid="logout" href="#"><span class="material-icons navMenuOptionIcon exit_to_app" aria-hidden="true"></span><span class="navMenuOptionText">${globalize.translate('ButtonSignOut')}</span></a>`;
 
         if (appHost.supports(AppFeature.ExitMenu)) {
@@ -441,6 +442,11 @@ function refreshLibraryInfoInDrawer(user) {
     const btnSettings = navDrawerScrollContainer.querySelector('.btnSettings');
     if (btnSettings) {
         btnSettings.addEventListener('click', onSettingsClick);
+    }
+
+    const btnSubscription = navDrawerScrollContainer.querySelector('.btnSubscription');
+    if (btnSubscription) {
+        btnSubscription.addEventListener('click', onSubscriptionClick);
     }
 
     const btnExit = navDrawerScrollContainer.querySelector('.exitApp');
@@ -670,6 +676,21 @@ function onSettingsClick() {
     }
 
     Dashboard.navigate('mypreferencesmenu');
+}
+
+function onSubscriptionClick(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    if (appHost.supports(AppFeature.SubscriptionManagement) && window.NativeShell?.openSubscription) {
+        window.NativeShell.openSubscription();
+        closeMainDrawer();
+        return;
+    }
+
+    Dashboard.navigate('subscription');
 }
 
 function onExitAppClick() {

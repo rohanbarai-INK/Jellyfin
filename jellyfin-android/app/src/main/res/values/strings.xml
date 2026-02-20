@@ -14,6 +14,34 @@
     <string name="subscription_expired_manage_button">Manage Subscription</string>
     <string name="subscription_expired_close_button">Close</string>
     <string name="subscription_expired_player_message">Subscription expired. Please renew to continue playback.</string>
+    <string name="subscription_title">Subscription</string>
+    <string name="subscription_manage_category">Subscription</string>
+    <string name="subscription_manage_title">Subscription</string>
+    <string name="subscription_manage_summary">Manage your subscription status and renewal options.</string>
+    <string name="subscription_current_plan_title">Current Plan</string>
+    <string name="subscription_auto_renew_on">Auto-Renew On</string>
+    <string name="subscription_auto_renew_off">Auto-Renew Off</string>
+    <string name="subscription_renew_now">Renew Now</string>
+    <string name="subscription_plans_title">Available Plans</string>
+    <string name="subscription_plan_starter">Starter</string>
+    <string name="subscription_plan_starter_desc">Short-term access</string>
+    <string name="subscription_plan_standard">Standard</string>
+    <string name="subscription_plan_standard_desc">Balanced option</string>
+    <string name="subscription_plan_pro">Pro</string>
+    <string name="subscription_plan_pro_desc">Best overall value</string>
+    <string name="subscription_plan_annual">Annual</string>
+    <string name="subscription_plan_annual_desc">Longest uninterrupted access</string>
+    <string name="subscription_popular_badge">Most Popular</string>
+    <string name="subscription_last_plan_badge">Your Last Plan</string>
+    <string name="subscription_plan_unknown">Unknown</string>
+    <string name="subscription_status_active">Active</string>
+    <string name="subscription_status_expired">Expired</string>
+    <string name="subscription_status_format">Status: %1$s</string>
+    <string name="subscription_valid_until_format">Valid until: %1$s</string>
+    <string name="subscription_not_set">Not set</string>
+    <string name="subscription_cycle_remaining_format">%1$d%% of current cycle remaining</string>
+    <string name="subscription_price_format">Rs %1$s</string>
+    <string name="subscription_savings_format">Save Rs %1$s (%2$d%%)</string>
 
     <string name="connect_to_server_title">Connect to Server</string>
     <string name="host_input_hint">Host</string>
@@ -147,4 +175,12 @@
     <string name="downloading_desc">Downloading %1$d titles</string>
     <string name="downloaded">Downloaded %1$s</string>
     <string name="special_episode">Special</string>
+    <plurals name="subscription_month_duration">
+        <item quantity="one">%d month</item>
+        <item quantity="other">%d months</item>
+    </plurals>
+    <plurals name="subscription_days_remaining">
+        <item quantity="one">%d day remaining</item>
+        <item quantity="other">%d days remaining</item>
+    </plurals>
 </resources>

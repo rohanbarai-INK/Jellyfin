@@ -10,6 +10,14 @@
 
     <style name="AppTheme" parent="AppTheme.V21" />
 
+    <style name="AppTheme.Subscription" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/jellyfin_primary</item>
+        <item name="colorPrimaryVariant">@color/jellyfin_primary_dark</item>
+        <item name="colorSecondary">@color/jellyfin_accent</item>
+        <item name="android:windowBackground">@color/theme_background</item>
+        <item name="android:navigationBarColor">@color/theme_background</item>
+    </style>
+
     <style name="AppTheme.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/theme_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>

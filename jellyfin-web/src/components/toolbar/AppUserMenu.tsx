@@ -15,7 +15,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Menu, { MenuProps } from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import React, { FC, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { appHost } from 'components/apphost';
 import { AppFeature } from 'constants/appFeature';
@@ -37,9 +37,11 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
     open,
     onMenuClose
 }) => {
+    const navigate = useNavigate();
     const { user } = useApi();
     const { data: isQuickConnectEnabled } = useQuickConnectEnabled();
     const isSubscriptionRestricted = isExpiredSubscriptionUser(user);
+    const supportsNativeSubscription = appHost.supports(AppFeature.SubscriptionManagement);
 
     const onDownloadManagerClick = useCallback(() => {
         shell.openDownloadManager();
@@ -66,6 +68,47 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
         onMenuClose();
     }, [ onMenuClose ]);
 
+    const onSubscriptionClick = useCallback(() => {
+        if (supportsNativeSubscription) {
+            const openedNatively = shell.openSubscription();
+            if (openedNatively) {
+                onMenuClose();
+                return;
+            }
+        }
+
+        navigate('/subscription');
+        onMenuClose();
+    }, [ navigate, onMenuClose, supportsNativeSubscription ]);
+
+    const subscriptionMenuItem = supportsNativeSubscription ? (
+        <MenuItem
+            key='subscription-native'
+            onClick={onSubscriptionClick}
+        >
+            <ListItemIcon>
+                <WorkspacePremium />
+            </ListItemIcon>
+            <ListItemText>
+                Subscription
+            </ListItemText>
+        </MenuItem>
+    ) : (
+        <MenuItem
+            key='subscription-web'
+            component={Link}
+            to='/subscription'
+            onClick={onMenuClose}
+        >
+            <ListItemIcon>
+                <WorkspacePremium />
+            </ListItemIcon>
+            <ListItemText>
+                Subscription
+            </ListItemText>
+        </MenuItem>
+    );
+
     if (isSubscriptionRestricted) {
         return (
             <Menu
@@ -83,18 +126,7 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
                 open={open}
                 onClose={onMenuClose}
             >
-                <MenuItem
-                    component={Link}
-                    to='/subscription'
-                    onClick={onMenuClose}
-                >
-                    <ListItemIcon>
-                        <WorkspacePremium />
-                    </ListItemIcon>
-                    <ListItemText>
-                        Subscription
-                    </ListItemText>
-                </MenuItem>
+                {subscriptionMenuItem}
                 <MenuItem
                     onClick={onLogoutClick}
                 >
@@ -149,6 +181,7 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
                     {globalize.translate('Settings')}
                 </ListItemText>
             </MenuItem>
+            {subscriptionMenuItem}
 
             {(appHost.supports(AppFeature.DownloadManagement) || appHost.supports(AppFeature.ClientSettings)) && (
                 <Divider />

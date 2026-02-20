@@ -1,12 +1,15 @@
-import Alert from '@mui/material/Alert';
+﻿import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import LinearProgress from '@mui/material/LinearProgress';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Loading from 'components/loading/LoadingComponent';
@@ -18,6 +21,7 @@ import globalize from 'lib/globalize';
 import Dashboard from 'utils/dashboard';
 import events from 'utils/events';
 import {
+    isExpiredSubscriptionUser,
     normalizeSubscriptionPricing,
     SUBSCRIPTION_CONFIG_KEY,
     SubscriptionPricingConfig,
@@ -32,6 +36,17 @@ interface SubscriptionPlan {
     description: string
     isPopular?: boolean
 }
+
+type CurrentSubscriptionMetadata = {
+    ExpiryDate?: string | null
+    expiryDate?: string | null
+    Status?: string | null
+    status?: string | null
+    LastDurationMonths?: number | null
+    lastDurationMonths?: number | null
+    LastRedeemedAt?: string | null
+    lastRedeemedAt?: string | null
+};
 
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     {
@@ -56,6 +71,15 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
         description: 'Longest uninterrupted access'
     }
 ];
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const AUTO_RENEW_STORAGE_KEY = 'jf.subscription.autoRenew.visual';
+const PLAN_DURATION_DAY_LOOKUP: Record<PlanDuration, number> = {
+    1: 30,
+    3: 90,
+    6: 180,
+    12: 365
+};
 
 const getStatusErrorMessage = (statusCode: number | undefined) => {
     if (statusCode === 401) {
@@ -134,6 +158,14 @@ const formatPrice = (value: number) => (
     Number.isInteger(value) ? value.toString() : value.toFixed(2)
 );
 
+const getInitialAutoRenewToggleState = () => {
+    try {
+        return window.localStorage.getItem(AUTO_RENEW_STORAGE_KEY) === 'true';
+    } catch (_err) {
+        return false;
+    }
+};
+
 export const Component = () => {
     const navigate = useNavigate();
     const { user } = useApi();
@@ -141,6 +173,11 @@ export const Component = () => {
     const [ isRedeemingKey, setIsRedeemingKey ] = useState(false);
     const [ redeemErrorMessage, setRedeemErrorMessage ] = useState('');
     const [ redeemSuccessMessage, setRedeemSuccessMessage ] = useState('');
+    const [ currentSubscription, setCurrentSubscription ] = useState<CurrentSubscriptionMetadata | null>(null);
+    const [ currentSubscriptionError, setCurrentSubscriptionError ] = useState('');
+    const [ isLoadingCurrentSubscription, setIsLoadingCurrentSubscription ] = useState(false);
+    const [ autoRenewEnabled, setAutoRenewEnabled ] = useState(getInitialAutoRenewToggleState);
+    const plansSectionRef = useRef<HTMLDivElement | null>(null);
 
     const {
         data: pricingConfig,
@@ -151,6 +188,153 @@ export const Component = () => {
     const pricing = useMemo(
         () => normalizeSubscriptionPricing(pricingConfig),
         [ pricingConfig ]);
+
+    const isExpiredUser = useMemo(
+        () => isExpiredSubscriptionUser(user),
+        [ user ]);
+
+    const lastDurationMonths = useMemo(() => {
+        const value = Number(currentSubscription?.LastDurationMonths ?? currentSubscription?.lastDurationMonths);
+        return Number.isInteger(value) && [ 1, 3, 6, 12 ].includes(value)
+            ? value as PlanDuration
+            : null;
+    }, [ currentSubscription ]);
+
+    const currentPlanTitle = useMemo(() => {
+        if (!lastDurationMonths) {
+            return 'Unknown';
+        }
+
+        return SUBSCRIPTION_PLANS.find(plan => plan.durationMonths === lastDurationMonths)?.title || 'Unknown';
+    }, [ lastDurationMonths ]);
+
+    const subscriptionStatus = useMemo(() => {
+        const status = currentSubscription?.Status ?? currentSubscription?.status;
+        if (typeof status === 'string' && status.trim()) {
+            return status;
+        }
+
+        return isExpiredUser ? 'Expired' : 'Active';
+    }, [ currentSubscription, isExpiredUser ]);
+
+    const userExpiryDate = useMemo(() => {
+        const candidateUser = user as {
+            ExpiryDate?: string | null
+            expiryDate?: string | null
+        } | null | undefined;
+
+        return candidateUser?.ExpiryDate ?? candidateUser?.expiryDate ?? null;
+    }, [ user ]);
+
+    const subscriptionExpiryDate = useMemo(() => {
+        const expiryRaw = currentSubscription?.ExpiryDate
+            ?? currentSubscription?.expiryDate
+            ?? userExpiryDate
+            ?? null;
+
+        if (!expiryRaw) {
+            return null;
+        }
+
+        const parsedDate = new Date(expiryRaw);
+        return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+    }, [ currentSubscription, userExpiryDate ]);
+
+    const validUntilText = useMemo(() => {
+        if (!subscriptionExpiryDate) {
+            return 'Not set';
+        }
+
+        return subscriptionExpiryDate.toLocaleDateString(undefined, {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    }, [ subscriptionExpiryDate ]);
+
+    const daysRemaining = useMemo(() => {
+        if (!subscriptionExpiryDate) {
+            return 0;
+        }
+
+        return Math.max(0, Math.ceil((subscriptionExpiryDate.getTime() - Date.now()) / DAY_IN_MS));
+    }, [ subscriptionExpiryDate ]);
+
+    const totalPlanDays = useMemo(
+        () => (lastDurationMonths ? PLAN_DURATION_DAY_LOOKUP[lastDurationMonths] : 0),
+        [ lastDurationMonths ]);
+
+    const progressPercent = useMemo(() => {
+        if (!totalPlanDays) {
+            return 0;
+        }
+
+        return Math.max(0, Math.min(100, (daysRemaining / totalPlanDays) * 100));
+    }, [ daysRemaining, totalPlanDays ]);
+
+    const progressColor = useMemo(() => {
+        if (daysRemaining > 30) {
+            return '#2ecc71';
+        }
+
+        if (daysRemaining >= 7) {
+            return '#ff9800';
+        }
+
+        return '#ff5252';
+    }, [ daysRemaining ]);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(AUTO_RENEW_STORAGE_KEY, autoRenewEnabled ? 'true' : 'false');
+        } catch (_err) {
+            // Ignore storage errors in embedded browsers.
+        }
+    }, [ autoRenewEnabled ]);
+
+    useEffect(() => {
+        if (isExpiredUser || !user?.Id) {
+            setCurrentSubscription(null);
+            setCurrentSubscriptionError('');
+            setIsLoadingCurrentSubscription(false);
+            return;
+        }
+
+        const apiClient = ServerConnections.currentApiClient();
+        if (!apiClient) {
+            setCurrentSubscriptionError('Unable to load active subscription metadata.');
+            return;
+        }
+
+        let isDisposed = false;
+        setIsLoadingCurrentSubscription(true);
+        setCurrentSubscriptionError('');
+
+        apiClient.ajax({
+            type: 'GET',
+            url: apiClient.getUrl('Keys/CurrentSubscription'),
+            dataType: 'json',
+            contentType: 'application/json'
+        }).then((response: unknown) => {
+            if (!isDisposed) {
+                setCurrentSubscription(response as CurrentSubscriptionMetadata);
+            }
+        }).catch(async err => {
+            console.error('[subscription] failed to load current subscription metadata', err);
+            if (!isDisposed) {
+                setCurrentSubscription(null);
+                setCurrentSubscriptionError((await getServerErrorMessage(err)) || 'Unable to load active subscription metadata.');
+            }
+        }).finally(() => {
+            if (!isDisposed) {
+                setIsLoadingCurrentSubscription(false);
+            }
+        });
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [ isExpiredUser, user?.Id ]);
 
     const onAccessKeyChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setAccessKey(event.target.value);
@@ -203,6 +387,13 @@ export const Component = () => {
         // Intentionally empty until payment flow is implemented.
     }, []);
 
+    const onRenewNowClick = useCallback(() => {
+        plansSectionRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }, []);
+
     if (isPending) {
         return <Loading />;
     }
@@ -249,10 +440,12 @@ export const Component = () => {
                             }}
                         >
                             <Typography variant='h3' sx={{ fontWeight: 700 }}>
-                                Subscription Required
+                                {isExpiredUser ? 'Subscription Required' : 'Subscription Management'}
                             </Typography>
                             <Typography sx={{ opacity: 0.8 }}>
-                                Your account access is limited until a valid key is redeemed.
+                                {isExpiredUser
+                                    ? 'Your account access is limited until a valid key is redeemed.'
+                                    : 'Manage your active plan and renew before it expires.'}
                             </Typography>
                             {!!user?.Name && (
                                 <Typography sx={{ opacity: 0.75 }}>
@@ -261,6 +454,128 @@ export const Component = () => {
                             )}
                         </Stack>
 
+                        {!isExpiredUser && (
+                            <Card
+                                sx={{
+                                    borderRadius: 3,
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    background: 'rgba(13, 18, 30, 0.88)'
+                                }}
+                            >
+                                <CardContent sx={{ p: 3 }}>
+                                    <Stack spacing={2.2}>
+                                        <Stack
+                                            direction={{
+                                                xs: 'column',
+                                                sm: 'row'
+                                            }}
+                                            spacing={2}
+                                            justifyContent='space-between'
+                                            alignItems={{
+                                                xs: 'flex-start',
+                                                sm: 'center'
+                                            }}
+                                        >
+                                            <Stack spacing={0.8}>
+                                                <Typography variant='h6' sx={{ fontWeight: 700 }}>
+                                                    Current Plan
+                                                </Typography>
+                                                <Box
+                                                    component='span'
+                                                    sx={{
+                                                        alignSelf: 'flex-start',
+                                                        px: 1.5,
+                                                        py: 0.6,
+                                                        borderRadius: 999,
+                                                        fontSize: 12,
+                                                        fontWeight: 700,
+                                                        color: '#dff8ff',
+                                                        background: 'linear-gradient(90deg, rgba(37, 169, 255, 0.35), rgba(49, 107, 238, 0.38))',
+                                                        border: '1px solid rgba(125, 204, 255, 0.5)',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    {currentPlanTitle}
+                                                </Box>
+                                            </Stack>
+
+                                            <FormControlLabel
+                                                control={(
+                                                    <Switch
+                                                        checked={autoRenewEnabled}
+                                                        onChange={(event) => {
+                                                            setAutoRenewEnabled(event.target.checked);
+                                                        }}
+                                                        color='primary'
+                                                    />
+                                                )}
+                                                label={autoRenewEnabled ? 'Auto-Renew On' : 'Auto-Renew Off'}
+                                            />
+                                        </Stack>
+
+                                        {isLoadingCurrentSubscription && (
+                                            <Typography sx={{ opacity: 0.75 }}>
+                                                Loading current subscription details...
+                                            </Typography>
+                                        )}
+
+                                        {!!currentSubscriptionError && (
+                                            <Alert severity='warning'>
+                                                {currentSubscriptionError}
+                                            </Alert>
+                                        )}
+
+                                        <Stack spacing={0.6}>
+                                            <Typography sx={{ opacity: 0.8 }}>
+                                                Status: {subscriptionStatus}
+                                            </Typography>
+                                            <Typography sx={{ opacity: 0.8 }}>
+                                                Valid until: {validUntilText}
+                                            </Typography>
+                                            <Typography sx={{ color: progressColor, fontWeight: 600 }}>
+                                                {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining
+                                            </Typography>
+                                        </Stack>
+
+                                        <Stack spacing={0.8}>
+                                            <LinearProgress
+                                                variant='determinate'
+                                                value={progressPercent}
+                                                sx={{
+                                                    height: 10,
+                                                    borderRadius: 999,
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                                                    '& .MuiLinearProgress-bar': {
+                                                        borderRadius: 999,
+                                                        backgroundColor: progressColor,
+                                                        transition: 'transform 600ms ease'
+                                                    }
+                                                }}
+                                            />
+                                            <Typography sx={{ fontSize: 12, opacity: 0.7 }}>
+                                                {Math.round(progressPercent)}% of current cycle remaining
+                                            </Typography>
+                                        </Stack>
+
+                                        {daysRemaining < 7 && (
+                                            <Button
+                                                onClick={onRenewNowClick}
+                                                variant='contained'
+                                                sx={{
+                                                    alignSelf: 'flex-start',
+                                                    fontWeight: 700,
+                                                    px: 2.2,
+                                                    py: 0.9
+                                                }}
+                                            >
+                                                Renew Now
+                                            </Button>
+                                        )}
+                                    </Stack>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {isError && (
                             <Alert severity='error'>
                                 Unable to load subscription pricing. Showing default values.
@@ -268,6 +583,7 @@ export const Component = () => {
                         )}
 
                         <Box
+                            ref={plansSectionRef}
                             sx={{
                                 display: 'grid',
                                 gridTemplateColumns: {
@@ -285,18 +601,23 @@ export const Component = () => {
                                 const savingsAmount = originalPrice - actualPrice;
                                 const hasSavings = savingsAmount > 0;
                                 const savingsPercent = hasSavings && originalPrice > 0 ? Math.trunc((savingsAmount / originalPrice) * 100) : 0;
+                                const isLastPlan = !isExpiredUser && lastDurationMonths === plan.durationMonths;
 
                                 let cardBorder = '1px solid rgba(255, 255, 255, 0.12)';
                                 let cardBackground = 'linear-gradient(160deg, rgba(17, 24, 37, 0.86) 0%, rgba(9, 14, 25, 0.95) 100%)';
                                 let cardShadow = '0 10px 22px rgba(4, 8, 16, 0.3)';
                                 let hoverBackground = 'linear-gradient(160deg, rgba(28, 40, 60, 0.92) 0%, rgba(13, 22, 37, 0.98) 100%)';
-                                let contentTopPadding = 3;
 
                                 if (plan.isPopular) {
                                     cardBorder = '1px solid rgba(87, 173, 255, 0.75)';
                                     cardBackground = 'linear-gradient(160deg, rgba(17, 43, 84, 0.9) 0%, rgba(11, 22, 42, 0.95) 100%)';
                                     cardShadow = '0 14px 30px rgba(5, 11, 23, 0.42)';
                                     hoverBackground = 'linear-gradient(160deg, rgba(26, 62, 118, 0.95) 0%, rgba(14, 31, 61, 0.98) 100%)';
+                                }
+
+                                if (isLastPlan) {
+                                    cardBorder = '1px solid rgba(94, 246, 188, 0.82)';
+                                    cardShadow = '0 14px 30px rgba(5, 11, 23, 0.42), 0 0 0 1px rgba(94, 246, 188, 0.28)';
                                 }
 
                                 const highlightedCardStyles = {
@@ -322,9 +643,6 @@ export const Component = () => {
                                                 '&:hover .subscriptionPlanCard': highlightedCardStyles
                                             },
                                             '@media (hover: none), (pointer: coarse)': {
-                                                '&:active': {
-                                                    transform: 'scale(1.03)'
-                                                },
                                                 '&:active .subscriptionPlanCard': highlightedCardStyles
                                             }
                                         }}
@@ -378,10 +696,31 @@ export const Component = () => {
                                                 transition: 'box-shadow 300ms ease, border-color 300ms ease, background 300ms ease'
                                             }}
                                         >
+                                            {isLastPlan && (
+                                                <Box
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        top: 12,
+                                                        right: 12,
+                                                        px: 1.2,
+                                                        py: 0.35,
+                                                        borderRadius: 999,
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                        color: '#dbffee',
+                                                        backgroundColor: 'rgba(25, 120, 88, 0.46)',
+                                                        border: '1px solid rgba(121, 234, 186, 0.6)',
+                                                        whiteSpace: 'nowrap',
+                                                        zIndex: 1
+                                                    }}
+                                                >
+                                                    Your Last Plan
+                                                </Box>
+                                            )}
                                             <CardContent
                                                 sx={{
                                                     p: 3,
-                                                    pt: contentTopPadding,
+                                                    pt: 3,
                                                     display: 'flex',
                                                     flexDirection: 'column',
                                                     flexGrow: 1
@@ -502,3 +841,4 @@ export const Component = () => {
 };
 
 Component.displayName = 'SubscriptionPage';
+

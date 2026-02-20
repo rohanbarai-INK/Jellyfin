@@ -109,6 +109,9 @@ class ActivityEventHandler(
             ActivityEvent.OpenSettings -> {
                 supportFragmentManager.addFragment<SettingsFragment>()
             }
+            ActivityEvent.OpenSubscription -> {
+                openSubscriptionManagement()
+            }
             ActivityEvent.SelectServer -> {
                 mainViewModel.resetServer()
             }

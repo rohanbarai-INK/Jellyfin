@@ -14,6 +14,7 @@ sealed class ActivityEvent {
     class CastMessage(val action: String, val args: JSONArray) : ActivityEvent()
     data object RequestBluetoothPermission : ActivityEvent()
     data object OpenSettings : ActivityEvent()
+    data object OpenSubscription : ActivityEvent()
     data object SelectServer : ActivityEvent()
     data object ExitApp : ActivityEvent()
     data object OpenDownloads : ActivityEvent()

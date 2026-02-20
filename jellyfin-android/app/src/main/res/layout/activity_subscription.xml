@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/theme_background"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="?colorPrimary"
+        android:title="@string/subscription_title" />
+
+    <ScrollView
+        android:id="@+id/subscriptionScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/planStatusCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="#1A1A1A"
+                app:strokeColor="#33FFFFFF"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/planStatusTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/subscription_current_plan_title"
+                        android:textColor="@android:color/white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/currentPlanBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/subscription_plan_badge_background"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="4dp"
+                        android:textColor="@android:color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/subscriptionStatusText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@android:color/white"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/validUntilText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@android:color/white"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/daysRemainingText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/planProgressBar"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:layout_marginTop="10dp"
+                        android:max="100"
+                        android:progressTint="@color/subscription_progress_green" />
+
+                    <TextView
+                        android:id="@+id/progressPercentText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="#B0FFFFFF"
+                        android:textSize="12sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/autoRenewSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/subscription_auto_renew_off"
+                        android:textColor="@android:color/white" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/renewNowButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/subscription_renew_now"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="@string/subscription_plans_title"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/plansContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardStarter"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#141A24"
+                    app:strokeColor="#33FFFFFF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/starterTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/subscription_plan_starter"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/starterDescription"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/subscription_plan_starter_desc"
+                            android:textColor="#D0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/starterOriginalPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:textColor="#A0FFFFFF"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/starterPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@android:color/white"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/starterSavings"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/subscription_savings_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp"
+                            android:textColor="#C2F0D0"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/starterDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="#CCFFFFFF" />
+
+                        <TextView
+                            android:id="@+id/starterLastPlanBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/subscription_last_plan_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp"
+                            android:text="@string/subscription_last_plan_badge"
+                            android:textColor="#DBFFEE"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardStandard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#141A24"
+                    app:strokeColor="#33FFFFFF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/standardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/subscription_plan_standard"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/standardDescription"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/subscription_plan_standard_desc"
+                            android:textColor="#D0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/standardOriginalPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:textColor="#A0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/standardPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@android:color/white"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/standardSavings"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/subscription_savings_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp"
+                            android:textColor="#C2F0D0"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/standardDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="#CCFFFFFF" />
+
+                        <TextView
+                            android:id="@+id/standardLastPlanBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/subscription_last_plan_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp"
+                            android:text="@string/subscription_last_plan_badge"
+                            android:textColor="#DBFFEE"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardPro"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#162B54"
+                    app:strokeColor="#579DFF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/proPopularBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/subscription_popular_badge_background"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:text="@string/subscription_popular_badge"
+                            android:textColor="@android:color/white"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/proTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/subscription_plan_pro"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/proDescription"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/subscription_plan_pro_desc"
+                            android:textColor="#D0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/proOriginalPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:textColor="#A0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/proPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@android:color/white"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/proSavings"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/subscription_savings_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp"
+                            android:textColor="#C2F0D0"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/proDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="#CCFFFFFF" />
+
+                        <TextView
+                            android:id="@+id/proLastPlanBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/subscription_last_plan_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp"
+                            android:text="@string/subscription_last_plan_badge"
+                            android:textColor="#DBFFEE"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAnnual"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardBackgroundColor="#141A24"
+                    app:strokeColor="#33FFFFFF"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <TextView
+                            android:id="@+id/annualTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/subscription_plan_annual"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/annualDescription"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/subscription_plan_annual_desc"
+                            android:textColor="#D0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/annualOriginalPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:textColor="#A0FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/annualPrice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@android:color/white"
+                            android:textSize="28sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/annualSavings"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/subscription_savings_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp"
+                            android:textColor="#C2F0D0"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/annualDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="#CCFFFFFF" />
+
+                        <TextView
+                            android:id="@+id/annualLastPlanBadge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/subscription_last_plan_badge_background"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp"
+                            android:text="@string/subscription_last_plan_badge"
+                            android:textColor="#DBFFEE"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

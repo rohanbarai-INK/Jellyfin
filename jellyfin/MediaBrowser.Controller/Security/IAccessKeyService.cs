@@ -22,5 +22,12 @@ namespace MediaBrowser.Controller.Security
         /// <param name="keyString">The key to redeem.</param>
         /// <returns>A <see cref="RedeemedAccessKeyResult"/>.</returns>
         Task<RedeemedAccessKeyResult> RedeemKey(Guid userId, string keyString);
+
+        /// <summary>
+        /// Gets subscription metadata for the provided user.
+        /// </summary>
+        /// <param name="userId">The user identifier.</param>
+        /// <returns>A <see cref="CurrentSubscriptionResult"/>.</returns>
+        Task<CurrentSubscriptionResult> GetCurrentSubscription(Guid userId);
     }
 }

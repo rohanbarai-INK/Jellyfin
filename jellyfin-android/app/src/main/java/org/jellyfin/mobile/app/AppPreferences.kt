@@ -57,6 +57,14 @@ class AppPreferences(context: Context) {
             }
         }
 
+    var subscriptionAutoRenewVisual: Boolean
+        get() = sharedPreferences.getBoolean(Constants.PREF_SUBSCRIPTION_AUTO_RENEW_VISUAL, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(Constants.PREF_SUBSCRIPTION_AUTO_RENEW_VISUAL, value)
+            }
+        }
+
     var downloadMethod: Int?
         get() = sharedPreferences.getInt(Constants.PREF_DOWNLOAD_METHOD, -1).takeIf { it >= 0 }
         set(value) {
