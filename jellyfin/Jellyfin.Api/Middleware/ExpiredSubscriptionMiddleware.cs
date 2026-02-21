@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Jellyfin.Api.Constants;
 using Jellyfin.Api.Extensions;
@@ -16,6 +17,29 @@ namespace Jellyfin.Api.Middleware;
 public class ExpiredSubscriptionMiddleware
 {
     private const string SubscriptionRedirectPath = "/web/#/subscription";
+    private static readonly HashSet<string> _getWhitelist = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/Users/Me",
+        "/System/Info",
+        "/System/Info/Public",
+        "/System/Configuration/subscription",
+        "/System/Endpoint",
+        "/Playback/BitrateTest",
+        "/DisplayPreferences/usersettings",
+        "/Branding/Configuration",
+        "/QuickConnect/Enabled",
+        "/UserViews",
+        "/SyncPlay/List"
+    };
+
+    private static readonly HashSet<string> _postWhitelist = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/Sessions/Capabilities",
+        "/Sessions/Capabilities/Full",
+        "/Sessions/Logout",
+        "/Keys/Redeem",
+        "/Users/AuthenticateByName"
+    };
 
     private readonly RequestDelegate _next;
     private readonly ILogger<ExpiredSubscriptionMiddleware> _logger;
@@ -104,29 +128,21 @@ public class ExpiredSubscriptionMiddleware
 
     private static bool IsWhitelistedRequest(string method, PathString path, Guid userId)
     {
+        var normalizedPath = NormalizePath(path);
+        if (string.IsNullOrEmpty(normalizedPath))
+        {
+            return false;
+        }
+
         if (HttpMethods.IsGet(method))
         {
-            return PathEquals(path, "/Users/Me")
-                || IsCurrentUserRoute(path, userId)
-                || PathEquals(path, "/System/Info")
-                || PathEquals(path, "/System/Info/Public")
-                || PathEquals(path, "/System/Configuration/subscription")
-                || PathEquals(path, "/System/Endpoint")
-                || PathEquals(path, "/Playback/BitrateTest")
-                || PathEquals(path, "/DisplayPreferences/usersettings")
-                || PathEquals(path, "/Branding/Configuration")
-                || PathEquals(path, "/QuickConnect/Enabled")
-                || PathEquals(path, "/UserViews")
-                || PathEquals(path, "/SyncPlay/List");
+            return _getWhitelist.Contains(normalizedPath)
+                || IsCurrentUserRoute(normalizedPath, userId);
         }
 
         if (HttpMethods.IsPost(method))
         {
-            return PathEquals(path, "/Sessions/Capabilities")
-                || PathEquals(path, "/Sessions/Capabilities/Full")
-                || PathEquals(path, "/Sessions/Logout")
-                || PathEquals(path, "/Keys/Redeem")
-                || PathEquals(path, "/Users/AuthenticateByName");
+            return _postWhitelist.Contains(normalizedPath);
         }
 
         return false;
@@ -134,21 +150,20 @@ public class ExpiredSubscriptionMiddleware
 
     private static bool IsWebSocketPath(PathString path)
     {
-        var value = path.Value;
-        return value is not null
+        var value = NormalizePath(path);
+        return !string.IsNullOrEmpty(value)
                && value.StartsWith("/socket", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsCurrentUserRoute(PathString path, Guid userId)
+    private static bool IsCurrentUserRoute(string normalizedPath, Guid userId)
     {
-        var value = path.Value;
-        if (string.IsNullOrEmpty(value)
-            || !value.StartsWith("/Users/", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(normalizedPath)
+            || !normalizedPath.StartsWith("/Users/", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var segment = value.AsSpan("/Users/".Length);
+        var segment = normalizedPath.AsSpan("/Users/".Length);
         var slashIndex = segment.IndexOf('/');
         if (slashIndex >= 0)
         {
@@ -159,9 +174,16 @@ public class ExpiredSubscriptionMiddleware
                && routeUserId.Equals(userId);
     }
 
-    private static bool PathEquals(PathString path, string expectedPath)
+    private static string NormalizePath(PathString path)
     {
-        return path.Equals(expectedPath, StringComparison.OrdinalIgnoreCase)
-               || path.Equals(expectedPath + "/", StringComparison.OrdinalIgnoreCase);
+        var value = path.Value;
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        return value.Length > 1 && value.EndsWith('/')
+            ? value.TrimEnd('/')
+            : value;
     }
 }

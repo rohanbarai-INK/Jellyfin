@@ -70,6 +70,10 @@ export class UserSettings {
         return apiClient.getDisplayPreferences('usersettings', userId, 'emby').then(function (result) {
             result.CustomPrefs = result.CustomPrefs || {};
             self.displayPrefs = result;
+        }).catch(function (error) {
+            // Display preferences are non-critical; login/session setup must continue.
+            console.warn('[UserSettings] unable to load display preferences; using defaults', error);
+            self.displayPrefs = { CustomPrefs: {} };
         });
     }
 

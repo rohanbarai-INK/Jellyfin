@@ -1,9 +1,20 @@
 package org.jellyfin.androidtv.ui.settings.screen
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.isUserExpired
+import org.jellyfin.androidtv.auth.repository.SessionRepository
+import org.jellyfin.androidtv.auth.repository.UserRepository
+import org.jellyfin.androidtv.auth.store.AuthenticationStore
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.base.list.ListButton
@@ -11,10 +22,21 @@ import org.jellyfin.androidtv.ui.base.list.ListSection
 import org.jellyfin.androidtv.ui.navigation.LocalRouter
 import org.jellyfin.androidtv.ui.settings.Routes
 import org.jellyfin.androidtv.ui.settings.composable.SettingsColumn
+import org.jellyfin.androidtv.ui.startup.SubscriptionExpiredActivity
+import org.jellyfin.androidtv.ui.subscription.SubscriptionManagementActivity
+import org.jellyfin.androidtv.util.sdk.expiryDateRaw
+import org.koin.compose.koinInject
 
 @Composable
 fun SettingsMainScreen() {
+	val context = LocalContext.current
 	val router = LocalRouter.current
+	val scope = rememberCoroutineScope()
+	val sessionRepository = koinInject<SessionRepository>()
+	val userRepository = koinInject<UserRepository>()
+	val authenticationStore = koinInject<AuthenticationStore>()
+	val session by sessionRepository.currentSession.collectAsState()
+	val currentUser by userRepository.currentUser.collectAsState()
 
 	SettingsColumn {
 		item {
@@ -31,6 +53,34 @@ fun SettingsMainScreen() {
 				headingContent = { Text(stringResource(R.string.pref_login)) },
 				onClick = { router.push(Routes.AUTHENTICATION) },
 			)
+		}
+
+		if (session != null) {
+			item {
+				ListButton(
+					leadingContent = { Icon(painterResource(R.drawable.ic_star), contentDescription = null) },
+					headingContent = { Text(stringResource(R.string.pref_subscription)) },
+					captionContent = { Text(stringResource(R.string.pref_subscription_description)) },
+					onClick = {
+						val activeSession = session ?: return@ListButton
+						scope.launch {
+							val serverAddress = authenticationStore.getServer(activeSession.serverId)?.address
+							val expiryDate = currentUser?.expiryDateRaw()
+								?: if (!serverAddress.isNullOrBlank()) fetchExpiryDate(serverAddress, activeSession.accessToken) else null
+
+							if (isUserExpired(expiryDate)) {
+								context.startActivity(
+									Intent(context, SubscriptionExpiredActivity::class.java).apply {
+										putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, expiryDate)
+									}
+								)
+							} else {
+								context.startActivity(Intent(context, SubscriptionManagementActivity::class.java))
+							}
+						}
+					}
+				)
+			}
 		}
 
 		item {

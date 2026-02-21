@@ -124,6 +124,9 @@
         <activity
             android:name=".ui.startup.SubscriptionExpiredActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.subscription.SubscriptionManagementActivity"
+            android:exported="false" />
 
         <!-- Main application -->
         <activity

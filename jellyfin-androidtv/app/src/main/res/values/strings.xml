@@ -309,6 +309,47 @@
     <string name="subscription_expired_message_with_date">Your subscription expired on %1$s. Renew access to continue.</string>
     <string name="subscription_expired_qr_placeholder">Renewal link: %1$s\n(Show QR code here in a future update.)</string>
     <string name="subscription_expired_log_out">Log Out</string>
+    <string name="pref_subscription">Subscription</string>
+    <string name="pref_subscription_description">Manage active plans and redeem keys</string>
+    <string name="subscription_management_title">Subscription Management</string>
+    <string name="subscription_management_subtitle">Manage your active plan and renew before it expires.</string>
+    <string name="subscription_signed_in_as">Signed in as %1$s</string>
+    <string name="subscription_loading">Loading subscription details...</string>
+    <string name="subscription_missing_session_error">No active user session available.</string>
+    <string name="subscription_current_plan_title">Current Plan</string>
+    <string name="subscription_status_active">Active</string>
+    <string name="subscription_status_expired">Expired</string>
+    <string name="subscription_status_format">Status: %1$s</string>
+    <string name="subscription_valid_until_format">Valid until: %1$s</string>
+    <string name="subscription_not_set">Not set</string>
+    <string name="subscription_cycle_remaining_format">%1$d%% of current cycle remaining</string>
+    <string name="subscription_auto_renew_on">Auto-Renew On</string>
+    <string name="subscription_auto_renew_off">Auto-Renew Off</string>
+    <string name="subscription_renew_now">Renew Now</string>
+    <string name="subscription_plans_title">Available Plans</string>
+    <string name="subscription_plan_starter">Starter</string>
+    <string name="subscription_plan_starter_desc">Short-term access</string>
+    <string name="subscription_plan_standard">Standard</string>
+    <string name="subscription_plan_standard_desc">Balanced option</string>
+    <string name="subscription_plan_pro">Pro</string>
+    <string name="subscription_plan_pro_desc">Best overall value</string>
+    <string name="subscription_plan_annual">Annual</string>
+    <string name="subscription_plan_annual_desc">Longest uninterrupted access</string>
+    <string name="subscription_plan_unknown">Unknown</string>
+    <string name="subscription_popular_badge">Most Popular</string>
+    <string name="subscription_last_plan_badge">Your Last Plan</string>
+    <string name="subscription_price_format">Rs %1$s</string>
+    <string name="subscription_savings_format">Save Rs %1$s (%2$d%%)</string>
+    <string name="subscription_redeem_panel_title">Redeem Access Key</string>
+    <string name="subscription_access_key_label">Access Key</string>
+    <string name="subscription_access_key_placeholder">JF-XXXX-XXXX</string>
+    <string name="subscription_redeem_action">Redeem Key</string>
+    <string name="subscription_redeeming_action">Redeeming...</string>
+    <string name="subscription_redeem_success">Access key redeemed successfully.</string>
+    <string name="subscription_redeem_error_default">Failed to redeem access key. Check the key and try again.</string>
+    <string name="subscription_status_load_error">Unable to load active subscription metadata.</string>
+    <string name="subscription_pricing_load_error">Unable to load subscription pricing. Showing defaults.</string>
+    <string name="subscription_status_and_pricing_load_error">Unable to load subscription metadata and pricing. Showing safe defaults.</string>
     <string name="lbl_manage_servers">Manage servers</string>
     <string name="lbl_remove_users">This will also remove all associated accounts</string>
     <string name="lbl_remove_user_content">Remove account</string>
@@ -622,5 +663,13 @@
     <plurals name="albums">
         <item quantity="one">%1$s album</item>
         <item quantity="other">%1$s albums</item>
+    </plurals>
+    <plurals name="subscription_days_remaining">
+        <item quantity="one">%1$d day remaining</item>
+        <item quantity="other">%1$d days remaining</item>
+    </plurals>
+    <plurals name="subscription_month_duration">
+        <item quantity="one">%1$d month</item>
+        <item quantity="other">%1$d months</item>
     </plurals>
 </resources>
