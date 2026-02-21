@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -80,6 +81,7 @@ const PLAN_DURATION_DAY_LOOKUP: Record<PlanDuration, number> = {
     6: 180,
     12: 365
 };
+const DESKTOP_HOVER_MEDIA_QUERY = '@media (hover: hover) and (pointer: fine) and (min-width: 1024px)';
 
 const getStatusErrorMessage = (statusCode: number | undefined) => {
     if (statusCode === 401) {
@@ -169,6 +171,7 @@ const getInitialAutoRenewToggleState = () => {
 export const Component = () => {
     const navigate = useNavigate();
     const { user } = useApi();
+    const theme = useTheme();
     const [ accessKey, setAccessKey ] = useState('');
     const [ isRedeemingKey, setIsRedeemingKey ] = useState(false);
     const [ redeemErrorMessage, setRedeemErrorMessage ] = useState('');
@@ -602,28 +605,45 @@ export const Component = () => {
                                 const hasSavings = savingsAmount > 0;
                                 const savingsPercent = hasSavings && originalPrice > 0 ? Math.trunc((savingsAmount / originalPrice) * 100) : 0;
                                 const isLastPlan = !isExpiredUser && lastDurationMonths === plan.durationMonths;
+                                const paperColor = theme.palette.background.paper;
+                                const defaultBackgroundColor = theme.palette.background.default;
+                                const primaryAccentColor = theme.palette.primary.main;
+                                const successAccentColor = theme.palette.success.main;
+                                const surfaceLightColor = theme.palette.common.white;
+                                const surfaceDarkColor = theme.palette.common.black;
 
-                                let cardBorder = '1px solid rgba(255, 255, 255, 0.12)';
-                                let cardBackground = 'linear-gradient(160deg, rgba(17, 24, 37, 0.86) 0%, rgba(9, 14, 25, 0.95) 100%)';
-                                let cardShadow = '0 10px 22px rgba(4, 8, 16, 0.3)';
-                                let hoverBackground = 'linear-gradient(160deg, rgba(28, 40, 60, 0.92) 0%, rgba(13, 22, 37, 0.98) 100%)';
+                                let cardBorder = `1px solid ${alpha(surfaceLightColor, 0.18)}`;
+                                let cardBackground = `linear-gradient(160deg, ${alpha(paperColor, 0.86)} 0%, ${alpha(defaultBackgroundColor, 0.96)} 100%)`;
+                                let cardShadow = `0 10px 22px ${alpha(surfaceDarkColor, 0.36)}`;
+                                let hoverBackground = `linear-gradient(160deg, ${alpha(paperColor, 0.95)} 0%, ${alpha(defaultBackgroundColor, 0.99)} 100%)`;
+                                let planAccentColor = primaryAccentColor;
+                                let ambientGlowColor = alpha(primaryAccentColor, 0.34);
+                                let sweepStrongColor = alpha(primaryAccentColor, 0.42);
+                                let sweepSoftColor = alpha(primaryAccentColor, 0.2);
 
                                 if (plan.isPopular) {
-                                    cardBorder = '1px solid rgba(87, 173, 255, 0.75)';
-                                    cardBackground = 'linear-gradient(160deg, rgba(17, 43, 84, 0.9) 0%, rgba(11, 22, 42, 0.95) 100%)';
-                                    cardShadow = '0 14px 30px rgba(5, 11, 23, 0.42)';
-                                    hoverBackground = 'linear-gradient(160deg, rgba(26, 62, 118, 0.95) 0%, rgba(14, 31, 61, 0.98) 100%)';
+                                    cardBorder = `1px solid ${alpha(primaryAccentColor, 0.75)}`;
+                                    cardBackground = `linear-gradient(160deg, ${alpha(primaryAccentColor, 0.26)} 0%, ${alpha(defaultBackgroundColor, 0.98)} 100%)`;
+                                    cardShadow = `0 14px 30px ${alpha(surfaceDarkColor, 0.46)}`;
+                                    hoverBackground = `linear-gradient(160deg, ${alpha(primaryAccentColor, 0.35)} 0%, ${alpha(defaultBackgroundColor, 0.99)} 100%)`;
+                                    ambientGlowColor = alpha(primaryAccentColor, 0.4);
+                                    sweepStrongColor = alpha(primaryAccentColor, 0.5);
+                                    sweepSoftColor = alpha(primaryAccentColor, 0.26);
                                 }
 
                                 if (isLastPlan) {
-                                    cardBorder = '1px solid rgba(94, 246, 188, 0.82)';
-                                    cardShadow = '0 14px 30px rgba(5, 11, 23, 0.42), 0 0 0 1px rgba(94, 246, 188, 0.28)';
+                                    planAccentColor = successAccentColor;
+                                    cardBorder = `1px solid ${alpha(successAccentColor, 0.82)}`;
+                                    cardShadow = `0 14px 30px ${alpha(surfaceDarkColor, 0.45)}, 0 0 0 1px ${alpha(successAccentColor, 0.32)}`;
+                                    ambientGlowColor = alpha(successAccentColor, 0.42);
+                                    sweepStrongColor = alpha(successAccentColor, 0.52);
+                                    sweepSoftColor = alpha(successAccentColor, 0.3);
                                 }
 
                                 const highlightedCardStyles = {
-                                    borderColor: 'rgba(111, 199, 255, 0.95)',
+                                    borderColor: alpha(planAccentColor, 0.95),
                                     background: hoverBackground,
-                                    boxShadow: '0 0 0 1px rgba(128, 210, 255, 0.35), 0 20px 38px rgba(4, 10, 21, 0.45)'
+                                    boxShadow: `0 0 0 1px ${alpha(planAccentColor, 0.36)}, 0 20px 38px ${alpha(surfaceDarkColor, 0.5)}, 0 0 46px ${ambientGlowColor}`
                                 };
 
                                 return (
@@ -632,18 +652,70 @@ export const Component = () => {
                                         sx={{
                                             position: 'relative',
                                             overflow: 'visible',
+                                            isolation: 'isolate',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             height: '100%',
                                             transition: 'transform 300ms ease',
-                                            '@media (hover: hover) and (pointer: fine)': {
+                                            '&::after': {
+                                                content: '""',
+                                                position: 'absolute',
+                                                inset: '-8px -6px -14px -6px',
+                                                borderRadius: 24,
+                                                background: `radial-gradient(65% 80% at 50% 50%, ${ambientGlowColor} 0%, ${alpha(planAccentColor, 0.14)} 48%, ${alpha(planAccentColor, 0)} 100%)`,
+                                                filter: 'blur(20px)',
+                                                opacity: 0.18,
+                                                transform: 'scale(0.96)',
+                                                transition: 'opacity 320ms ease, transform 320ms ease',
+                                                pointerEvents: 'none',
+                                                zIndex: 0
+                                            },
+                                            [DESKTOP_HOVER_MEDIA_QUERY]: {
                                                 '&:hover': {
-                                                    transform: 'scale(1.03)'
+                                                    transform: 'translateY(-5px) scale(1.02)'
                                                 },
-                                                '&:hover .subscriptionPlanCard': highlightedCardStyles
+                                                '&:hover::after': {
+                                                    opacity: 0.88,
+                                                    transform: 'scale(1.04)'
+                                                },
+                                                '&:hover .subscriptionPlanCard': highlightedCardStyles,
+                                                '&:hover .subscriptionPlanCard::before': {
+                                                    left: '124%',
+                                                    opacity: 1
+                                                },
+                                                '&:hover .subscriptionPlanCard::after': {
+                                                    left: '118%',
+                                                    opacity: 1
+                                                }
                                             },
                                             '@media (hover: none), (pointer: coarse)': {
                                                 '&:active .subscriptionPlanCard': highlightedCardStyles
+                                            },
+                                            '@media (prefers-reduced-motion: reduce)': {
+                                                transition: 'none',
+                                                '&:hover': {
+                                                    transform: 'none'
+                                                },
+                                                '&::after': {
+                                                    transition: 'none'
+                                                },
+                                                '&:hover::after': {
+                                                    opacity: 0.18,
+                                                    transform: 'scale(0.96)'
+                                                },
+                                                '& .subscriptionPlanCard': {
+                                                    transition: 'none'
+                                                },
+                                                '& .subscriptionPlanCard::before, & .subscriptionPlanCard::after': {
+                                                    transition: 'none',
+                                                    opacity: 0
+                                                },
+                                                '&:hover .subscriptionPlanCard::before': {
+                                                    left: '-130%'
+                                                },
+                                                '&:hover .subscriptionPlanCard::after': {
+                                                    left: '-120%'
+                                                }
                                             }
                                         }}
                                     >
@@ -688,12 +760,40 @@ export const Component = () => {
                                                 flexDirection: 'column',
                                                 flexGrow: 1,
                                                 height: '100%',
+                                                zIndex: 1,
                                                 borderRadius: 3,
                                                 border: cardBorder,
                                                 background: cardBackground,
                                                 boxShadow: cardShadow,
                                                 cursor: 'pointer',
-                                                transition: 'box-shadow 300ms ease, border-color 300ms ease, background 300ms ease'
+                                                transition: 'box-shadow 320ms ease, border-color 320ms ease, background 320ms ease',
+                                                '&::before': {
+                                                    content: '""',
+                                                    position: 'absolute',
+                                                    top: '-36%',
+                                                    bottom: '-36%',
+                                                    left: '-130%',
+                                                    width: '28%',
+                                                    background: `linear-gradient(112deg, ${alpha(surfaceLightColor, 0)} 0%, ${sweepStrongColor} 50%, ${alpha(surfaceLightColor, 0)} 100%)`,
+                                                    transform: 'skewX(-20deg)',
+                                                    opacity: 0.9,
+                                                    transition: 'left 620ms ease, opacity 320ms ease',
+                                                    pointerEvents: 'none',
+                                                    zIndex: 0
+                                                },
+                                                '&::after': {
+                                                    content: '""',
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    left: '-120%',
+                                                    width: '120%',
+                                                    background: `linear-gradient(108deg, ${alpha(surfaceLightColor, 0)} 0%, ${sweepSoftColor} 45%, ${alpha(surfaceLightColor, 0)} 100%)`,
+                                                    opacity: 0.8,
+                                                    transition: 'left 860ms ease, opacity 320ms ease',
+                                                    pointerEvents: 'none',
+                                                    zIndex: 0
+                                                }
                                             }}
                                         >
                                             {isLastPlan && (
@@ -707,11 +807,11 @@ export const Component = () => {
                                                         borderRadius: 999,
                                                         fontSize: 11,
                                                         fontWeight: 700,
-                                                        color: '#dbffee',
-                                                        backgroundColor: 'rgba(25, 120, 88, 0.46)',
-                                                        border: '1px solid rgba(121, 234, 186, 0.6)',
+                                                        color: alpha(surfaceLightColor, 0.95),
+                                                        backgroundColor: alpha(successAccentColor, 0.35),
+                                                        border: `1px solid ${alpha(successAccentColor, 0.6)}`,
                                                         whiteSpace: 'nowrap',
-                                                        zIndex: 1
+                                                        zIndex: 2
                                                     }}
                                                 >
                                                     Your Last Plan
@@ -721,6 +821,8 @@ export const Component = () => {
                                                 sx={{
                                                     p: 3,
                                                     pt: 3,
+                                                    position: 'relative',
+                                                    zIndex: 1,
                                                     display: 'flex',
                                                     flexDirection: 'column',
                                                     flexGrow: 1
