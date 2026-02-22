@@ -4,6 +4,7 @@ import {
     DEFAULT_SUBSCRIPTION_PRICING,
     isExpiredStatus,
     isExpiredSubscriptionUser,
+    isInGraceSubscriptionUser,
     normalizeSubscriptionPricing,
     shouldRedirectHomeFromSubscription,
     shouldRedirectToSubscription
@@ -40,6 +41,29 @@ describe('isExpiredSubscriptionUser', () => {
                 IsAdministrator: true
             }
         })).toBe(false);
+    });
+
+    test('returns false for users inside grace period', () => {
+        expect(isExpiredSubscriptionUser({
+            Status: 'Expired',
+            IsInGracePeriod: true,
+            ExpiryDate: null,
+            Policy: {
+                IsAdministrator: false
+            }
+        })).toBe(false);
+    });
+});
+
+describe('isInGraceSubscriptionUser', () => {
+    test('returns true when status is grace', () => {
+        expect(isInGraceSubscriptionUser({
+            Status: 'Grace',
+            ExpiryDate: null,
+            Policy: {
+                IsAdministrator: false
+            }
+        })).toBe(true);
     });
 });
 
@@ -83,12 +107,14 @@ describe('normalizeSubscriptionPricing', () => {
 
     test('accepts decimal pricing values', () => {
         expect(normalizeSubscriptionPricing({
+            GracePeriodDays: 5,
             BasePricePerMonth: 120.5,
             OneMonthPrice: 95.75,
             ThreeMonthPrice: 260.25,
             SixMonthPrice: 480.5,
             TwelveMonthPrice: 900.9
         })).toEqual({
+            GracePeriodDays: 5,
             BasePricePerMonth: 120.5,
             OneMonthPrice: 95.75,
             ThreeMonthPrice: 260.25,
@@ -99,6 +125,7 @@ describe('normalizeSubscriptionPricing', () => {
 
     test('prefers plans array when valid', () => {
         expect(normalizeSubscriptionPricing({
+            GracePeriodDays: 8,
             BasePricePerMonth: 100,
             OneMonthPrice: 999,
             ThreeMonthPrice: 999,
@@ -111,6 +138,7 @@ describe('normalizeSubscriptionPricing', () => {
                 { Months: 12, Price: 860 }
             ]
         })).toEqual({
+            GracePeriodDays: 8,
             BasePricePerMonth: 100,
             OneMonthPrice: 101,
             ThreeMonthPrice: 252,
@@ -121,6 +149,7 @@ describe('normalizeSubscriptionPricing', () => {
 
     test('supports camelCase additive response shape', () => {
         expect(normalizeSubscriptionPricing({
+            gracePeriodDays: 6,
             basePricePerMonth: 125.5,
             plans: [
                 { months: 1, price: 100.5 },
@@ -129,11 +158,18 @@ describe('normalizeSubscriptionPricing', () => {
                 { months: 12, price: 920.1 }
             ]
         })).toEqual({
+            GracePeriodDays: 6,
             BasePricePerMonth: 125.5,
             OneMonthPrice: 100.5,
             ThreeMonthPrice: 260.25,
             SixMonthPrice: 500.75,
             TwelveMonthPrice: 920.1
         });
+    });
+
+    test('clamps invalid grace day values to default', () => {
+        expect(normalizeSubscriptionPricing({
+            GracePeriodDays: -1
+        }).GracePeriodDays).toBe(DEFAULT_SUBSCRIPTION_PRICING.GracePeriodDays);
     });
 });

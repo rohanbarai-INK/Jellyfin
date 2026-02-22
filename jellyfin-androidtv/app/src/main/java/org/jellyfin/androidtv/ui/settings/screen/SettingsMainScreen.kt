@@ -10,7 +10,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.fetchUserAccessState
 import org.jellyfin.androidtv.auth.model.isUserExpired
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
@@ -65,10 +65,20 @@ fun SettingsMainScreen() {
 						val activeSession = session ?: return@ListButton
 						scope.launch {
 							val serverAddress = authenticationStore.getServer(activeSession.serverId)?.address
-							val expiryDate = currentUser?.expiryDateRaw()
-								?: if (!serverAddress.isNullOrBlank()) fetchExpiryDate(serverAddress, activeSession.accessToken) else null
+							val userAccessState = if (!serverAddress.isNullOrBlank()) {
+								fetchUserAccessState(serverAddress, activeSession.accessToken)
+							} else {
+								null
+							}
+							val fallbackExpiryDate = currentUser?.expiryDateRaw()
+							val expiryDate = userAccessState?.expiryDateRaw ?: fallbackExpiryDate
+							val shouldBlock = if (userAccessState != null) {
+								isUserExpired(userAccessState)
+							} else {
+								isUserExpired(fallbackExpiryDate)
+							}
 
-							if (isUserExpired(expiryDate)) {
+							if (shouldBlock) {
 								context.startActivity(
 									Intent(context, SubscriptionExpiredActivity::class.java).apply {
 										putExtra(SubscriptionExpiredActivity.EXTRA_EXPIRY_DATE, expiryDate)

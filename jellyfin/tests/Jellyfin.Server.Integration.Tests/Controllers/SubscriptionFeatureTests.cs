@@ -8,6 +8,7 @@ using Jellyfin.Api.Models.AccessKeyDtos;
 using Jellyfin.Api.Models.UserDtos;
 using Jellyfin.Extensions.Json;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Security;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Dto;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +47,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.Equal(defaultConfig.ThreeMonthPrice, config.ThreeMonthPrice);
             Assert.Equal(defaultConfig.SixMonthPrice, config.SixMonthPrice);
             Assert.Equal(defaultConfig.TwelveMonthPrice, config.TwelveMonthPrice);
+            Assert.Equal(defaultConfig.GracePeriodDays, config.GracePeriodDays);
             AssertPlanBreakdown(config);
         }
 
@@ -74,6 +76,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.Equal(updatedConfig.ThreeMonthPrice, config.ThreeMonthPrice);
             Assert.Equal(updatedConfig.SixMonthPrice, config.SixMonthPrice);
             Assert.Equal(updatedConfig.TwelveMonthPrice, config.TwelveMonthPrice);
+            Assert.Equal(updatedConfig.GracePeriodDays, config.GracePeriodDays);
             AssertPlanBreakdown(config);
         }
 
@@ -104,7 +107,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var username = $"expired-user-{Guid.NewGuid():N}";
             var password = CreateTestPassword();
             var createdUser = await CreateUser(adminClient, username, password);
-            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-1));
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-5));
 
             var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
             var userClient = _factory.CreateClient();
@@ -158,7 +161,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var username = $"expired-authcheck-{Guid.NewGuid():N}";
             var password = CreateTestPassword();
             var createdUser = await CreateUser(adminClient, username, password);
-            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-1));
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-5));
 
             var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
             var userClient = _factory.CreateClient();
@@ -185,7 +188,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var username = $"expired-bootstrap-{Guid.NewGuid():N}";
             var password = CreateTestPassword();
             var createdUser = await CreateUser(adminClient, username, password);
-            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-1));
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-5));
 
             var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
             var userClient = _factory.CreateClient();
@@ -239,6 +242,8 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var payload = await response.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
             Assert.NotNull(payload);
             Assert.Equal("Active", payload.Status);
+            Assert.False(payload.IsInGracePeriod);
+            Assert.Equal(0, payload.GraceDaysRemaining);
             Assert.Null(payload.ExpiryDate);
             Assert.Null(payload.LastDurationMonths);
             Assert.Null(payload.LastRedeemedAt);
@@ -293,10 +298,69 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var payload = await currentSubscriptionResponse.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
             Assert.NotNull(payload);
             Assert.Equal("Active", payload.Status);
+            Assert.False(payload.IsInGracePeriod);
+            Assert.Equal(0, payload.GraceDaysRemaining);
             Assert.Equal(6, payload.LastDurationMonths);
             Assert.NotNull(payload.LastRedeemedAt);
             Assert.NotNull(payload.ExpiryDate);
             Assert.True(payload.ExpiryDate.Value > DateTime.UtcNow.AddMonths(5));
+        }
+
+        [Fact]
+        [Priority(8)]
+        public async Task GraceUser_IsAllowedAndCurrentSubscriptionReturnsGraceStatus()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"grace-user-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-1));
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var unrestrictedResponse = await userClient.GetAsync($"Users/{createdUser.Id:N}/Items/Root");
+            Assert.NotEqual(HttpStatusCode.Forbidden, unrestrictedResponse.StatusCode);
+
+            using var meResponse = await userClient.GetAsync("Users/Me");
+            Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+            var mePayload = await meResponse.Content.ReadFromJsonAsync<UserDto>(_jsonOptions);
+            Assert.NotNull(mePayload);
+            Assert.Equal("Expired", mePayload.Status);
+            Assert.True(mePayload.IsInGracePeriod);
+            Assert.True(mePayload.GraceDaysRemaining > 0);
+
+            using var currentSubscriptionResponse = await userClient.GetAsync("Keys/CurrentSubscription");
+            Assert.Equal(HttpStatusCode.OK, currentSubscriptionResponse.StatusCode);
+
+            var currentPayload = await currentSubscriptionResponse.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
+            Assert.NotNull(currentPayload);
+            Assert.Equal("Grace", currentPayload.Status);
+            Assert.True(currentPayload.IsInGracePeriod);
+            Assert.True(currentPayload.GraceDaysRemaining > 0);
+        }
+
+        [Fact]
+        [Priority(9)]
+        public async Task AccessKeyService_ReturnsExpiredStatusBeyondGraceWindow()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"expired-status-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+            await SetUserExpiryDate(createdUser.Id, DateTime.UtcNow.AddDays(-5));
+
+            var accessKeyService = _factory.Services.GetRequiredService<IAccessKeyService>();
+            var currentSubscription = await accessKeyService.GetCurrentSubscription(createdUser.Id);
+
+            Assert.Equal("Expired", currentSubscription.Status);
+            Assert.False(currentSubscription.IsInGracePeriod);
+            Assert.Equal(0, currentSubscription.GraceDaysRemaining);
         }
 
         private async Task<UserDto> CreateUser(HttpClient adminClient, string username, string password)
@@ -357,6 +421,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var defaultConfig = new SubscriptionConfiguration();
             return new SubscriptionConfiguration
             {
+                GracePeriodDays = defaultConfig.GracePeriodDays + 2,
                 BasePricePerMonth = defaultConfig.BasePricePerMonth + 9.5m,
                 OneMonthPrice = defaultConfig.OneMonthPrice + 11,
                 ThreeMonthPrice = defaultConfig.ThreeMonthPrice + 33,

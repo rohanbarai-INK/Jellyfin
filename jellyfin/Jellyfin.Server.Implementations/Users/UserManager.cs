@@ -16,6 +16,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Common;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Authentication;
@@ -307,6 +308,7 @@ namespace Jellyfin.Server.Implementations.Users
         public UserDto GetUserDto(User user, string? remoteEndPoint = null)
         {
             var castReceiverApplications = _serverConfigurationManager.Configuration.CastReceiverApplications;
+            var isInGracePeriod = IsWithinGracePeriod(user.ExpiryDate);
             return new UserDto
             {
                 Name = user.Username,
@@ -317,6 +319,8 @@ namespace Jellyfin.Server.Implementations.Users
                 LastActivityDate = user.LastActivityDate,
                 ExpiryDate = user.ExpiryDate,
                 Status = user.Status.ToString(),
+                IsInGracePeriod = isInGracePeriod,
+                GraceDaysRemaining = GetGraceDaysRemaining(user.ExpiryDate),
                 PrimaryImageTag = user.ProfileImage is not null ? _imageProcessor.GetImageCacheTag(user) : null,
                 Configuration = new UserConfiguration
                 {
@@ -749,6 +753,40 @@ namespace Jellyfin.Server.Implementations.Users
             }
 
             throw new ArgumentException("Usernames can contain unicode symbols, numbers (0-9), dashes (-), underscores (_), apostrophes ('), and periods (.)", nameof(name));
+        }
+
+        private bool IsWithinGracePeriod(DateTime? expiryDate)
+        {
+            if (!expiryDate.HasValue || expiryDate.Value > DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            var graceDays = GetGracePeriodDays();
+            if (graceDays <= 0)
+            {
+                return false;
+            }
+
+            return DateTime.UtcNow <= expiryDate.Value.AddDays(graceDays);
+        }
+
+        private int GetGraceDaysRemaining(DateTime? expiryDate)
+        {
+            if (!IsWithinGracePeriod(expiryDate))
+            {
+                return 0;
+            }
+
+            var graceEnd = expiryDate!.Value.AddDays(GetGracePeriodDays());
+            var remaining = graceEnd - DateTime.UtcNow;
+            return Math.Max(0, (int)Math.Ceiling(remaining.TotalDays));
+        }
+
+        private int GetGracePeriodDays()
+        {
+            var configuration = _serverConfigurationManager.GetConfiguration<SubscriptionConfiguration>("subscription");
+            return Math.Max(0, configuration.GracePeriodDays);
         }
 
         private IAuthenticationProvider GetAuthenticationProvider(User user)

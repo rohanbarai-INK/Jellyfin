@@ -5,6 +5,7 @@ using Jellyfin.Api.Extensions;
 using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -38,8 +39,9 @@ public class ExpiredSubscriptionMiddleware
     /// </summary>
     /// <param name="httpContext">The current HTTP context.</param>
     /// <param name="userManager">The user manager.</param>
+    /// <param name="accessKeyService">The access key service.</param>
     /// <returns>The async task.</returns>
-    public async Task Invoke(HttpContext httpContext, IUserManager userManager)
+    public async Task Invoke(HttpContext httpContext, IUserManager userManager, IAccessKeyService accessKeyService)
     {
         var request = httpContext.Request;
         if (HttpMethods.IsOptions(request.Method)
@@ -73,6 +75,13 @@ public class ExpiredSubscriptionMiddleware
         var user = userManager.GetUserById(userId);
         if (user is null || user.Status != UserStatus.Expired)
         {
+            await _next(httpContext).ConfigureAwait(false);
+            return;
+        }
+
+        if (accessKeyService.IsWithinGracePeriod(user.ExpiryDate))
+        {
+            httpContext.Items["IsInGracePeriod"] = true;
             await _next(httpContext).ConfigureAwait(false);
             return;
         }

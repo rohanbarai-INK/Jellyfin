@@ -6,9 +6,12 @@ using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Extensions;
+using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
+using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Security;
+using MediaBrowser.Model.Configuration;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jellyfin.Server.Implementations.Security
@@ -16,23 +19,29 @@ namespace Jellyfin.Server.Implementations.Security
     /// <inheritdoc />
     public class AccessKeyService : IAccessKeyService
     {
+        private const string SubscriptionConfigKey = "subscription";
+
         private static readonly HashSet<int> _allowedDurations = new() { 1, 3, 6, 12 };
         private static readonly char[] _alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".ToCharArray();
 
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
         private readonly IUserManager _userManager;
+        private readonly IServerConfigurationManager _configurationManager;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AccessKeyService"/> class.
         /// </summary>
         /// <param name="dbProvider">The database provider.</param>
         /// <param name="userManager">The user manager.</param>
+        /// <param name="configurationManager">The server configuration manager.</param>
         public AccessKeyService(
             IDbContextFactory<JellyfinDbContext> dbProvider,
-            IUserManager userManager)
+            IUserManager userManager,
+            IServerConfigurationManager configurationManager)
         {
             _dbProvider = dbProvider;
             _userManager = userManager;
+            _configurationManager = configurationManager;
         }
 
         /// <inheritdoc />
@@ -144,12 +153,55 @@ namespace Jellyfin.Server.Implementations.Security
                     .FirstOrDefaultAsync()
                     .ConfigureAwait(false);
 
+                var isInGracePeriod = IsWithinGracePeriod(user.ExpiryDate);
+                var graceDaysRemaining = GetGraceDaysRemaining(user.ExpiryDate);
+                var status = isInGracePeriod ? "Grace" : user.Status.ToString();
+
                 return new CurrentSubscriptionResult(
                     user.ExpiryDate,
-                    user.Status.ToString(),
+                    status,
+                    isInGracePeriod,
+                    graceDaysRemaining,
                     latestRedeemedKey?.DurationMonths,
                     latestRedeemedKey?.RedeemedAt);
             }
+        }
+
+        /// <inheritdoc />
+        public bool IsWithinGracePeriod(DateTime? expiryDate)
+        {
+            if (!expiryDate.HasValue)
+            {
+                return false;
+            }
+
+            var now = DateTime.UtcNow;
+            if (expiryDate.Value > now)
+            {
+                return false;
+            }
+
+            var graceDays = GetGracePeriodDays();
+            if (graceDays <= 0)
+            {
+                return false;
+            }
+
+            var graceEnd = expiryDate.Value.AddDays(graceDays);
+            return now <= graceEnd;
+        }
+
+        /// <inheritdoc />
+        public int GetGraceDaysRemaining(DateTime? expiryDate)
+        {
+            if (!IsWithinGracePeriod(expiryDate))
+            {
+                return 0;
+            }
+
+            var graceEnd = expiryDate!.Value.AddDays(GetGracePeriodDays());
+            var remaining = graceEnd - DateTime.UtcNow;
+            return Math.Max(0, (int)Math.Ceiling(remaining.TotalDays));
         }
 
         private static string CreateFormattedKey()
@@ -178,6 +230,12 @@ namespace Jellyfin.Server.Implementations.Security
             }
 
             throw new ArgumentOutOfRangeException(nameof(months), "Duration must be one of: 1, 3, 6, 12.");
+        }
+
+        private int GetGracePeriodDays()
+        {
+            var configuration = _configurationManager.GetConfiguration<SubscriptionConfiguration>(SubscriptionConfigKey);
+            return Math.Max(0, configuration.GracePeriodDays);
         }
     }
 }

@@ -100,6 +100,16 @@ namespace MediaBrowser.Model.Dto
         public string Status { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the user is currently in grace period.
+        /// </summary>
+        public bool IsInGracePeriod { get; set; }
+
+        /// <summary>
+        /// Gets or sets remaining grace days.
+        /// </summary>
+        public int GraceDaysRemaining { get; set; }
+
+        /// <summary>
         /// Gets or sets the configuration.
         /// </summary>
         /// <value>The configuration.</value>

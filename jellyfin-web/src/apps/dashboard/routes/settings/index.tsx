@@ -41,6 +41,7 @@ const SUBSCRIPTION_PRICE_FIELDS: Array<{
     name: keyof SubscriptionPricing
     label: string
 }> = [
+    { name: 'GracePeriodDays', label: 'Grace Period Days' },
     { name: 'BasePricePerMonth', label: 'Base Price Per Month (Rs)' },
     { name: 'OneMonthPrice', label: '1 Month Price (Rs)' },
     { name: 'ThreeMonthPrice', label: '3 Months Price (Rs)' },
@@ -68,9 +69,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return parsedValue;
     };
 
+    const parseGracePeriodDays = () => {
+        const rawValue = formData.get('GracePeriodDays')?.toString().trim() ?? '';
+        if (!rawValue) {
+            throw new Error('Grace period days must be a non-negative integer.');
+        }
+
+        const parsedValue = Number(rawValue);
+        if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+            throw new Error('Grace period days must be a non-negative integer.');
+        }
+
+        return parsedValue;
+    };
+
     let subscriptionPricing: SubscriptionPricing;
     try {
         subscriptionPricing = {
+            GracePeriodDays: parseGracePeriodDays(),
             BasePricePerMonth: parseSubscriptionPrice('BasePricePerMonth'),
             OneMonthPrice: parseSubscriptionPrice('OneMonthPrice'),
             ThreeMonthPrice: parseSubscriptionPrice('ThreeMonthPrice'),
@@ -342,8 +358,8 @@ export const Component = () => {
                                     defaultValue={subscriptionPricing[field.name]}
                                     slotProps={{
                                         htmlInput: {
-                                            min: 0.01,
-                                            step: 0.01
+                                            min: field.name === 'GracePeriodDays' ? 0 : 0.01,
+                                            step: field.name === 'GracePeriodDays' ? 1 : 0.01
                                         }
                                     }}
                                 />

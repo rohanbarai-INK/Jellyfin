@@ -35,8 +35,11 @@
     <string name="subscription_last_plan_badge">Your Last Plan</string>
     <string name="subscription_plan_unknown">Unknown</string>
     <string name="subscription_status_active">Active</string>
+    <string name="subscription_status_grace">Grace</string>
     <string name="subscription_status_expired">Expired</string>
     <string name="subscription_status_format">Status: %1$s</string>
+    <string name="subscription_grace_banner_title">Grace Period Active</string>
+    <string name="subscription_grace_banner_body">Your subscription expired %1$d day(s) ago. You are in a %2$d-day grace period with %3$d day(s) remaining. Renew now to continue uninterrupted.</string>
     <string name="subscription_valid_until_format">Valid until: %1$s</string>
     <string name="subscription_not_set">Not set</string>
     <string name="subscription_cycle_remaining_format">%1$d%% of current cycle remaining</string>
@@ -182,5 +185,9 @@
     <plurals name="subscription_days_remaining">
         <item quantity="one">%d day remaining</item>
         <item quantity="other">%d days remaining</item>
+    </plurals>
+    <plurals name="subscription_grace_days_remaining">
+        <item quantity="one">%d grace day remaining</item>
+        <item quantity="other">%d grace days remaining</item>
     </plurals>
 </resources>

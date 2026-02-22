@@ -118,6 +118,8 @@ public class AccessKeyController : BaseJellyfinApiController
         {
             ExpiryDate = result.ExpiryDate,
             Status = result.Status,
+            IsInGracePeriod = result.IsInGracePeriod,
+            GraceDaysRemaining = result.GraceDaysRemaining,
             LastDurationMonths = result.LastDurationMonths,
             LastRedeemedAt = result.LastRedeemedAt
         };

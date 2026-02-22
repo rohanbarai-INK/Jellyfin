@@ -11,6 +11,18 @@ import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.OffsetDateTime
 
+data class UserAccessState(
+	val expiryDateRaw: String?,
+	val isInGracePeriod: Boolean,
+	val graceDaysRemaining: Int,
+) {
+	val isExpired: Boolean
+		get() {
+			val expiryInstant = parseExpiryDate(expiryDateRaw) ?: return false
+			return !expiryInstant.isAfter(Instant.now()) && !isInGracePeriod
+		}
+}
+
 fun parseExpiryDate(value: String?): Instant? {
 	if (value.isNullOrBlank()) return null
 
@@ -21,12 +33,20 @@ fun parseExpiryDate(value: String?): Instant? {
 	}
 }
 
-fun isUserExpired(expiryDate: String?): Boolean {
+fun isUserExpired(accessState: UserAccessState?): Boolean {
+	return accessState?.isExpired == true
+}
+
+fun isUserExpired(expiryDate: String?, isInGracePeriod: Boolean = false): Boolean {
 	val expiryInstant = parseExpiryDate(expiryDate) ?: return false
-	return !expiryInstant.isAfter(Instant.now())
+	return !expiryInstant.isAfter(Instant.now()) && !isInGracePeriod
 }
 
 suspend fun fetchExpiryDate(serverAddress: String, accessToken: String): String? = withContext(Dispatchers.IO) {
+	fetchUserAccessState(serverAddress, accessToken)?.expiryDateRaw
+}
+
+suspend fun fetchUserAccessState(serverAddress: String, accessToken: String): UserAccessState? = withContext(Dispatchers.IO) {
 	val baseUrl = serverAddress.trimEnd('/')
 	val endpoint = "$baseUrl/Users/Me?api_key=${
 		URLEncoder.encode(accessToken, StandardCharsets.UTF_8.name())
@@ -50,9 +70,17 @@ suspend fun fetchExpiryDate(serverAddress: String, accessToken: String): String?
 
 	body?.let { response ->
 		runCatching {
-			JSONObject(response).optString("ExpiryDate", null)
+			val payload = JSONObject(response)
+			val expiryDate = payload.optString("ExpiryDate", null).takeUnless(String::isBlank)
+			val isInGracePeriod = payload.optBoolean("IsInGracePeriod", false)
+			val graceDaysRemaining = payload.optInt("GraceDaysRemaining", 0).coerceAtLeast(0)
+			UserAccessState(
+				expiryDateRaw = expiryDate,
+				isInGracePeriod = isInGracePeriod,
+				graceDaysRemaining = graceDaysRemaining,
+			)
 		}.onFailure { error ->
-			Timber.w(error, "Unable to parse expiry date response")
+			Timber.w(error, "Unable to parse user access response")
 		}.getOrNull()
-	}?.takeUnless(String::isBlank)
+	}
 }

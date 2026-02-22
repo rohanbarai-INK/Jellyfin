@@ -52,10 +52,13 @@ class SubscriptionActivity : AppCompatActivity() {
     private data class CurrentSubscription(
         val expiryDate: Instant?,
         val status: String,
+        val isInGracePeriod: Boolean,
+        val graceDaysRemaining: Int,
         val lastDurationMonths: Int?,
     )
 
     private data class PricingConfig(
+        val gracePeriodDays: Int,
         val basePricePerMonth: Double,
         val oneMonthPrice: Double,
         val threeMonthPrice: Double,
@@ -126,8 +129,8 @@ class SubscriptionActivity : AppCompatActivity() {
 
         if (baseUrl.isNullOrBlank() || accessToken.isNullOrBlank()) {
             Timber.w("Unable to load subscription metadata due to missing server context")
-            renderPlans(PricingConfig(100.0, 100.0, 250.0, 450.0, 850.0), null)
-            renderCurrentPlanCard(null)
+            renderPlans(PricingConfig(3, 100.0, 100.0, 250.0, 450.0, 850.0), null)
+            renderCurrentPlanCard(null, 3)
             return
         }
 
@@ -137,11 +140,12 @@ class SubscriptionActivity : AppCompatActivity() {
             current to pricing
         }
 
-        renderCurrentPlanCard(currentSubscription)
-        renderPlans(pricingConfig ?: PricingConfig(100.0, 100.0, 250.0, 450.0, 850.0), currentSubscription?.lastDurationMonths)
+        val resolvedPricing = pricingConfig ?: PricingConfig(3, 100.0, 100.0, 250.0, 450.0, 850.0)
+        renderCurrentPlanCard(currentSubscription, resolvedPricing.gracePeriodDays)
+        renderPlans(resolvedPricing, currentSubscription?.lastDurationMonths)
     }
 
-    private fun renderCurrentPlanCard(currentSubscription: CurrentSubscription?) {
+    private fun renderCurrentPlanCard(currentSubscription: CurrentSubscription?, gracePeriodDays: Int) {
         val planName = when (currentSubscription?.lastDurationMonths) {
             1 -> getString(R.string.subscription_plan_starter)
             3 -> getString(R.string.subscription_plan_standard)
@@ -152,11 +156,12 @@ class SubscriptionActivity : AppCompatActivity() {
         binding.currentPlanBadge.text = planName
 
         val expiryDate = currentSubscription?.expiryDate
+        val isInGracePeriod = currentSubscription?.isInGracePeriod == true
         val status = currentSubscription?.status?.takeUnless(String::isBlank)
-            ?: if (expiryDate != null && expiryDate.isBefore(Instant.now())) {
-                getString(R.string.subscription_status_expired)
-            } else {
-                getString(R.string.subscription_status_active)
+            ?: when {
+                isInGracePeriod -> getString(R.string.subscription_status_grace)
+                expiryDate != null && expiryDate.isBefore(Instant.now()) -> getString(R.string.subscription_status_expired)
+                else -> getString(R.string.subscription_status_active)
             }
         binding.subscriptionStatusText.text = getString(R.string.subscription_status_format, status)
 
@@ -170,30 +175,67 @@ class SubscriptionActivity : AppCompatActivity() {
             maxOf(0, ceil(diffMillis.toDouble() / DAY_IN_MILLIS.toDouble()).toInt())
         }
 
+        val graceDaysRemaining = currentSubscription?.graceDaysRemaining?.coerceAtLeast(0) ?: 0
+        val configuredGraceDays = gracePeriodDays.coerceAtLeast(0)
+        val graceDaysElapsed = if (expiryDate == null) {
+            0
+        } else {
+            val elapsedMillis = System.currentTimeMillis() - expiryDate.toEpochMilli()
+            maxOf(0, ceil(elapsedMillis.toDouble() / DAY_IN_MILLIS.toDouble()).toInt())
+        }
+
         val totalPlanDays = PLAN_DAYS[currentSubscription?.lastDurationMonths] ?: 0
-        val progressPercent = if (totalPlanDays <= 0) {
+        val progressPercent = if (isInGracePeriod) {
+            if (configuredGraceDays > 0) {
+                ((graceDaysRemaining.toDouble() / configuredGraceDays.toDouble()) * 100.0).coerceIn(0.0, 100.0).roundToInt()
+            } else {
+                0
+            }
+        } else if (totalPlanDays <= 0) {
             0
         } else {
             ((daysRemaining.toDouble() / totalPlanDays.toDouble()) * 100.0).coerceIn(0.0, 100.0).roundToInt()
         }
 
         val progressColorRes = when {
+            isInGracePeriod -> R.color.subscription_progress_orange
             daysRemaining > 30 -> R.color.subscription_progress_green
             daysRemaining >= 7 -> R.color.subscription_progress_orange
             else -> R.color.subscription_progress_red
         }
         val progressColor = ContextCompat.getColor(this, progressColorRes)
 
-        binding.daysRemainingText.text = resources.getQuantityString(
-            R.plurals.subscription_days_remaining,
-            daysRemaining,
-            daysRemaining,
-        )
+        if (isInGracePeriod) {
+            binding.daysRemainingText.text = resources.getQuantityString(
+                R.plurals.subscription_grace_days_remaining,
+                graceDaysRemaining,
+                graceDaysRemaining,
+            )
+        } else {
+            binding.daysRemainingText.text = resources.getQuantityString(
+                R.plurals.subscription_days_remaining,
+                daysRemaining,
+                daysRemaining,
+            )
+        }
         binding.daysRemainingText.setTextColor(progressColor)
         binding.planProgressBar.progressTintList = android.content.res.ColorStateList.valueOf(progressColor)
         binding.planProgressBar.progress = progressPercent
         binding.progressPercentText.text = getString(R.string.subscription_cycle_remaining_format, progressPercent)
-        binding.renewNowButton.visibility = if (daysRemaining < 7) View.VISIBLE else View.GONE
+        binding.renewNowButton.visibility = if (isInGracePeriod || daysRemaining < 7) View.VISIBLE else View.GONE
+
+        if (isInGracePeriod) {
+            binding.graceBannerContainer.visibility = View.VISIBLE
+            binding.graceBannerTitle.text = getString(R.string.subscription_grace_banner_title)
+            binding.graceBannerBody.text = getString(
+                R.string.subscription_grace_banner_body,
+                graceDaysElapsed,
+                configuredGraceDays,
+                graceDaysRemaining,
+            )
+        } else {
+            binding.graceBannerContainer.visibility = View.GONE
+        }
     }
 
     private fun renderPlans(pricingConfig: PricingConfig, lastDurationMonths: Int?) {
@@ -314,6 +356,9 @@ class SubscriptionActivity : AppCompatActivity() {
             CurrentSubscription(
                 expiryDate = parseInstant(payload.optString("ExpiryDate", null)),
                 status = payload.optString("Status", ""),
+                isInGracePeriod = payload.optBoolean("IsInGracePeriod", false)
+                    || payload.optString("Status", "").equals("Grace", ignoreCase = true),
+                graceDaysRemaining = payload.optInt("GraceDaysRemaining", 0).coerceAtLeast(0),
                 lastDurationMonths = payload.optInt("LastDurationMonths", -1).takeIf { it in PLAN_DAYS.keys },
             )
         } catch (error: JSONException) {
@@ -332,6 +377,7 @@ class SubscriptionActivity : AppCompatActivity() {
             var threeMonth = parsePositiveDouble(payload.opt("ThreeMonthPrice"), 250.0)
             var sixMonth = parsePositiveDouble(payload.opt("SixMonthPrice"), 450.0)
             var twelveMonth = parsePositiveDouble(payload.opt("TwelveMonthPrice"), 850.0)
+            val gracePeriodDays = parseNonNegativeInt(payload.opt("GracePeriodDays"), 3)
 
             val plans = payload.optJSONArray("Plans")
             if (plans != null) {
@@ -343,6 +389,7 @@ class SubscriptionActivity : AppCompatActivity() {
             }
 
             PricingConfig(
+                gracePeriodDays = gracePeriodDays,
                 basePricePerMonth = base,
                 oneMonthPrice = oneMonth,
                 threeMonthPrice = threeMonth,
@@ -409,6 +456,16 @@ class SubscriptionActivity : AppCompatActivity() {
         }
 
         return if (parsed != null && parsed.isFinite() && parsed > 0.0) parsed else fallback
+    }
+
+    private fun parseNonNegativeInt(value: Any?, fallback: Int): Int {
+        val parsed = when (value) {
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull()
+            else -> null
+        }
+
+        return if (parsed != null && parsed >= 0) parsed else fallback
     }
 
     private fun parseInstant(value: String?): Instant? {

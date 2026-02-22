@@ -35,6 +35,8 @@ class ApiClientController(
     data class UserExpiryStatus(
         val expiryDateRaw: String?,
         val expiryDate: Instant?,
+        val isInGracePeriod: Boolean,
+        val graceDaysRemaining: Int,
         val isExpired: Boolean,
     )
 
@@ -146,11 +148,22 @@ class ApiClientController(
                 }
             }
             ?.takeUnless(String::isBlank)
+        val userPayload = body
+            ?.let { response ->
+                runCatching { JSONObject(response) }
+                    .onFailure { error -> Timber.w(error, "Unable to parse user response") }
+                    .getOrNull()
+            }
+        val isInGracePeriod = userPayload?.optBoolean("IsInGracePeriod", false) == true
+        val graceDaysRemaining = userPayload?.optInt("GraceDaysRemaining", 0)?.coerceAtLeast(0) ?: 0
         val expiryDate = parseExpiryDate(expiryDateRaw)
+        val isExpiredByDate = expiryDate != null && !expiryDate.isAfter(Instant.now())
         UserExpiryStatus(
             expiryDateRaw = expiryDateRaw,
             expiryDate = expiryDate,
-            isExpired = expiryDate != null && !expiryDate.isAfter(Instant.now()),
+            isInGracePeriod = isInGracePeriod,
+            graceDaysRemaining = graceDaysRemaining,
+            isExpired = isExpiredByDate && !isInGracePeriod,
         )
     }
 

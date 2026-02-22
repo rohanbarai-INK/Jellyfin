@@ -64,7 +64,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.UserAccessState
+import org.jellyfin.androidtv.auth.model.fetchUserAccessState
 import org.jellyfin.androidtv.auth.model.isUserExpired
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
@@ -225,16 +226,18 @@ class SubscriptionManagementActivity : AppCompatActivity() {
 		serverContext = context
 
 		val currentUser = userRepository.currentUser.value
-		val expiryDate = resolveCurrentExpiryDate(context)
-		if (isUserExpired(expiryDate)) {
-			openSubscriptionExpiredActivity(expiryDate)
+		val userAccessState = resolveCurrentUserAccessState(context)
+		if (isUserExpired(userAccessState)) {
+			openSubscriptionExpiredActivity(userAccessState.expiryDateRaw)
 			return
 		}
 
 		_uiState.update {
 			it.copy(
 				userName = currentUser?.name.orEmpty(),
-				fallbackExpiryDate = parseInstant(expiryDate),
+				fallbackExpiryDate = parseInstant(userAccessState.expiryDateRaw),
+				fallbackIsInGracePeriod = userAccessState.isInGracePeriod,
+				fallbackGraceDaysRemaining = userAccessState.graceDaysRemaining,
 				autoRenewEnabled = readAutoRenewToggle(context.userId),
 			)
 		}
@@ -253,9 +256,13 @@ class SubscriptionManagementActivity : AppCompatActivity() {
 		)
 	}
 
-	private suspend fun resolveCurrentExpiryDate(serverContext: ServerContext): String? {
+	private suspend fun resolveCurrentUserAccessState(serverContext: ServerContext): UserAccessState {
 		val userExpiryDate = userRepository.currentUser.value?.expiryDateRaw()
-		return userExpiryDate ?: fetchExpiryDate(serverContext.baseUrl, serverContext.accessToken)
+		return fetchUserAccessState(serverContext.baseUrl, serverContext.accessToken) ?: UserAccessState(
+			expiryDateRaw = userExpiryDate,
+			isInGracePeriod = false,
+			graceDaysRemaining = 0,
+		)
 	}
 
 	private suspend fun loadSubscriptionData(
@@ -309,6 +316,8 @@ class SubscriptionManagementActivity : AppCompatActivity() {
 				currentSubscription = currentSubscription,
 				pricingConfig = pricingConfig,
 				fallbackExpiryDate = currentSubscription?.expiryDate ?: it.fallbackExpiryDate,
+				fallbackIsInGracePeriod = currentSubscription?.isInGracePeriod ?: it.fallbackIsInGracePeriod,
+				fallbackGraceDaysRemaining = currentSubscription?.graceDaysRemaining ?: it.fallbackGraceDaysRemaining,
 			)
 		}
 	}
@@ -406,6 +415,8 @@ private data class SubscriptionUiState(
 	val statusErrorMessage: String? = null,
 	val currentSubscription: CurrentSubscription? = null,
 	val fallbackExpiryDate: Instant? = null,
+	val fallbackIsInGracePeriod: Boolean = false,
+	val fallbackGraceDaysRemaining: Int = 0,
 	val pricingConfig: PricingConfig = PricingConfig(),
 	val autoRenewEnabled: Boolean = false,
 	val accessKey: String = "",
@@ -417,10 +428,13 @@ private data class SubscriptionUiState(
 private data class CurrentSubscription(
 	val expiryDate: Instant?,
 	val status: String,
+	val isInGracePeriod: Boolean,
+	val graceDaysRemaining: Int,
 	val lastDurationMonths: Int?,
 )
 
 private data class PricingConfig(
+	val gracePeriodDays: Int = 3,
 	val basePricePerMonth: Double = 100.0,
 	val oneMonthPrice: Double = 100.0,
 	val threeMonthPrice: Double = 250.0,
@@ -463,6 +477,16 @@ private fun SubscriptionManagementScreen(
 
 	val subscription = uiState.currentSubscription
 	val expiryDate = subscription?.expiryDate ?: uiState.fallbackExpiryDate
+	val isInGracePeriod = subscription?.isInGracePeriod ?: uiState.fallbackIsInGracePeriod
+	val graceDaysRemaining = (
+		subscription?.graceDaysRemaining ?: uiState.fallbackGraceDaysRemaining
+	).coerceAtLeast(0)
+	val graceDaysTotal = uiState.pricingConfig.gracePeriodDays.coerceAtLeast(0)
+	val graceDaysElapsed = if (isInGracePeriod && expiryDate != null) {
+		maxOf(0, ceil((System.currentTimeMillis() - expiryDate.toEpochMilli()).toDouble() / DAY_IN_MILLIS).toInt())
+	} else {
+		0
+	}
 	val daysRemaining = remember(expiryDate) {
 		if (expiryDate == null) {
 			0
@@ -472,12 +496,19 @@ private fun SubscriptionManagementScreen(
 	}
 	val lastDurationMonths = subscription?.lastDurationMonths
 	val totalPlanDays = lastDurationMonths?.let { PLAN_DURATION_DAYS[it] } ?: 0
-	val progressPercent = if (totalPlanDays <= 0) {
+	val progressPercent = if (isInGracePeriod) {
+		if (graceDaysTotal <= 0) {
+			0
+		} else {
+			((graceDaysRemaining.toDouble() / graceDaysTotal.toDouble()) * 100.0).coerceIn(0.0, 100.0).roundToInt()
+		}
+	} else if (totalPlanDays <= 0) {
 		0
 	} else {
 		((daysRemaining.toDouble() / totalPlanDays.toDouble()) * 100.0).coerceIn(0.0, 100.0).roundToInt()
 	}
 	val progressColor = when {
+		isInGracePeriod -> Tokens.Color.colorOrange400
 		daysRemaining > 30 -> Tokens.Color.colorGreen400
 		daysRemaining >= 7 -> Tokens.Color.colorOrange400
 		else -> Tokens.Color.colorRed400
@@ -490,6 +521,7 @@ private fun SubscriptionManagementScreen(
 		else -> R.string.subscription_plan_unknown
 	}
 	val statusText = subscription?.status?.takeUnless { it.isBlank() } ?: when {
+		isInGracePeriod -> stringResource(R.string.subscription_status_grace)
 		expiryDate != null && !expiryDate.isAfter(Instant.now()) -> stringResource(R.string.subscription_status_expired)
 		else -> stringResource(R.string.subscription_status_active)
 	}
@@ -514,11 +546,15 @@ private fun SubscriptionManagementScreen(
 				statusText = statusText,
 				validUntil = formatDate(expiryDate),
 				daysRemaining = daysRemaining,
+				isInGracePeriod = isInGracePeriod,
+				graceDaysElapsed = graceDaysElapsed,
+				graceDaysRemaining = graceDaysRemaining,
+				graceDaysTotal = graceDaysTotal,
 				progressPercent = progressPercent,
 				progressColor = progressColor,
 				autoRenewEnabled = uiState.autoRenewEnabled,
 				onAutoRenewToggle = onAutoRenewToggle,
-				showRenewNow = daysRemaining < 7,
+				showRenewNow = isInGracePeriod || daysRemaining < 7,
 				onRenewNow = {
 					scope.launch {
 						listState.animateScrollToItem(RENEW_SCROLL_TARGET_INDEX)
@@ -618,6 +654,10 @@ private fun SubscriptionStatusCard(
 	statusText: String,
 	validUntil: String,
 	daysRemaining: Int,
+	isInGracePeriod: Boolean,
+	graceDaysElapsed: Int,
+	graceDaysRemaining: Int,
+	graceDaysTotal: Int,
 	progressPercent: Int,
 	progressColor: Color,
 	autoRenewEnabled: Boolean,
@@ -677,6 +717,39 @@ private fun SubscriptionStatusCard(
 				)
 			}
 
+			if (isInGracePeriod) {
+				Column(
+					modifier = Modifier
+						.fillMaxWidth()
+						.clip(JellyfinTheme.shapes.large)
+						.background(Tokens.Color.colorOrange900.copy(alpha = 0.32f))
+						.border(
+							width = 1.dp,
+							color = Tokens.Color.colorOrange400.copy(alpha = 0.6f),
+							shape = JellyfinTheme.shapes.large,
+						)
+						.padding(horizontal = 12.dp, vertical = 10.dp),
+					verticalArrangement = Arrangement.spacedBy(6.dp),
+				) {
+					Text(
+						text = stringResource(R.string.subscription_grace_banner_title),
+						fontSize = 16.sp,
+						fontWeight = FontWeight.Bold,
+						color = Tokens.Color.colorOrange200,
+					)
+					Text(
+						text = stringResource(
+							R.string.subscription_grace_banner_body,
+							graceDaysElapsed,
+							graceDaysTotal,
+							graceDaysRemaining,
+						),
+						fontSize = 14.sp,
+						color = JellyfinTheme.colorScheme.listHeadline.copy(alpha = 0.94f),
+					)
+				}
+			}
+
 			Text(
 				text = stringResource(R.string.subscription_status_format, statusText),
 				fontSize = 17.sp,
@@ -686,7 +759,15 @@ private fun SubscriptionStatusCard(
 				fontSize = 17.sp,
 			)
 			Text(
-				text = pluralStringResource(R.plurals.subscription_days_remaining, daysRemaining, daysRemaining),
+				text = if (isInGracePeriod) {
+					pluralStringResource(
+						R.plurals.subscription_grace_days_remaining,
+						graceDaysRemaining,
+						graceDaysRemaining,
+					)
+				} else {
+					pluralStringResource(R.plurals.subscription_days_remaining, daysRemaining, daysRemaining)
+				},
 				fontSize = 20.sp,
 				fontWeight = FontWeight.Bold,
 				color = progressColor,
@@ -1107,9 +1188,16 @@ private fun fetchCurrentSubscription(baseUrl: String, accessToken: String): Curr
 	val body = fetchEndpointBody(baseUrl, ENDPOINT_CURRENT_SUBSCRIPTION, accessToken)
 	return try {
 		val payload = JSONObject(body)
+		val status = payload.optStringAny("Status", "status").orEmpty()
+		val isInGracePeriod = payload.optBooleanAny("IsInGracePeriod", "isInGracePeriod")
+			?: status.equals("Grace", ignoreCase = true)
 		CurrentSubscription(
 			expiryDate = parseInstant(payload.optStringAny("ExpiryDate", "expiryDate")),
-			status = payload.optStringAny("Status", "status").orEmpty(),
+			status = status,
+			isInGracePeriod = isInGracePeriod,
+			graceDaysRemaining = (
+				payload.optIntAny("GraceDaysRemaining", "graceDaysRemaining") ?: 0
+				).coerceAtLeast(0),
 			lastDurationMonths = payload.optIntAny("LastDurationMonths", "lastDurationMonths")
 				?.takeIf { it in SUPPORTED_MONTHS },
 		)
@@ -1122,6 +1210,9 @@ private fun fetchSubscriptionPricing(baseUrl: String, accessToken: String): Pric
 	val body = fetchEndpointBody(baseUrl, ENDPOINT_PRICING, accessToken)
 	return try {
 		val payload = JSONObject(body)
+		val gracePeriodDays = (
+			payload.optIntAny("GracePeriodDays", "gracePeriodDays") ?: 3
+			).coerceAtLeast(0)
 		val basePrice = parsePositiveDouble(
 			payload.optAny("BasePricePerMonth", "basePricePerMonth"),
 			100.0,
@@ -1154,6 +1245,7 @@ private fun fetchSubscriptionPricing(baseUrl: String, accessToken: String): Pric
 		}
 
 		PricingConfig(
+			gracePeriodDays = gracePeriodDays,
 			basePricePerMonth = basePrice,
 			oneMonthPrice = oneMonthPrice,
 			threeMonthPrice = threeMonthPrice,
@@ -1304,6 +1396,16 @@ private fun JSONObject.optIntAny(vararg keys: String): Int? {
 	return when (value) {
 		is Number -> value.toInt()
 		is String -> value.toIntOrNull()
+		else -> null
+	}
+}
+
+private fun JSONObject.optBooleanAny(vararg keys: String): Boolean? {
+	val value = optAny(*keys) ?: return null
+	return when (value) {
+		is Boolean -> value
+		is Number -> value.toInt() != 0
+		is String -> value.equals("true", ignoreCase = true)
 		else -> null
 	}
 }

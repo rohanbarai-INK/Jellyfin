@@ -1,4 +1,5 @@
 export interface SubscriptionPricing {
+    GracePeriodDays: number
     BasePricePerMonth: number
     OneMonthPrice: number
     ThreeMonthPrice: number
@@ -14,6 +15,7 @@ type SubscriptionPlanEntry = {
 };
 
 export type SubscriptionPricingConfig = Partial<SubscriptionPricing> & {
+    gracePeriodDays?: unknown
     basePricePerMonth?: unknown
     Plans?: SubscriptionPlanEntry[] | null
     plans?: SubscriptionPlanEntry[] | null
@@ -29,6 +31,10 @@ type UserWithSubscriptionStateShape = {
     status?: string | null
     ExpiryDate?: string | null
     expiryDate?: string | null
+    IsInGracePeriod?: boolean | null
+    isInGracePeriod?: boolean | null
+    GraceDaysRemaining?: number | null
+    graceDaysRemaining?: number | null
     Policy?: UserPolicy
     policy?: UserPolicy
     localUser?: UserWithSubscriptionStateShape
@@ -42,6 +48,7 @@ export const SUBSCRIPTION_ROUTE = '/subscription';
 export const SUBSCRIPTION_HASH_ROUTE = '#/subscription';
 
 export const DEFAULT_SUBSCRIPTION_PRICING: SubscriptionPricing = {
+    GracePeriodDays: 3,
     BasePricePerMonth: 100,
     OneMonthPrice: 100,
     ThreeMonthPrice: 250,
@@ -54,6 +61,11 @@ const PLAN_MONTHS = [ 1, 3, 6, 12 ] as const;
 const parsePositiveNumber = (value: unknown, fallback: number) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const parseNonNegativeInteger = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
 const isPlanDuration = (value: number): value is typeof PLAN_MONTHS[number] => (
@@ -91,6 +103,9 @@ export const normalizeSubscriptionPricing = (config: SubscriptionPricingConfig |
     const planMap = getPlanMap(config);
 
     return {
+        GracePeriodDays: parseNonNegativeInteger(
+            config?.GracePeriodDays ?? config?.gracePeriodDays,
+            DEFAULT_SUBSCRIPTION_PRICING.GracePeriodDays),
         BasePricePerMonth: parsePositiveNumber(
             config?.BasePricePerMonth ?? config?.basePricePerMonth,
             DEFAULT_SUBSCRIPTION_PRICING.BasePricePerMonth),
@@ -118,6 +133,20 @@ export const isExpiredStatus = (status: string | null | undefined, expiryDate: s
     return !Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() < Date.now();
 };
 
+export const isInGraceSubscriptionUser = (user: UserWithSubscriptionState) => {
+    if (!user) {
+        return false;
+    }
+
+    const localUser = (user.localUser || user.LocalUser || user) as UserWithSubscriptionState;
+    const status = localUser?.Status ?? localUser?.status;
+    if (typeof status === 'string' && status.toLowerCase() === 'grace') {
+        return true;
+    }
+
+    return Boolean(localUser?.IsInGracePeriod ?? localUser?.isInGracePeriod);
+};
+
 export const isExpiredSubscriptionUser = (user: UserWithSubscriptionState) => {
     if (!user) {
         return false;
@@ -128,6 +157,10 @@ export const isExpiredSubscriptionUser = (user: UserWithSubscriptionState) => {
     const isAdministrator = Boolean(policy?.IsAdministrator ?? policy?.isAdministrator);
 
     if (isAdministrator) {
+        return false;
+    }
+
+    if (isInGraceSubscriptionUser(localUser)) {
         return false;
     }
 

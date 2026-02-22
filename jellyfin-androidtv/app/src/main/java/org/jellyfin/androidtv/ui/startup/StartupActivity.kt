@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.JellyfinApplication
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.auth.model.fetchExpiryDate
+import org.jellyfin.androidtv.auth.model.fetchUserAccessState
 import org.jellyfin.androidtv.auth.model.isUserExpired
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.SessionRepositoryState
@@ -120,12 +120,17 @@ class StartupActivity : FragmentActivity() {
 
 				val currentUser = userRepository.currentUser.first { it != null }
 				Timber.i("CurrentUser changed to ${currentUser?.id} while waiting for startup.")
-				val dtoExpiryDate = currentUser?.expiryDateRaw()
-				val expiryDate = dtoExpiryDate
-					?: startupViewModel.getServer(session.serverId)?.let { server ->
-						fetchExpiryDate(server.address, session.accessToken)
-					}
-				if (isUserExpired(expiryDate)) {
+				val userAccessState = startupViewModel.getServer(session.serverId)?.let { server ->
+					fetchUserAccessState(server.address, session.accessToken)
+				}
+				val fallbackExpiryDate = currentUser?.expiryDateRaw()
+				val expiryDate = userAccessState?.expiryDateRaw ?: fallbackExpiryDate
+				val shouldBlock = if (userAccessState != null) {
+					isUserExpired(userAccessState)
+				} else {
+					isUserExpired(fallbackExpiryDate)
+				}
+				if (shouldBlock) {
 					openSubscriptionExpiredActivity(expiryDate)
 					return@onEach
 				}

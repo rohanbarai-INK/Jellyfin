@@ -23,6 +23,7 @@ import Dashboard from 'utils/dashboard';
 import events from 'utils/events';
 import {
     isExpiredSubscriptionUser,
+    isInGraceSubscriptionUser,
     normalizeSubscriptionPricing,
     SUBSCRIPTION_CONFIG_KEY,
     SubscriptionPricingConfig,
@@ -43,6 +44,10 @@ type CurrentSubscriptionMetadata = {
     expiryDate?: string | null
     Status?: string | null
     status?: string | null
+    IsInGracePeriod?: boolean | null
+    isInGracePeriod?: boolean | null
+    GraceDaysRemaining?: number | null
+    graceDaysRemaining?: number | null
     LastDurationMonths?: number | null
     lastDurationMonths?: number | null
     LastRedeemedAt?: string | null
@@ -196,6 +201,10 @@ export const Component = () => {
         () => isExpiredSubscriptionUser(user),
         [ user ]);
 
+    const isInGraceUser = useMemo(
+        () => isInGraceSubscriptionUser(user),
+        [ user ]);
+
     const lastDurationMonths = useMemo(() => {
         const value = Number(currentSubscription?.LastDurationMonths ?? currentSubscription?.lastDurationMonths);
         return Number.isInteger(value) && [ 1, 3, 6, 12 ].includes(value)
@@ -217,8 +226,12 @@ export const Component = () => {
             return status;
         }
 
+        if (isInGraceUser) {
+            return 'Grace';
+        }
+
         return isExpiredUser ? 'Expired' : 'Active';
-    }, [ currentSubscription, isExpiredUser ]);
+    }, [ currentSubscription, isExpiredUser, isInGraceUser ]);
 
     const userExpiryDate = useMemo(() => {
         const candidateUser = user as {
@@ -227,6 +240,15 @@ export const Component = () => {
         } | null | undefined;
 
         return candidateUser?.ExpiryDate ?? candidateUser?.expiryDate ?? null;
+    }, [ user ]);
+
+    const userGraceDaysRemaining = useMemo(() => {
+        const candidateUser = user as {
+            GraceDaysRemaining?: number | null
+            graceDaysRemaining?: number | null
+        } | null | undefined;
+        const parsedValue = Number(candidateUser?.GraceDaysRemaining ?? candidateUser?.graceDaysRemaining);
+        return Number.isFinite(parsedValue) && parsedValue >= 0 ? Math.trunc(parsedValue) : 0;
     }, [ user ]);
 
     const subscriptionExpiryDate = useMemo(() => {
@@ -242,6 +264,33 @@ export const Component = () => {
         const parsedDate = new Date(expiryRaw);
         return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
     }, [ currentSubscription, userExpiryDate ]);
+
+    const isInGracePeriod = useMemo(() => {
+        const graceFlag = currentSubscription?.IsInGracePeriod ?? currentSubscription?.isInGracePeriod;
+        if (typeof graceFlag === 'boolean') {
+            return graceFlag;
+        }
+
+        return isInGraceUser;
+    }, [ currentSubscription, isInGraceUser ]);
+
+    const graceDaysRemaining = useMemo(() => {
+        const value = Number(
+            currentSubscription?.GraceDaysRemaining
+            ?? currentSubscription?.graceDaysRemaining
+            ?? userGraceDaysRemaining);
+        return Number.isFinite(value) && value >= 0 ? Math.trunc(value) : 0;
+    }, [ currentSubscription, userGraceDaysRemaining ]);
+
+    const graceDaysTotal = pricing.GracePeriodDays;
+
+    const graceDaysElapsed = useMemo(() => {
+        if (!isInGracePeriod || !subscriptionExpiryDate) {
+            return 0;
+        }
+
+        return Math.max(0, Math.ceil((Date.now() - subscriptionExpiryDate.getTime()) / DAY_IN_MS));
+    }, [ isInGracePeriod, subscriptionExpiryDate ]);
 
     const validUntilText = useMemo(() => {
         if (!subscriptionExpiryDate) {
@@ -275,7 +324,19 @@ export const Component = () => {
         return Math.max(0, Math.min(100, (daysRemaining / totalPlanDays) * 100));
     }, [ daysRemaining, totalPlanDays ]);
 
+    const graceProgressPercent = useMemo(() => {
+        if (!isInGracePeriod || graceDaysTotal <= 0) {
+            return 0;
+        }
+
+        return Math.max(0, Math.min(100, (graceDaysRemaining / graceDaysTotal) * 100));
+    }, [ graceDaysRemaining, graceDaysTotal, isInGracePeriod ]);
+
     const progressColor = useMemo(() => {
+        if (isInGracePeriod) {
+            return '#ff9800';
+        }
+
         if (daysRemaining > 30) {
             return '#2ecc71';
         }
@@ -285,7 +346,7 @@ export const Component = () => {
         }
 
         return '#ff5252';
-    }, [ daysRemaining ]);
+    }, [ daysRemaining, isInGracePeriod ]);
 
     useEffect(() => {
         try {
@@ -457,6 +518,14 @@ export const Component = () => {
                             )}
                         </Stack>
 
+                        {isInGracePeriod && (
+                            <Alert severity='warning'>
+                                {`Your subscription expired ${graceDaysElapsed} day${graceDaysElapsed === 1 ? '' : 's'} ago. `}
+                                {`You are in a ${graceDaysTotal}-day grace period with ${graceDaysRemaining} day${graceDaysRemaining === 1 ? '' : 's'} remaining. `}
+                                Renew now to continue uninterrupted.
+                            </Alert>
+                        )}
+
                         {!isExpiredUser && (
                             <Card
                                 sx={{
@@ -536,14 +605,16 @@ export const Component = () => {
                                                 Valid until: {validUntilText}
                                             </Typography>
                                             <Typography sx={{ color: progressColor, fontWeight: 600 }}>
-                                                {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining
+                                                {isInGracePeriod
+                                                    ? `${graceDaysRemaining} grace day${graceDaysRemaining === 1 ? '' : 's'} remaining`
+                                                    : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining`}
                                             </Typography>
                                         </Stack>
 
                                         <Stack spacing={0.8}>
                                             <LinearProgress
                                                 variant='determinate'
-                                                value={progressPercent}
+                                                value={isInGracePeriod ? graceProgressPercent : progressPercent}
                                                 sx={{
                                                     height: 10,
                                                     borderRadius: 999,
@@ -556,7 +627,9 @@ export const Component = () => {
                                                 }}
                                             />
                                             <Typography sx={{ fontSize: 12, opacity: 0.7 }}>
-                                                {Math.round(progressPercent)}% of current cycle remaining
+                                                {isInGracePeriod
+                                                    ? `${Math.round(graceProgressPercent)}% of grace period remaining`
+                                                    : `${Math.round(progressPercent)}% of current cycle remaining`}
                                             </Typography>
                                         </Stack>
 

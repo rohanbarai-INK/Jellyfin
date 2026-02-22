@@ -6,6 +6,11 @@ namespace MediaBrowser.Model.Configuration;
 public class SubscriptionConfiguration
 {
     /// <summary>
+    /// Gets or sets the number of grace days allowed after subscription expiry.
+    /// </summary>
+    public int GracePeriodDays { get; set; } = 3;
+
+    /// <summary>
     /// Gets or sets the base monthly price in rupees used for discount calculations.
     /// </summary>
     public decimal BasePricePerMonth { get; set; } = 100;
