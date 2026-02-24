@@ -34,6 +34,36 @@ namespace Jellyfin.Server.Integration.Tests
             await response.Content.ReadFromJsonAsync<BrandingOptions>();
         }
 
+        [Fact]
+        public async Task GetConfiguration_DoesNotExposeLogoFields()
+        {
+            // Arrange
+            var client = _factory.CreateClient();
+
+            // Act
+            var response = await client.GetAsync("/Branding/Configuration");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var jsonDocument = JsonDocument.Parse(responseBody);
+            Assert.False(jsonDocument.RootElement.TryGetProperty("LogoEnabled", out _));
+            Assert.False(jsonDocument.RootElement.TryGetProperty("LogoLocation", out _));
+        }
+
+        [Fact]
+        public async Task GetLogo_WhenNoLogoConfigured_ReturnsNotFound()
+        {
+            // Arrange
+            var client = _factory.CreateClient();
+
+            // Act
+            var response = await client.GetAsync("/Branding/Logo");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
         [Theory]
         [InlineData("/Branding/Css")]
         [InlineData("/Branding/Css.css")]

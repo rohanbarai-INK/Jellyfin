@@ -124,6 +124,13 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             using var pricingResponse = await userClient.GetAsync("System/Configuration/subscription");
             Assert.Equal(HttpStatusCode.OK, pricingResponse.StatusCode);
 
+            using var currentSubscriptionResponse = await userClient.GetAsync("Keys/CurrentSubscription");
+            Assert.Equal(HttpStatusCode.OK, currentSubscriptionResponse.StatusCode);
+            var currentSubscriptionPayload = await currentSubscriptionResponse.Content.ReadFromJsonAsync<CurrentSubscriptionResponse>(_jsonOptions);
+            Assert.NotNull(currentSubscriptionPayload);
+            Assert.Equal("Expired", currentSubscriptionPayload.Status);
+            Assert.False(currentSubscriptionPayload.IsInGracePeriod);
+
             using var keyResponse = await adminClient.PostAsJsonAsync(
                 "Keys/Generate",
                 new GenerateAccessKeyRequest

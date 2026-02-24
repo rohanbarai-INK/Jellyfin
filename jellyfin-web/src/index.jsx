@@ -22,6 +22,7 @@ import { getPlugins } from './scripts/settings/webSettings';
 import taskButton from './scripts/taskbutton';
 import { pageClassOn, serverAddress } from './utils/dashboard';
 import Events from './utils/events';
+import { applyBrandLogoCssVariables } from 'utils/brandingLogo';
 
 import RootApp from './RootApp';
 
@@ -75,6 +76,9 @@ build: ${__JF_BUILD_VERSION__}`);
         ServerConnections.initApiClient(serverUrl);
     }
 
+    // Ensure splash/header branding uses custom server logo when available.
+    void applyBrandLogoCssVariables(ServerConnections.getCurrentApi());
+
     // Initialize automatic (default) cast target
     initializeAutoCast();
 
@@ -108,6 +112,7 @@ build: ${__JF_BUILD_VERSION__}`);
     Events.on(ServerConnections, 'apiclientcreated', (_e, apiClient) => {
         Events.off(apiClient, 'requestfail', appRouter.onRequestFail);
         Events.on(apiClient, 'requestfail', appRouter.onRequestFail);
+        void applyBrandLogoCssVariables(ServerConnections.getCurrentApi(), true);
     });
 
     // Render the app
@@ -189,6 +194,11 @@ function loadPlatformFeatures() {
 }
 
 function registerServiceWorker() {
+    if (__WEBPACK_SERVE__) {
+        console.debug('Skipping serviceWorker registration in webpack dev server mode');
+        return;
+    }
+
     if (navigator.serviceWorker && window.appMode !== 'cordova' && window.appMode !== 'android') {
         navigator.serviceWorker.register('serviceworker.js').then(() =>
             console.log('serviceWorker registered')

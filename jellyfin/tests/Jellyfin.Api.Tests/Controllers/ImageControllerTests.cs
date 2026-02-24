@@ -32,4 +32,25 @@ public static class ImageControllerTests
         Assert.False(ImageController.TryGetImageExtensionFromContentType(contentType, out var ex));
         Assert.Null(ex);
     }
+
+    [Theory]
+    [InlineData("image/png")]
+    [InlineData("image/jpeg")]
+    [InlineData("image/jpeg; charset=utf-8")]
+    [InlineData("image/webp")]
+    public static void IsAllowedCustomLogoContentType_Valid_True(string contentType)
+    {
+        Assert.True(ImageController.IsAllowedCustomLogoContentType(contentType));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("text/html")]
+    [InlineData("image/gif")]
+    [InlineData("image/svg+xml")]
+    public static void IsAllowedCustomLogoContentType_InValid_False(string? contentType)
+    {
+        Assert.False(ImageController.IsAllowedCustomLogoContentType(contentType));
+    }
 }

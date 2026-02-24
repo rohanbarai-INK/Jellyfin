@@ -1,0 +1,21 @@
+﻿branding-assets/web/icon-transparent.png -> jellyfin-web/src/assets/branding/icon-transparent.png
+branding-assets/web/banner-light.png -> jellyfin-web/src/assets/branding/banner-light.png
+branding-assets/web/banner-dark.png -> jellyfin-web/src/assets/branding/banner-dark.png
+branding-assets/web/favicons/favicon.ico -> jellyfin-web/src/favicons/favicon.ico
+branding-assets/web/favicons/touchicon.png -> jellyfin-web/src/favicons/touchicon.png
+branding-assets/web/favicons/touchicon72.png -> jellyfin-web/src/favicons/touchicon72.png
+branding-assets/web/favicons/touchicon114.png -> jellyfin-web/src/favicons/touchicon114.png
+branding-assets/web/favicons/touchicon144.png -> jellyfin-web/src/favicons/touchicon144.png
+branding-assets/web/favicons/touchicon512.png -> jellyfin-web/src/favicons/touchicon512.png
+branding-assets/base/logo-strip.png -> jellyfin-android/app/src/main/res/drawable/app_logo.xml (vectorized equivalent)
+branding-assets/base/logo-strip.png -> jellyfin-androidtv/app/src/main/res/drawable/app_logo.xml (vectorized equivalent)
+branding-assets/android/ic_launcher-{48,72,96,144,192}.png -> jellyfin-android/app/src/main/res/mipmap-*/ic_launcher*.png
+branding-assets/androidtv/app_icon-{80,120,160,240,320}.png -> jellyfin-androidtv/app/src/main/res/mipmap-*/app_icon.png
+branding-assets/androidtv/app_banner-{160x90,240x135,320x180,480x270,640x360}.png -> jellyfin-androidtv/app/src/main/res/mipmap-*/app_banner.png
+branding-assets/desktop/logo.png -> jellyfin-desktop/native/logo.png
+branding-assets/desktop/icon.png -> jellyfin-desktop/resources/images/icon.png
+branding-assets/desktop/icon.svg -> jellyfin-desktop/resources/images/icon.svg
+branding-assets/desktop/splash.png -> jellyfin-desktop/resources/images/splash.png
+branding-assets/desktop/splash.svg -> jellyfin-desktop/resources/images/splash.svg
+branding-assets/desktop/jellyfin.ico -> jellyfin-desktop/bundle/win/jellyfin.ico
+branding-assets/desktop/jellyfin.icns -> jellyfin-desktop/bundle/osx/jellyfin.icns

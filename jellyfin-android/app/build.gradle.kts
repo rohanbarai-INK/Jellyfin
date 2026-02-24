@@ -108,7 +108,7 @@ android {
     }
 }
 
-base.archivesName.set("jellyfin-android-v${project.getVersionName()}")
+base.archivesName.set("KnightFlix-v${project.getVersionName()}")
 
 dependencies {
     val proprietaryImplementation by configurations

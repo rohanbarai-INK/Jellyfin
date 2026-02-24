@@ -42,6 +42,16 @@ namespace Jellyfin.Api.Controllers;
 [Route("")]
 public class ImageController : BaseJellyfinApiController
 {
+    private const int MaxCustomLogoSizeBytes = 2 * 1024 * 1024;
+    private const int MaxCustomLogoUploadBodyBytes = 3_000_000;
+
+    private static readonly string[] _allowedCustomLogoMimeTypes =
+    {
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+    };
+
     private readonly IUserManager _userManager;
     private readonly ILibraryManager _libraryManager;
     private readonly IProviderManager _providerManager;
@@ -1703,6 +1713,69 @@ public class ImageController : BaseJellyfinApiController
     }
 
     /// <summary>
+    /// Gets the custom logo.
+    /// </summary>
+    /// <param name="tag">Supply the cache tag from the item object to receive strong caching headers.</param>
+    /// <param name="format">Determines the output format of the image - original,gif,jpg,png.</param>
+    /// <response code="200">Custom logo returned successfully.</response>
+    /// <response code="404">Custom logo not found.</response>
+    /// <returns>The custom logo.</returns>
+    [HttpGet("Branding/Logo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesImageFile]
+    public async Task<ActionResult> GetCustomLogo(
+        [FromQuery] string? tag,
+        [FromQuery] ImageFormat? format)
+    {
+        var brandingOptions = _serverConfigurationManager.GetConfiguration<BrandingOptions>("branding");
+        var isAdmin = User.IsInRole(Constants.UserRoles.Administrator);
+        if (!brandingOptions.LogoEnabled && !isAdmin)
+        {
+            return NotFound();
+        }
+
+        if (string.IsNullOrWhiteSpace(brandingOptions.LogoLocation)
+            || !System.IO.File.Exists(brandingOptions.LogoLocation))
+        {
+            return NotFound();
+        }
+
+        var outputFormats = GetOutputFormats(format);
+
+        TimeSpan? cacheDuration = null;
+        if (!string.IsNullOrEmpty(tag))
+        {
+            cacheDuration = TimeSpan.FromDays(365);
+        }
+
+        var options = new ImageProcessingOptions
+        {
+            Image = new ItemImageInfo
+            {
+                Path = brandingOptions.LogoLocation
+            },
+            Height = null,
+            MaxHeight = null,
+            MaxWidth = null,
+            FillHeight = null,
+            FillWidth = null,
+            Quality = 90,
+            Width = null,
+            Blur = null,
+            BackgroundColor = null,
+            ForegroundLayer = null,
+            SupportedOutputFormats = outputFormats
+        };
+
+        return await GetImageResult(
+                options,
+                cacheDuration,
+                ImmutableDictionary<string, string>.Empty)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Uploads a custom splashscreen.
     /// The body is expected to the image contents base64 encoded.
     /// </summary>
@@ -1763,6 +1836,127 @@ public class ImageController : BaseJellyfinApiController
         }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Uploads a custom logo.
+    /// The body is expected to the image contents base64 encoded.
+    /// </summary>
+    /// <returns>A <see cref="NoContentResult"/> indicating success.</returns>
+    /// <response code="204">Successfully uploaded custom logo.</response>
+    /// <response code="400">Error reading MimeType from uploaded image.</response>
+    /// <response code="403">User does not have permission to upload logo.</response>
+    /// <response code="413">Payload too large.</response>
+    [HttpPost("Branding/Logo")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [AcceptsImageFile]
+    [RequestSizeLimit(MaxCustomLogoUploadBodyBytes)]
+    public async Task<ActionResult> UploadCustomLogo()
+    {
+        if (Request.ContentLength > MaxCustomLogoUploadBodyBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, $"Payload must be less than {MaxCustomLogoUploadBodyBytes:N0} bytes");
+        }
+
+        if (!TryGetImageExtensionFromContentType(Request.ContentType, out var extension))
+        {
+            return BadRequest("Incorrect ContentType.");
+        }
+
+        if (!IsAllowedCustomLogoContentType(Request.ContentType))
+        {
+            return BadRequest("Unsupported ContentType.");
+        }
+
+        var stream = GetFromBase64Stream(Request.Body);
+        await using (stream.ConfigureAwait(false))
+        {
+            var brandingOptions = _serverConfigurationManager.GetConfiguration<BrandingOptions>("branding");
+            var oldLogoPath = brandingOptions.LogoLocation;
+            var logoPath = Path.Combine(_appPaths.DataPath, "logo-upload" + extension);
+            var tempLogoPath = logoPath + ".tmp";
+
+            var fs = new FileStream(tempLogoPath, FileMode.Create, FileAccess.Write, FileShare.None, IODefaults.FileStreamBufferSize, FileOptions.Asynchronous);
+            await using (fs.ConfigureAwait(false))
+            {
+                var copied = await TryCopyWithSizeLimit(stream, fs, MaxCustomLogoSizeBytes, CancellationToken.None).ConfigureAwait(false);
+                if (!copied)
+                {
+                    fs.Close();
+                    System.IO.File.Delete(tempLogoPath);
+                    return StatusCode(StatusCodes.Status413PayloadTooLarge, $"Decoded payload must be less than {MaxCustomLogoSizeBytes:N0} bytes");
+                }
+            }
+
+            if (System.IO.File.Exists(logoPath))
+            {
+                System.IO.File.Delete(logoPath);
+            }
+
+            System.IO.File.Move(tempLogoPath, logoPath);
+
+            if (!string.IsNullOrWhiteSpace(oldLogoPath)
+                && !string.Equals(oldLogoPath, logoPath, StringComparison.OrdinalIgnoreCase)
+                && System.IO.File.Exists(oldLogoPath))
+            {
+                System.IO.File.Delete(oldLogoPath);
+            }
+
+            brandingOptions.LogoLocation = logoPath;
+            _serverConfigurationManager.SaveConfiguration("branding", brandingOptions);
+            return NoContent();
+        }
+    }
+
+    /// <summary>
+    /// Delete a custom logo.
+    /// </summary>
+    /// <returns>A <see cref="NoContentResult"/> indicating success.</returns>
+    /// <response code="204">Successfully deleted custom logo.</response>
+    /// <response code="403">User does not have permission to delete logo.</response>
+    [HttpDelete("Branding/Logo")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public ActionResult DeleteCustomLogo()
+    {
+        var brandingOptions = _serverConfigurationManager.GetConfiguration<BrandingOptions>("branding");
+        if (!string.IsNullOrWhiteSpace(brandingOptions.LogoLocation)
+            && System.IO.File.Exists(brandingOptions.LogoLocation))
+        {
+            System.IO.File.Delete(brandingOptions.LogoLocation);
+        }
+
+        brandingOptions.LogoLocation = null;
+        _serverConfigurationManager.SaveConfiguration("branding", brandingOptions);
+        return NoContent();
+    }
+
+    private static async Task<bool> TryCopyWithSizeLimit(Stream source, Stream destination, int maxBytes, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[IODefaults.FileStreamBufferSize];
+        var totalBytes = 0L;
+        while (true)
+        {
+            var bytesRead = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            totalBytes += bytesRead;
+            if (totalBytes > maxBytes)
+            {
+                return false;
+            }
+
+            await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
     }
 
     private ImageInfo? GetImageInfo(BaseItem item, ItemImageInfo info, int? imageIndex)
@@ -2065,5 +2259,15 @@ public class ImageController : BaseJellyfinApiController
         }
 
         return false;
+    }
+
+    internal static bool IsAllowedCustomLogoContentType(string? contentType)
+    {
+        if (!MediaTypeHeaderValue.TryParse(contentType, out var parsedValue) || !parsedValue.MediaType.HasValue)
+        {
+            return false;
+        }
+
+        return _allowedCustomLogoMimeTypes.Contains(parsedValue.MediaType.Value, StringComparer.OrdinalIgnoreCase);
     }
 }

@@ -18,18 +18,20 @@ import { getBrandingOptionsQuery, QUERY_KEY, useBrandingOptions } from 'apps/das
 import Loading from 'components/loading/LoadingComponent';
 import Image from 'components/Image';
 import Page from 'components/Page';
-import { SPLASHSCREEN_URL } from 'constants/branding';
+import { LOGO_URL, SPLASHSCREEN_URL } from 'constants/branding';
 import { useApi } from 'hooks/useApi';
 import globalize from 'lib/globalize';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
-import { queryClient } from 'utils/query/queryClient';
 import { ActionData } from 'types/actionData';
+import { applyBrandLogoCssVariables, getStaticLogoUrl, invalidateBrandLogoCache } from 'utils/brandingLogo';
+import { queryClient } from 'utils/query/queryClient';
 
 const BRANDING_CONFIG_KEY = 'branding';
 const BrandingOption = {
     CustomCss: 'CustomCss',
     LoginDisclaimer: 'LoginDisclaimer',
-    SplashscreenEnabled: 'SplashscreenEnabled'
+    SplashscreenEnabled: 'SplashscreenEnabled',
+    LogoEnabled: 'LogoEnabled'
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -39,10 +41,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const formData = await request.formData();
     const data = Object.fromEntries(formData);
 
-    const brandingOptions: BrandingOptions = {
+    const brandingOptions: BrandingOptions & { LogoEnabled: boolean } = {
         CustomCss: data.CustomCss?.toString(),
         LoginDisclaimer: data.LoginDisclaimer?.toString(),
-        SplashscreenEnabled: data.SplashscreenEnabled?.toString() === 'on'
+        SplashscreenEnabled: data.SplashscreenEnabled?.toString() === 'on',
+        LogoEnabled: data.LogoEnabled?.toString() === 'on'
     };
 
     await getConfigurationApi(api)
@@ -50,6 +53,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             key: BRANDING_CONFIG_KEY,
             body: JSON.stringify(brandingOptions)
         });
+
+    invalidateBrandLogoCache(api);
+    void applyBrandLogoCssVariables(api, true);
 
     void queryClient.invalidateQueries({
         queryKey: [ QUERY_KEY ]
@@ -75,17 +81,87 @@ export const Component = () => {
         data: defaultBrandingOptions,
         isPending
     } = useBrandingOptions();
-    const [ brandingOptions, setBrandingOptions ] = useState(defaultBrandingOptions || {});
+    const [ brandingOptions, setBrandingOptions ] = useState<BrandingOptions>(defaultBrandingOptions || {});
+    const [ namedBrandingConfig, setNamedBrandingConfig ] = useState<Record<string, unknown>>({});
 
     const [ error, setError ] = useState<string>();
 
     const [ isSplashscreenEnabled, setIsSplashscreenEnabled ] = useState(brandingOptions.SplashscreenEnabled ?? false);
+    const [ isLogoEnabled, setIsLogoEnabled ] = useState(true);
     const [ splashscreenUrl, setSplashscreenUrl ] = useState<string>();
+    const [ logoUrl, setLogoUrl ] = useState<string>(getStaticLogoUrl());
+
+    useEffect(() => {
+        if (!defaultBrandingOptions) return;
+        setBrandingOptions(defaultBrandingOptions);
+        setIsSplashscreenEnabled(defaultBrandingOptions.SplashscreenEnabled ?? false);
+    }, [ defaultBrandingOptions ]);
+
+    const refreshLogoPreview = useCallback(async () => {
+        if (!api) return;
+
+        const url = api.getUri(LOGO_URL, { t: Date.now() });
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store'
+            });
+
+            if (response.ok) {
+                setLogoUrl(url);
+                return;
+            }
+        } catch {
+            // fall through to static logo fallback
+        }
+
+        setLogoUrl(getStaticLogoUrl());
+    }, [ api ]);
+
     useEffect(() => {
         if (!api || isSubmitting) return;
 
         setSplashscreenUrl(api.getUri(SPLASHSCREEN_URL, { t: Date.now() }));
-    }, [ api, isSubmitting ]);
+        void refreshLogoPreview();
+    }, [ api, isSubmitting, refreshLogoPreview ]);
+
+    useEffect(() => {
+        if (!api) return;
+
+        getConfigurationApi(api)
+            .getNamedConfiguration({ key: BRANDING_CONFIG_KEY })
+            .then(({ data }) => {
+                const config = (data ?? {}) as unknown as Record<string, unknown>;
+                setNamedBrandingConfig(config);
+                setIsLogoEnabled(typeof config.LogoEnabled === 'boolean' ? config.LogoEnabled : true);
+            })
+            .catch(e => {
+                console.error('[BrandingPage] failed to load named branding configuration', e);
+                setError('ServerUpdateNeeded');
+            });
+    }, [ api ]);
+
+    const saveNamedBrandingConfig = useCallback(async (patch: Record<string, unknown>) => {
+        if (!api) return;
+
+        const nextConfig = {
+            ...namedBrandingConfig,
+            ...patch
+        };
+
+        await getConfigurationApi(api)
+            .updateNamedConfiguration({
+                key: BRANDING_CONFIG_KEY,
+                body: JSON.stringify(nextConfig)
+            });
+
+        setNamedBrandingConfig(nextConfig);
+
+        void queryClient.invalidateQueries({
+            queryKey: [ QUERY_KEY ]
+        });
+    }, [ api, namedBrandingConfig ]);
 
     const onSplashscreenDelete = useCallback(() => {
         setError(undefined);
@@ -143,22 +219,84 @@ export const Component = () => {
         reader.readAsDataURL(file);
     }, [ api ]);
 
+    const onLogoDelete = useCallback(() => {
+        setError(undefined);
+
+        if (!api) return;
+
+        api.axiosInstance
+            .delete(LOGO_URL)
+            .then(async () => {
+                invalidateBrandLogoCache(api);
+                await applyBrandLogoCssVariables(api, true);
+                await refreshLogoPreview();
+            })
+            .catch(e => {
+                console.error('[BrandingPage] error deleting logo', e);
+                setError('ImageDeleteFailed');
+            });
+    }, [ api, refreshLogoPreview ]);
+
+    const onLogoUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setError(undefined);
+
+        const files = event.target.files;
+
+        if (!api || !files) return false;
+
+        const file = files[0];
+        const reader = new FileReader();
+        reader.onerror = e => {
+            console.error('[BrandingPage] error reading logo file', e);
+            setError('ImageUploadFailed');
+        };
+        reader.onabort = e => {
+            console.warn('[BrandingPage] aborted reading logo file', e);
+            setError('ImageUploadCancelled');
+        };
+        reader.onload = () => {
+            if (!reader.result) return;
+
+            const dataUrl = reader.result as string;
+            const body = dataUrl.split(',')[1];
+
+            api.axiosInstance
+                .post(LOGO_URL, body, { headers: { ['Content-Type']: file.type } })
+                .then(async () => {
+                    invalidateBrandLogoCache(api);
+                    await applyBrandLogoCssVariables(api, true);
+                    await refreshLogoPreview();
+                })
+                .catch(e => {
+                    console.error('[BrandingPage] error uploading logo', e);
+                    setError('ImageUploadFailed');
+                });
+        };
+
+        reader.readAsDataURL(file);
+    }, [ api, refreshLogoPreview ]);
+
     const setSplashscreenEnabled = useCallback(async (_: React.ChangeEvent<HTMLInputElement>, isEnabled: boolean) => {
         setIsSplashscreenEnabled(isEnabled);
 
-        await getConfigurationApi(api!)
-            .updateNamedConfiguration({
-                key: BRANDING_CONFIG_KEY,
-                body: JSON.stringify({
-                    ...defaultBrandingOptions,
-                    SplashscreenEnabled: isEnabled
-                })
-            });
-
-        void queryClient.invalidateQueries({
-            queryKey: [ QUERY_KEY ]
+        await saveNamedBrandingConfig({
+            SplashscreenEnabled: isEnabled
         });
-    }, [ api, defaultBrandingOptions ]);
+    }, [ saveNamedBrandingConfig ]);
+
+    const setLogoEnabled = useCallback(async (_: React.ChangeEvent<HTMLInputElement>, isEnabled: boolean) => {
+        setIsLogoEnabled(isEnabled);
+
+        await saveNamedBrandingConfig({
+            LogoEnabled: isEnabled
+        });
+
+        if (api) {
+            invalidateBrandLogoCache(api);
+            await applyBrandLogoCssVariables(api, true);
+            await refreshLogoPreview();
+        }
+    }, [ api, refreshLogoPreview, saveNamedBrandingConfig ]);
 
     const setBrandingOption = useCallback((event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         if (Object.keys(BrandingOption).includes(event.target.name)) {
@@ -202,6 +340,68 @@ export const Component = () => {
                                 {globalize.translate(error)}
                             </Alert>
                         )}
+
+                        <Typography variant='h2'>
+                            {globalize.translate('Logo')}
+                        </Typography>
+
+                        <Stack
+                            direction={{
+                                xs: 'column',
+                                sm: 'row'
+                            }}
+                            spacing={3}
+                        >
+                            <Box sx={{ flex: '1 1 0' }}>
+                                <Image
+                                    isLoading={false}
+                                    url={logoUrl}
+                                />
+                            </Box>
+
+                            <Stack
+                                spacing={{ xs: 3, sm: 2 }}
+                                sx={{ flex: '1 1 0' }}
+                            >
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            name={BrandingOption.LogoEnabled}
+                                            checked={isLogoEnabled}
+                                            onChange={setLogoEnabled}
+                                        />
+                                    }
+                                    label={globalize.translate('Logo')}
+                                />
+
+                                <Button
+                                    component='label'
+                                    variant='outlined'
+                                    startIcon={<Upload />}
+                                >
+                                    <input
+                                        type='file'
+                                        accept='image/png,image/jpeg,image/webp'
+                                        hidden
+                                        onChange={onLogoUpload}
+                                    />
+                                    {globalize.translate('UploadCustomImage')}
+                                </Button>
+
+                                <Button
+                                    variant='outlined'
+                                    color='error'
+                                    startIcon={<Delete />}
+                                    onClick={onLogoDelete}
+                                >
+                                    {globalize.translate('DeleteCustomImage')}
+                                </Button>
+                            </Stack>
+                        </Stack>
+
+                        <Typography variant='h2'>
+                            {globalize.translate('EnableSplashScreen')}
+                        </Typography>
 
                         <Stack
                             direction={{

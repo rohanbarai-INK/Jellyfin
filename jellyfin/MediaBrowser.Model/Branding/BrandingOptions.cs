@@ -26,4 +26,14 @@ public class BrandingOptions
     /// Gets or sets the splashscreen location on disk.
     /// </summary>
     public string? SplashscreenLocation { get; set; }
+
+    /// <summary>
+    /// Gets or sets the custom logo location on disk.
+    /// </summary>
+    public string? LogoLocation { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to enable the custom logo.
+    /// </summary>
+    public bool LogoEnabled { get; set; } = true;
 }

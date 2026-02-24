@@ -1,5 +1,5 @@
-import icon from '@jellyfin/ux-web/icon-transparent.png';
-
+import { ServerConnections } from 'lib/jellyfin-apiclient';
+import { getStaticLogoUrl, resolveBrandLogoUrl } from 'utils/brandingLogo';
 import { PluginType } from '../../types/plugin.ts';
 import { randomInt } from '../../utils/number.ts';
 
@@ -126,6 +126,17 @@ export default function () {
         }
     }
 
+    function getLogoElement() {
+        return document.querySelector('.logoScreenSaverImage');
+    }
+
+    function setLogoSrc(src) {
+        const img = getLogoElement();
+        if (img) {
+            img.src = src;
+        }
+    }
+
     self.show = function () {
         import('./style.scss').then(() => {
             let elem = document.querySelector('.logoScreenSaver');
@@ -135,8 +146,12 @@ export default function () {
                 elem.classList.add('logoScreenSaver');
                 document.body.appendChild(elem);
 
-                elem.innerHTML = `<img class="logoScreenSaverImage" src="${icon}" />`;
+                elem.innerHTML = `<img class="logoScreenSaverImage" src="${getStaticLogoUrl()}" />`;
             }
+
+            setLogoSrc(getStaticLogoUrl());
+            void resolveBrandLogoUrl(ServerConnections.getCurrentApi())
+                .then(setLogoSrc);
 
             stopInterval();
             interval = setInterval(animate, 3000);
