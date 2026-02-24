@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.auth.repository.ServerRepository
 import org.jellyfin.androidtv.auth.repository.ServerUserRepository
@@ -32,6 +33,7 @@ fun SettingsAuthenticationScreen(launchedFromLogin: Boolean = false) {
 	val serverRepository = koinInject<ServerRepository>()
 	val serverUserRepository = koinInject<ServerUserRepository>()
 	val authenticationPreferences = koinInject<AuthenticationPreferences>()
+	val hardcodedServerModeEnabled = BuildConfig.HARDCODED_SERVER_URL.isNotBlank()
 
 	LaunchedEffect(serverRepository) { serverRepository.loadStoredServers() }
 
@@ -84,7 +86,7 @@ fun SettingsAuthenticationScreen(launchedFromLogin: Boolean = false) {
 			)
 		}
 
-		if (storedServers.isNotEmpty()) {
+		if (!hardcodedServerModeEnabled && storedServers.isNotEmpty()) {
 			item { ListSection(headingContent = { Text(stringResource(R.string.lbl_manage_servers)) }) }
 
 			items(storedServers) { server ->

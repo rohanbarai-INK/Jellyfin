@@ -6,9 +6,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import org.jellyfin.mobile.databinding.ActivitySubscriptionExpiredBinding
 import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.jellyfin.mobile.utils.applyDefault
+import org.jellyfin.mobile.utils.applyWindowInsetsAsMargins
 
 class SubscriptionExpiredActivity : AppCompatActivity() {
     companion object {
@@ -24,6 +26,8 @@ class SubscriptionExpiredActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySubscriptionExpiredBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applyWindowInsetsAsMargins()
+        ViewCompat.requestApplyInsets(binding.root)
 
         val explicitSubscriptionUrl = intent.getStringExtra(EXTRA_SUBSCRIPTION_URL)
         val serverUrl = intent.getStringExtra(EXTRA_SERVER_URL)

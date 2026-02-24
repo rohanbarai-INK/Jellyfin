@@ -7,6 +7,7 @@ import android.media.session.PlaybackState
 import android.webkit.JavascriptInterface
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
 import org.jellyfin.mobile.utils.Constants
@@ -166,8 +167,13 @@ class NativeInterface(private val context: Context) : KoinComponent {
 
     @JavascriptInterface
     fun openServerSelection() {
-        emitEvent(ActivityEvent.SelectServer)
+        if (BuildConfig.HARDCODED_SERVER_URL.isBlank()) {
+            emitEvent(ActivityEvent.SelectServer)
+        }
     }
+
+    @JavascriptInterface
+    fun isHardcodedServerMode(): Boolean = BuildConfig.HARDCODED_SERVER_URL.isNotBlank()
 
     @JavascriptInterface
     fun exitApp() {

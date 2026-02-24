@@ -4,6 +4,7 @@ import type { ApiClient, ConnectResponse } from 'jellyfin-apiclient';
 
 import { ConnectionState, ServerConnections } from 'lib/jellyfin-apiclient';
 import { shouldRedirectHomeFromSubscription, shouldRedirectToSubscription, SUBSCRIPTION_ROUTE } from 'utils/subscription';
+import { IS_HARDCODED_SERVER_MODE } from 'utils/hardcodedServer';
 
 import ConnectionErrorPage from './ConnectionErrorPage';
 import Loading from './loading/LoadingComponent';
@@ -91,9 +92,14 @@ const ConnectionRequired: FunctionComponent<ConnectionRequiredProps> = ({
                 }
                 return;
             case ConnectionState.ServerSelection:
-                // Bounce to select server page
-                console.debug('[ConnectionRequired] redirecting to select server page');
-                navigateIfNotThere(BounceRoutes.SelectServer);
+                if (IS_HARDCODED_SERVER_MODE) {
+                    console.debug('[ConnectionRequired] hardcoded mode enabled, redirecting to login page');
+                    navigateIfNotThere(BounceRoutes.Login);
+                } else {
+                    // Bounce to select server page
+                    console.debug('[ConnectionRequired] redirecting to select server page');
+                    navigateIfNotThere(BounceRoutes.SelectServer);
+                }
                 return;
         }
 

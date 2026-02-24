@@ -11,15 +11,19 @@ import { getItemQuery } from 'hooks/useItem';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 import { toApi } from 'utils/jellyfin-apiclient/compat';
 import { queryClient } from 'utils/query/queryClient';
+import { IS_HARDCODED_SERVER_MODE } from 'utils/hardcodedServer';
 import { history } from 'RootAppRouter';
 
 /** Pages of "no return" (when "Go back" should behave differently, probably quitting the application). */
-const START_PAGE_PATHS = ['/home', '/login', '/selectserver'];
+const START_PAGE_PATHS = [
+    '/home',
+    '/login',
+    ...(IS_HARDCODED_SERVER_MODE ? [] : ['/selectserver'])
+];
 
 /** Pages that do not require a user to be logged in to view. */
 export const PUBLIC_PATHS = [
-    '/addserver',
-    '/selectserver',
+    ...(IS_HARDCODED_SERVER_MODE ? [] : ['/addserver', '/selectserver']),
     '/login',
     '/forgotpassword',
     '/forgotpasswordpin',
@@ -472,7 +476,7 @@ class AppRouter {
     }
 
     showSelectServer() {
-        return this.show('selectserver');
+        return IS_HARDCODED_SERVER_MODE ? this.show('login') : this.show('selectserver');
     }
 
     showSettings() {

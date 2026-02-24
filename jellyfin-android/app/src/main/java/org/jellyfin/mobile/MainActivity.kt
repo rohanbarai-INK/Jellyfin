@@ -161,6 +161,10 @@ class MainActivity : AppCompatActivity() {
                     // TODO add loading indicator
                 }
                 is ServerState.Unset -> {
+                    if (BuildConfig.HARDCODED_SERVER_URL.isNotBlank()) {
+                        return
+                    }
+
                     if (currentFragment !is ConnectFragment) {
                         replaceFragment<ConnectFragment>()
                     }

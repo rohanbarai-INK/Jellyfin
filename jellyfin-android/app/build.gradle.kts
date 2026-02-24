@@ -38,6 +38,11 @@ android {
         versionCode = getVersionCode(versionName!!)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+
+        val serverUrl = (project.findProperty("jellyfin.server.url") as? String)
+            ?: System.getenv("SERVER_URL")
+            ?: "http://192.168.1.9:8097/"
+        buildConfigField("String", "HARDCODED_SERVER_URL", "\"${serverUrl.replace("\"", "\\\"")}\"")
     }
 
     val releaseSigningConfig = SigningHelper.loadSigningConfig(project)?.let { config ->

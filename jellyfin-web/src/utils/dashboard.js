@@ -15,6 +15,7 @@ import { setBackdropTransparency } from '../components/backdrop/backdrop';
 import DirectoryBrowser from '../components/directorybrowser/directorybrowser';
 import dialogHelper from '../components/dialogHelper/dialogHelper';
 import itemIdentifier from '../components/itemidentifier/itemidentifier';
+import { IS_HARDCODED_SERVER_MODE } from './hardcodedServer';
 import { getLocationSearch } from './url.ts';
 import { queryClient } from './query/queryClient';
 
@@ -190,6 +191,11 @@ export function capabilities(host) {
 }
 
 export function selectServer() {
+    if (IS_HARDCODED_SERVER_MODE) {
+        navigate('login');
+        return;
+    }
+
     if (window.NativeShell && typeof window.NativeShell.selectServer === 'function') {
         window.NativeShell.selectServer();
     } else {

@@ -20,6 +20,7 @@ import browser from './scripts/browser';
 import keyboardNavigation from './scripts/keyboardNavigation';
 import { getPlugins } from './scripts/settings/webSettings';
 import taskButton from './scripts/taskbutton';
+import { HARDCODED_SERVER_URL, IS_HARDCODED_SERVER_MODE } from 'utils/hardcodedServer';
 import { pageClassOn, serverAddress } from './utils/dashboard';
 import Events from './utils/events';
 import { applyBrandLogoCssVariables } from 'utils/brandingLogo';
@@ -71,8 +72,11 @@ build: ${__JF_BUILD_VERSION__}`);
     await appHost.init();
 
     // Initialize the api client
-    const serverUrl = await serverAddress();
+    const serverUrl = IS_HARDCODED_SERVER_MODE ? HARDCODED_SERVER_URL : await serverAddress();
     if (serverUrl) {
+        if (IS_HARDCODED_SERVER_MODE) {
+            ServerConnections.enforceHardcodedServer(serverUrl);
+        }
         ServerConnections.initApiClient(serverUrl);
     }
 

@@ -11,6 +11,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.MainActivity
 import org.jellyfin.mobile.R
 import org.jellyfin.mobile.bridge.JavascriptCallback
@@ -113,7 +114,9 @@ class ActivityEventHandler(
                 openSubscriptionManagement()
             }
             ActivityEvent.SelectServer -> {
-                mainViewModel.resetServer()
+                if (BuildConfig.HARDCODED_SERVER_URL.isBlank()) {
+                    mainViewModel.resetServer()
+                }
             }
             ActivityEvent.ExitApp -> {
                 if (serviceBinder?.isPlaying == true) {

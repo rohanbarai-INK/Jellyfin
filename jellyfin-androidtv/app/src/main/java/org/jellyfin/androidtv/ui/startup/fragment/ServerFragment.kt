@@ -59,6 +59,7 @@ class ServerFragment : Fragment() {
 	private val backgroundService: BackgroundService by inject()
 	private var _binding: FragmentServerBinding? = null
 	private val binding get() = _binding!!
+	private val hardcodedServerModeEnabled get() = startupViewModel.isHardcodedServerModeEnabled()
 
 	private val serverIdArgument get() = arguments?.getString(ARG_SERVER_ID)?.ifBlank { null }?.toUUIDOrNull()
 
@@ -66,7 +67,9 @@ class ServerFragment : Fragment() {
 		val server = serverIdArgument?.let(startupViewModel::getServer)
 
 		if (server == null) {
-			navigateFragment<SelectServerFragment>(keepToolbar = true, keepHistory = false)
+			if (!hardcodedServerModeEnabled) {
+				navigateFragment<SelectServerFragment>(keepToolbar = true, keepHistory = false)
+			}
 			return null
 		}
 
@@ -143,7 +146,7 @@ class ServerFragment : Fragment() {
 		binding.loginDisclaimer.text = server.loginDisclaimer?.let { markdownRenderer.toMarkdownSpanned(it) }
 
 		binding.serverButton.apply {
-			state = ServerButtonView.State.EDIT
+			state = if (hardcodedServerModeEnabled) ServerButtonView.State.DEFAULT else ServerButtonView.State.EDIT
 			name = server.name
 			address = server.address
 			version = server.version
@@ -158,8 +161,16 @@ class ServerFragment : Fragment() {
 			)
 		}
 
-		binding.serverButton.setOnClickListener {
-			navigateFragment<SelectServerFragment>(keepToolbar = true)
+		if (hardcodedServerModeEnabled) {
+			binding.serverButton.setOnClickListener(null)
+			binding.serverButton.isFocusable = false
+			binding.serverButton.isClickable = false
+		} else {
+			binding.serverButton.setOnClickListener {
+				navigateFragment<SelectServerFragment>(keepToolbar = true)
+			}
+			binding.serverButton.isFocusable = true
+			binding.serverButton.isClickable = true
 		}
 
 		if (!server.versionSupported) {
@@ -204,7 +215,7 @@ class ServerFragment : Fragment() {
 
 		val server = serverIdArgument?.let(startupViewModel::getServer)
 		if (server != null) startupViewModel.loadUsers(server)
-		else navigateFragment<SelectServerFragment>(keepToolbar = true)
+		else if (!hardcodedServerModeEnabled) navigateFragment<SelectServerFragment>(keepToolbar = true)
 	}
 
 	private class UserAdapter(

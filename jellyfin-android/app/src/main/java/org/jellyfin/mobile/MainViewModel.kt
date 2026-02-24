@@ -13,6 +13,12 @@ class MainViewModel(
     app: Application,
     private val apiClientController: ApiClientController,
 ) : AndroidViewModel(app) {
+    private val hardcodedServerUrl: String
+        get() = BuildConfig.HARDCODED_SERVER_URL.trim()
+
+    private val hardcodedServerEnabled: Boolean
+        get() = hardcodedServerUrl.isNotEmpty()
+
     private val _serverState: MutableStateFlow<ServerState> = MutableStateFlow(ServerState.Pending)
     val serverState: StateFlow<ServerState> get() = _serverState
 
@@ -28,9 +34,13 @@ class MainViewModel(
     }
 
     private suspend fun refreshServer() {
-        val serverEntity = apiClientController.loadSavedServer()
+        val serverEntity = if (hardcodedServerEnabled) {
+            apiClientController.setupServer(hardcodedServerUrl)
+        } else {
+            apiClientController.loadSavedServer()
+        }
         if (serverEntity == null) {
-            _serverState.value = ServerState.Unset
+            _serverState.value = if (hardcodedServerEnabled) ServerState.Pending else ServerState.Unset
             return
         }
 
@@ -50,6 +60,13 @@ class MainViewModel(
      * Temporarily unset the selected server to be able to connect to a different one
      */
     fun resetServer() {
+        if (hardcodedServerEnabled) {
+            viewModelScope.launch {
+                refreshServer()
+            }
+            return
+        }
+
         _serverState.value = ServerState.Unset
     }
 }

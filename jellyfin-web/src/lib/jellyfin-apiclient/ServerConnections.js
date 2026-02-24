@@ -32,6 +32,16 @@ const getMaxBandwidth = () => {
     return null;
 };
 
+const normalizeServerAddress = address => (address || '').trim().replace(/\/+$/, '').toLowerCase();
+
+const serverMatchesAddress = (server, normalizedAddress) => {
+    return [
+        server?.ManualAddress,
+        server?.LocalAddress,
+        server?.RemoteAddress
+    ].some(address => normalizeServerAddress(address) === normalizedAddress);
+};
+
 class ServerConnections extends ConnectionManager {
     constructor() {
         super(...arguments);
@@ -73,6 +83,31 @@ class ServerConnections extends ConnectionManager {
         this.setLocalApiClient(apiClient);
 
         console.debug('loaded ApiClient singleton');
+    }
+
+    enforceHardcodedServer(serverAddress) {
+        const normalizedAddress = normalizeServerAddress(serverAddress);
+        if (!normalizedAddress) {
+            return;
+        }
+
+        const provider = this.credentialProvider();
+        const credentials = provider.credentials();
+        const existingServers = credentials.Servers || [];
+        credentials.Servers = existingServers.filter(server => serverMatchesAddress(server, normalizedAddress));
+        provider.credentials(credentials);
+
+        this._apiClients = this._apiClients.filter(apiClient =>
+            normalizeServerAddress(apiClient.serverAddress()) === normalizedAddress
+        );
+
+        const localApiClient = this.getLocalApiClient();
+        if (localApiClient && normalizeServerAddress(localApiClient.serverAddress()) !== normalizedAddress) {
+            this.localApiClient = null;
+            if (window.ApiClient === localApiClient) {
+                delete window.ApiClient;
+            }
+        }
     }
 
     connect(options) {

@@ -142,13 +142,24 @@ class StartupActivity : FragmentActivity() {
 				// Clear audio queue in case left over from last run
 				mediaManager.clearAudioQueue()
 
-				val forceServerSelection = intent.getBooleanExtra(EXTRA_FORCE_SERVER_SELECTION, false)
-				if (forceServerSelection) {
-					showServerSelection()
+				if (startupViewModel.isHardcodedServerModeEnabled()) {
+					showSplash()
+					val hardcodedServer = startupViewModel.resolveHardcodedServer()
+					if (hardcodedServer != null) {
+						showServer(hardcodedServer.id)
+					} else {
+						Timber.w("Unable to resolve hardcoded server: ${startupViewModel.getHardcodedServerUrl()}")
+						Toast.makeText(this, R.string.server_connection_failed, Toast.LENGTH_LONG).show()
+					}
 				} else {
-					val server = startupViewModel.getLastServer()
-					if (server != null) showServer(server.id)
-					else showServerSelection()
+					val forceServerSelection = intent.getBooleanExtra(EXTRA_FORCE_SERVER_SELECTION, false)
+					if (forceServerSelection) {
+						showServerSelection()
+					} else {
+						val server = startupViewModel.getLastServer()
+						if (server != null) showServer(server.id)
+						else showServerSelection()
+					}
 				}
 			}
 		}.launchIn(lifecycleScope)
@@ -215,9 +226,15 @@ class StartupActivity : FragmentActivity() {
 		)
 	}
 
-	private fun showServerSelection() = supportFragmentManager.commit {
-		replace<StartupToolbarFragment>(R.id.content_view)
-		add<SelectServerFragment>(R.id.content_view)
+	private fun showServerSelection() {
+		if (startupViewModel.isHardcodedServerModeEnabled()) {
+			return
+		}
+
+		supportFragmentManager.commit {
+			replace<StartupToolbarFragment>(R.id.content_view)
+			add<SelectServerFragment>(R.id.content_view)
+		}
 	}
 
 	private fun openSubscriptionExpiredActivity(expiryDate: String?) {

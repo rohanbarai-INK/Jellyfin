@@ -6,11 +6,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.jellyfin.androidtv.BuildConfig
 import org.jellyfin.androidtv.auth.model.AuthenticationSortBy
 import org.jellyfin.androidtv.auth.model.AutomaticAuthenticateMethod
+import org.jellyfin.androidtv.auth.model.ConnectedState
 import org.jellyfin.androidtv.auth.model.LoginState
 import org.jellyfin.androidtv.auth.model.PrivateUser
 import org.jellyfin.androidtv.auth.model.Server
@@ -42,6 +45,14 @@ class StartupViewModel(
 	}.thenBy { user -> user.name }
 
 	private val discoveryMutex = Mutex()
+
+	private fun normalizeServerAddress(address: String): String {
+		return address.trim().trimEnd('/')
+	}
+
+	fun getHardcodedServerUrl(): String = normalizeServerAddress(BuildConfig.HARDCODED_SERVER_URL)
+
+	fun isHardcodedServerModeEnabled(): Boolean = getHardcodedServerUrl().isNotEmpty()
 
 	fun getServer(id: UUID) = serverRepository.storedServers.value
 		.find { it.id == id }
@@ -91,5 +102,22 @@ class StartupViewModel(
 	}
 
 	suspend fun updateServer(server: Server): Boolean = serverRepository.updateServer(server)
-}
 
+	suspend fun resolveHardcodedServer(): Server? {
+		val hardcodedAddress = getHardcodedServerUrl()
+		if (hardcodedAddress.isBlank()) return null
+
+		serverRepository.loadStoredServers()
+		val existingServer = serverRepository.storedServers.value.firstOrNull { server ->
+			normalizeServerAddress(server.address).equals(hardcodedAddress, ignoreCase = true)
+		}
+		if (existingServer != null) return existingServer
+
+		val connectedState = serverRepository.addServer(hardcodedAddress)
+			.firstOrNull { state -> state is ConnectedState } as? ConnectedState
+			?: return null
+
+		return serverRepository.getServer(connectedState.id)
+			?: serverRepository.storedServers.value.firstOrNull { server -> server.id == connectedState.id }
+	}
+}

@@ -1,3 +1,11 @@
+let hardcodedServerMode = false;
+try {
+    hardcodedServerMode = typeof window.NativeInterface.isHardcodedServerMode === "function" &&
+        window.NativeInterface.isHardcodedServerMode();
+} catch {
+    hardcodedServerMode = false;
+}
+
 const features = [
     "castmenuhashchange",
     "clientsettings",
@@ -9,13 +17,16 @@ const features = [
     "fileinput",
     "htmlaudioautoplay",
     "htmlvideoautoplay",
-    "multiserver",
     "physicalvolumecontrol",
     "remotecontrol",
     "subscriptionmanagement",
     "subtitleappearancesettings",
     "subtitleburnsettings"
 ];
+
+if (!hardcodedServerMode) {
+    features.push("multiserver");
+}
 
 const plugins = [
     'NavigationPlugin',

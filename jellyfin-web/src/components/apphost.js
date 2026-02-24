@@ -7,6 +7,7 @@ import globalize from '../lib/globalize';
 import profileBuilder from '../scripts/browserDeviceProfile';
 import { AppFeature } from 'constants/appFeature';
 import { LayoutMode } from 'constants/layoutMode';
+import { IS_HARDCODED_SERVER_MODE } from 'utils/hardcodedServer';
 
 const appName = 'Jellyfin Web';
 
@@ -272,9 +273,11 @@ const supportedFeatures = function () {
     features.push(AppFeature.TargetBlank);
     features.push(AppFeature.Screensaver);
 
-    webSettings.getMultiServer().then(enabled => {
-        if (enabled) features.push(AppFeature.MultiServer);
-    });
+    if (!IS_HARDCODED_SERVER_MODE) {
+        webSettings.getMultiServer().then(enabled => {
+            if (enabled) features.push(AppFeature.MultiServer);
+        });
+    }
 
     if (!browser.orsay && (browser.firefox || browser.ps4 || browser.edge || supportsCue())) {
         features.push(AppFeature.SubtitleAppearance);
@@ -359,11 +362,17 @@ export const appHost = {
         }
     },
     supports: function (command) {
+        const normalizedCommand = command.toLowerCase();
+
+        if (IS_HARDCODED_SERVER_MODE && normalizedCommand === AppFeature.MultiServer) {
+            return false;
+        }
+
         if (window.NativeShell) {
             return window.NativeShell.AppHost.supports(command);
         }
 
-        return supportedFeatures.indexOf(command.toLowerCase()) !== -1;
+        return supportedFeatures.indexOf(normalizedCommand) !== -1;
     },
     preferVisualCards: browser.android || browser.chrome,
     getDefaultLayout: function () {

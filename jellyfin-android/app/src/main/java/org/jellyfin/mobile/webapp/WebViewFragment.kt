@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.view.ViewCompat
 import androidx.core.view.doOnNextLayout
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -23,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.launch
+import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.R
 import org.jellyfin.mobile.app.ApiClientController
 import org.jellyfin.mobile.app.AppPreferences
@@ -139,9 +141,11 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val webView = webViewBinding!!.webView
+        val hardcodedServerEnabled = BuildConfig.HARDCODED_SERVER_URL.isNotBlank()
 
         // Apply window insets
         webView.applyWindowInsetsAsMargins()
+        ViewCompat.requestApplyInsets(webView)
 
         // Setup exclusion rects for gestures
         if (AndroidVersion.isAtLeastQ) {
@@ -170,11 +174,14 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
         // Setup WebView
         webView.initialize()
 
-        webViewBinding!!.useDifferentServerButton.setOnClickListener {
-            webView.removeCallbacks(timeoutRunnable)
-            webView.stopLoading()
-            webViewBinding!!.loadingContainer.isVisible = false
-            onSelectServer(error = false)
+        webViewBinding!!.useDifferentServerButton.apply {
+            isVisible = !hardcodedServerEnabled
+            setOnClickListener {
+                webView.removeCallbacks(timeoutRunnable)
+                webView.stopLoading()
+                webViewBinding!!.loadingContainer.isVisible = false
+                onSelectServer(error = false)
+            }
         }
 
         // Process JS functions called from other components (e.g. the PlayerActivity)
@@ -264,6 +271,10 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     }
 
     private fun onSelectServer(error: Boolean = false) = runOnUiThread {
+        if (BuildConfig.HARDCODED_SERVER_URL.isNotBlank()) {
+            return@runOnUiThread
+        }
+
         val activity = activity
         if (activity != null && activity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             val extras = when {

@@ -17,6 +17,11 @@ android {
 		applicationId = namespace
 		versionName = project.getVersionName()
 		versionCode = getVersionCode(versionName!!)
+
+		val serverUrl = (project.findProperty("jellyfin.server.url") as? String)
+			?: System.getenv("SERVER_URL")
+			?: "http://192.168.1.9:8097/"
+		buildConfigField("String", "HARDCODED_SERVER_URL", "\"${serverUrl.replace("\"", "\\\"")}\"")
 	}
 
 	buildFeatures {

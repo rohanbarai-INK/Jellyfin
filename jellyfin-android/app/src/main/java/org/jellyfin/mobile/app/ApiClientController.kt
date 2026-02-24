@@ -46,11 +46,18 @@ class ApiClientController(
     /**
      * Store server with [hostname] in the database.
      */
-    suspend fun setupServer(hostname: String) {
-        appPreferences.currentServerId = withContext(Dispatchers.IO) {
-            serverDao.getServerByHostname(hostname)?.id ?: serverDao.insert(hostname)
+    suspend fun setupServer(hostname: String): ServerEntity {
+        val server = withContext(Dispatchers.IO) {
+            serverDao.getServerByHostname(hostname) ?: run {
+                val id = serverDao.insert(hostname)
+                checkNotNull(serverDao.getServer(id)) {
+                    "Failed to load server after insertion for hostname=$hostname"
+                }
+            }
         }
-        apiClient.update(baseUrl = hostname)
+        appPreferences.currentServerId = server.id
+        apiClient.update(baseUrl = server.hostname)
+        return server
     }
 
     suspend fun setupUser(serverId: Long, userId: String, accessToken: String) {

@@ -21,6 +21,9 @@ const Assets = [
 ];
 
 const DEV_MODE = process.env.NODE_ENV !== 'production';
+const HARDCODED_SERVER_URL = process.env.JELLYFIN_SERVER_URL
+    ?? process.env.SERVER_URL
+    ?? 'http://192.168.1.9:8097/';
 let COMMIT_SHA = '';
 try {
     COMMIT_SHA = require('child_process')
@@ -63,6 +66,7 @@ const config = {
                     process.env.JELLYFIN_VERSION || 'Release'),
             __PACKAGE_JSON_NAME__: JSON.stringify(packageJson.name),
             __PACKAGE_JSON_VERSION__: JSON.stringify(packageJson.version),
+            'process.env.JELLYFIN_SERVER_URL': JSON.stringify(HARDCODED_SERVER_URL),
             __USE_SYSTEM_FONTS__: !!JSON.parse(process.env.USE_SYSTEM_FONTS || '0'),
             __WEBPACK_SERVE__: !!JSON.parse(process.env.WEBPACK_SERVE || '0')
         }),
