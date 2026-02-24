@@ -70,6 +70,25 @@ function enforceManualLoginTabOrder(view) {
     });
 }
 
+function isAndroidWebView() {
+    const userAgent = navigator.userAgent || '';
+    return /Android/i.test(userAgent) && /\bwv\b/i.test(userAgent);
+}
+
+function isDesktopEnvironment() {
+    const isWideScreen = window.innerWidth >= 1024;
+    return isWideScreen && !browser.mobile && !layoutManager.tv && !isAndroidWebView();
+}
+
+function updateDesktopDecorationsVisibility(view) {
+    const decorations = view.querySelector('#desktopDecorations');
+    if (!decorations) {
+        return;
+    }
+
+    decorations.classList.toggle('desktopDecorationsVisible', isDesktopEnvironment());
+}
+
 function authenticateUserByName(page, apiClient, url, username, password) {
     loading.show();
     apiClient.authenticateUserByName(username, password).then(function (result) {
@@ -232,6 +251,11 @@ function loadUserList(context, apiClient, users) {
 }
 
 export default function (view, params) {
+    let hasWindowResizeListener = false;
+    const handleResize = () => {
+        updateDesktopDecorationsVisibility(view);
+    };
+
     function getApiClient() {
         const serverId = params.serverid;
 
@@ -311,6 +335,12 @@ export default function (view, params) {
     enforceManualLoginTabOrder(view);
 
     view.addEventListener('viewshow', function () {
+        updateDesktopDecorationsVisibility(view);
+        if (!hasWindowResizeListener) {
+            window.addEventListener('resize', handleResize);
+            hasWindowResizeListener = true;
+        }
+
         loading.show();
         libraryMenu.setTransparentMenu(true);
 
@@ -361,6 +391,11 @@ export default function (view, params) {
         });
     });
     view.addEventListener('viewhide', function () {
+        if (hasWindowResizeListener) {
+            window.removeEventListener('resize', handleResize);
+            hasWindowResizeListener = false;
+        }
+
         libraryMenu.setTransparentMenu(false);
     });
 }

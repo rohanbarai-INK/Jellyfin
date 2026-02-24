@@ -1,5 +1,16 @@
 <div id="loginPage" data-role="page" class="page standalonePage backdropPage" data-backbutton="false" data-backdroptype="splashscreen">
-    <div class="padded-left padded-right padded-bottom-page margin-auto-y">
+    <div class="padded-left padded-right padded-bottom-page margin-auto-y loginContentLayer">
+        <div class="loginBannerContainer">
+            <img class="loginBannerImage" src="/assets/branding/login-banner.png" alt="Brand Banner" />
+        </div>
+        <div id="desktopDecorations">
+            <video class="animeLeft" autoplay muted loop playsinline aria-hidden="true" tabindex="-1">
+                <source src="/assets/branding/anime-left.webm" type="video/webm" />
+            </video>
+            <video class="animeRight" autoplay muted loop playsinline aria-hidden="true" tabindex="-1">
+                <source src="/assets/branding/anime-right.webm" type="video/webm" />
+            </video>
+        </div>
         <form class="manualLoginForm margin-auto-x hide">
             <div class="padded-left padded-right flex align-items-center justify-content-center">
                 <h1 class="sectionTitle">${HeaderPleaseSignIn}</h1>
