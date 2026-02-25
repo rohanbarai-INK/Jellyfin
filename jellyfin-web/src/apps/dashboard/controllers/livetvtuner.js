@@ -70,7 +70,7 @@ function fillTunerHostInfo(view, info) {
 }
 
 function submitForm(page) {
-    loading.show();
+    loading.show('system');
     const info = {
         Type: page.querySelector('.selectType').value,
         Url: page.querySelector('.txtDevicePath').value || null,

@@ -155,7 +155,7 @@ function showCardMenu(page, elem, virtualFolders) {
 }
 
 function reloadLibrary(page) {
-    loading.show();
+    loading.show('system');
     ServerConnections.currentApiClient()
         .getVirtualFolders()
         .then(function (result) {

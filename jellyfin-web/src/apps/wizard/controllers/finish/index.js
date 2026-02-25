@@ -2,7 +2,7 @@ import loading from 'components/loading/loading';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 
 function onFinish() {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     apiClient.ajax({
         url: apiClient.getUrl('Startup/Complete'),

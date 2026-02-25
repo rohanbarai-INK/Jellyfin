@@ -209,7 +209,7 @@ const UserParentalControl = () => {
             return;
         }
 
-        loading.show();
+        loading.show('system');
         const promise1 = window.ApiClient.getUser(userId);
         const promise2 = window.ApiClient.getParentalRatings();
         Promise.all([promise1, promise2]).then(function (responses) {
@@ -316,7 +316,7 @@ const UserParentalControl = () => {
                 return;
             }
 
-            loading.show();
+            loading.show('system');
             window.ApiClient.getUser(userId).then(function (result) {
                 saveUser(result);
             }).catch(err => {

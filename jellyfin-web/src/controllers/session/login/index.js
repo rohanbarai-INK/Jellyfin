@@ -90,7 +90,7 @@ function updateDesktopDecorationsVisibility(view) {
 }
 
 function authenticateUserByName(page, apiClient, url, username, password) {
-    loading.show();
+    loading.show('system');
     apiClient.authenticateUserByName(username, password).then(function (result) {
         const user = result.User;
         loading.hide();
@@ -341,7 +341,7 @@ export default function (view, params) {
             hasWindowResizeListener = true;
         }
 
-        loading.show();
+        loading.show('system');
         libraryMenu.setTransparentMenu(true);
 
         if (!appHost.supports(AppFeature.MultiServer)) {

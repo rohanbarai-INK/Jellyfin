@@ -7,8 +7,8 @@ export declare global {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         NativeShell: any;
         Loading: {
-            show();
-            hide();
+            show(type?: 'system' | 'media'): void;
+            hide(): void;
         }
     }
 

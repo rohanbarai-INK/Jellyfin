@@ -24,7 +24,7 @@ function loadTemplate(page, type, providerId) {
 }
 
 pageIdOn('pageshow', 'liveTvGuideProviderPage', function () {
-    loading.show();
+    loading.show('system');
     const providerId = getParameterByName('id');
     loadTemplate(this, getParameterByName('type'), providerId);
 });

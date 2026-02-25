@@ -29,7 +29,7 @@ async function onUpdateUserError(result) {
 }
 
 function submit(form) {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     apiClient
         .ajax({
@@ -59,7 +59,7 @@ function onSubmit(e) {
 }
 
 function onViewShow() {
-    loading.show();
+    loading.show('system');
     const page = this;
     const apiClient = ServerConnections.currentApiClient();
     apiClient.getJSON(apiClient.getUrl('Startup/User')).then(function (user) {

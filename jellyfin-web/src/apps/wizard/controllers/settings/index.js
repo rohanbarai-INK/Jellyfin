@@ -7,7 +7,7 @@ import 'elements/emby-checkbox/emby-checkbox';
 import 'elements/emby-select/emby-select';
 
 function save(page) {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     apiClient.getJSON(apiClient.getUrl('Startup/Configuration')).then(function (config) {
         config.PreferredMetadataLanguage = page.querySelector('#selectLanguage').value;
@@ -57,7 +57,7 @@ function reloadData(page, config, cultures, countries) {
 }
 
 function reload(page) {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     const promise1 = apiClient.getJSON(apiClient.getUrl('Startup/Configuration'));
     const promise2 = apiClient.getCultures();

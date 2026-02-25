@@ -126,7 +126,7 @@ function renderSearchResults(context, results) {
 }
 
 function searchForLyrics(context) {
-    loading.show();
+    loading.show('system');
 
     const api = toApi(ServerConnections.getApiClient(currentItem.ServerId));
     const lyricsApi = getLyricsApi(api);
@@ -383,7 +383,7 @@ function showEditorInternal(itemId, serverId) {
 }
 
 function showEditor(itemId, serverId) {
-    loading.show();
+    loading.show('system');
 
     return showEditorInternal(itemId, serverId);
 }

@@ -121,7 +121,7 @@ function getDateValue(form, element, property) {
 }
 
 function onSubmit(e) {
-    loading.show();
+    loading.show('system');
 
     const form = this;
 
@@ -1034,7 +1034,7 @@ function fillMetadataSettings(context, item, lockedFields) {
 }
 
 function reload(context, itemId, serverId) {
-    loading.show();
+    loading.show('system');
 
     Promise.all([getItem(itemId, serverId), getEditorConfig(itemId, serverId)]).then(function (responses) {
         const item = responses[0];
@@ -1073,7 +1073,7 @@ function centerFocus(elem, horiz, on) {
 }
 
 function show(itemId, serverId, resolve) {
-    loading.show();
+    loading.show('system');
 
     const dialogOptions = {
         removeOnClose: true,
@@ -1124,7 +1124,7 @@ export default {
 
     embed: function (elem, itemId, serverId) {
         return new Promise(function () {
-            loading.show();
+            loading.show('system');
 
             elem.innerHTML = globalize.translateHtml(template, 'core');
 

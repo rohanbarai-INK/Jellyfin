@@ -20,7 +20,7 @@ function loadPage(page, systemInfo, config, languageOptions) {
 }
 
 function save(page) {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     apiClient.getJSON(apiClient.getUrl('Startup/Configuration')).then(function (config) {
         config.ServerName = page.querySelector('#txtServerName').value;
@@ -47,7 +47,7 @@ export default function (view) {
 
     view.addEventListener('viewshow', function () {
         document.querySelector('.skinHeader').classList.add('noHomeButtonHeader');
-        loading.show();
+        loading.show('system');
         const page = this;
         const apiClient = ServerConnections.currentApiClient();
 

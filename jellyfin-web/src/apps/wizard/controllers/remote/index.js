@@ -7,7 +7,7 @@ import 'elements/emby-button/emby-button';
 import 'elements/emby-select/emby-select';
 
 function save(page) {
-    loading.show();
+    loading.show('system');
     const apiClient = ServerConnections.currentApiClient();
     const config = {
         EnableRemoteAccess: page.querySelector('#chkRemoteAccess').checked

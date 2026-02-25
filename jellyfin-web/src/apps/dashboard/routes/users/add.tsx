@@ -121,7 +121,7 @@ const UserNew = () => {
     }, [loadChannels, loadMediaFolders, mediaFolders, channels]);
 
     useEffect(() => {
-        loading.show();
+        loading.show('system');
         if (isMediaFoldersSuccess && isChannelsSuccess) {
             loadUser();
         }
@@ -195,7 +195,7 @@ const UserNew = () => {
         };
 
         const onSubmit = (e: Event) => {
-            loading.show();
+            loading.show('system');
             saveUser();
             e.preventDefault();
             e.stopPropagation();

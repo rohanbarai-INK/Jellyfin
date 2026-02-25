@@ -146,7 +146,7 @@ const UserLibraryAccess = () => {
     }, [loadChannels, loadDevices, loadMediaFolders]);
 
     const loadData = useCallback(() => {
-        loading.show();
+        loading.show('system');
         const promise1 = userId ? window.ApiClient.getUser(userId) : Promise.resolve({ Configuration: {} });
         const promise2 = window.ApiClient.getJSON(window.ApiClient.getUrl('Library/MediaFolders', {
             IsHidden: false
@@ -176,7 +176,7 @@ const UserLibraryAccess = () => {
                 return;
             }
 
-            loading.show();
+            loading.show('system');
             window.ApiClient.getUser(userId).then(function (result) {
                 saveUser(result);
             }).catch(err => {

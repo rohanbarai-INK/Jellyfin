@@ -104,7 +104,7 @@ function showServerConnectionFailure() {
 
 export default function (view, params) {
     function connectToServer(server) {
-        loading.show();
+        loading.show('system');
         ServerConnections.connectToServer(server, {
             enableAutoLogin: appSettings.enableAutoLogin()
         }).then(function (result) {
@@ -142,7 +142,7 @@ export default function (view, params) {
             confirmText: globalize.translate('Delete'),
             primary: 'delete'
         }).then(function () {
-            loading.show();
+            loading.show('system');
             ServerConnections.deleteServer(server.Id).then(function () {
                 loading.hide();
                 loadServers();
@@ -190,7 +190,7 @@ export default function (view, params) {
     }
 
     function loadServers() {
-        loading.show();
+        loading.show('system');
         ServerConnections.getAvailableServers().then(onServersRetrieved);
     }
 

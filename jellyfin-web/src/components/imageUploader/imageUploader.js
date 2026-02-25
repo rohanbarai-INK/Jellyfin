@@ -92,7 +92,7 @@ function onSubmit(e) {
         return false;
     }
 
-    loading.show();
+    loading.show('system');
 
     const dlg = dom.parentWithClass(this, 'dialog');
 

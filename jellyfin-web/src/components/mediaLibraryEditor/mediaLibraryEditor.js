@@ -30,7 +30,7 @@ function onEditLibrary() {
     }
 
     isCreating = true;
-    loading.show();
+    loading.show('system');
     const dlg = dom.parentWithClass(this, 'dlg-libraryeditor');
     // when the library has moved or symlinked, the ItemId is not correct anymore
     // this can lead to a forever spinning value on edit the library parameters

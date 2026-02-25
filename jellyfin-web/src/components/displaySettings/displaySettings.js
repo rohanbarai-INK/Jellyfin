@@ -185,7 +185,7 @@ function saveUser(context, user, userSettingsInstance, apiClient) {
 }
 
 function save(instance, context, userId, userSettings, apiClient, enableSaveConfirmation) {
-    loading.show();
+    loading.show('system');
 
     apiClient.getUser(userId).then(user => {
         saveUser(context, user, userSettings, apiClient).then(() => {
@@ -237,7 +237,7 @@ class DisplaySettings {
         const self = this;
         const context = self.options.element;
 
-        loading.show();
+        loading.show('system');
 
         const userId = self.options.userId;
         const apiClient = ServerConnections.getApiClient(self.options.serverId);

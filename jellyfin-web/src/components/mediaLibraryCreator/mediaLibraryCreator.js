@@ -40,7 +40,7 @@ function onAddLibrary(e) {
     }
 
     isCreating = true;
-    loading.show();
+    loading.show('system');
     const dlg = dom.parentWithClass(this, 'dlg-librarycreator');
     const name = dlg.querySelector('#txtValue').value.trim();
     let type = dlg.querySelector('#selectCollectionType').value;

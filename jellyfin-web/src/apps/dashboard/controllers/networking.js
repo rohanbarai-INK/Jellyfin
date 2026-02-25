@@ -17,7 +17,7 @@ function onSubmit(e) {
         }
 
         validateHttps(form).then(function () {
-            loading.show();
+            loading.show('system');
             ApiClient.getNamedConfiguration('network').then(function (config) {
                 config.LocalNetworkSubnets = form.querySelector('#txtLanNetworks').value.split(',').map(function (s) {
                     return s.trim();
@@ -177,7 +177,7 @@ export default function (view) {
     });
     view.querySelector('.dashboardHostingForm').addEventListener('submit', onSubmit);
     view.addEventListener('viewshow', function () {
-        loading.show();
+        loading.show('system');
         ApiClient.getNamedConfiguration('network').then(function (config) {
             loadPage(view, config);
         });

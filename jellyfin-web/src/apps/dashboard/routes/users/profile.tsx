@@ -205,7 +205,7 @@ const UserEdit = () => {
             console.error('[profile] No user available');
             return;
         }
-        loading.show();
+        loading.show('system');
         loadUser(userDto);
     }, [userDto, loadUser]);
 
@@ -274,7 +274,7 @@ const UserEdit = () => {
         };
 
         const onSubmit = (e: Event) => {
-            loading.show();
+            loading.show('system');
             if (userDto) {
                 saveUser(userDto);
             }

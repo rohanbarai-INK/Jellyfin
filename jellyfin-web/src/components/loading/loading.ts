@@ -1,23 +1,54 @@
 import './loading.scss';
 
+type LoaderType = 'system' | 'media';
+
 let loader: HTMLDivElement | undefined;
+let loaderImage: HTMLImageElement | undefined;
+let currentLoaderType: LoaderType = 'media';
 
-function createLoader(): HTMLDivElement {
-    const elem = document.createElement('div');
-    elem.setAttribute('dir', 'ltr');
-    elem.classList.add('docspinner');
-    elem.classList.add('mdl-spinner');
+function getLoaderSource(type: LoaderType): string {
+    if (type === 'system') {
+        return 'assets/branding/system-loader.gif';
+    }
 
-    elem.innerHTML = '<div class="mdl-spinner__layer mdl-spinner__layer-1"><div class="mdl-spinner__circle-clipper mdl-spinner__left"><div class="mdl-spinner__circle mdl-spinner__circleLeft"></div></div><div class="mdl-spinner__circle-clipper mdl-spinner__right"><div class="mdl-spinner__circle mdl-spinner__circleRight"></div></div></div><div class="mdl-spinner__layer mdl-spinner__layer-2"><div class="mdl-spinner__circle-clipper mdl-spinner__left"><div class="mdl-spinner__circle mdl-spinner__circleLeft"></div></div><div class="mdl-spinner__circle-clipper mdl-spinner__right"><div class="mdl-spinner__circle mdl-spinner__circleRight"></div></div></div><div class="mdl-spinner__layer mdl-spinner__layer-3"><div class="mdl-spinner__circle-clipper mdl-spinner__left"><div class="mdl-spinner__circle mdl-spinner__circleLeft"></div></div><div class="mdl-spinner__circle-clipper mdl-spinner__right"><div class="mdl-spinner__circle mdl-spinner__circleRight"></div></div></div><div class="mdl-spinner__layer mdl-spinner__layer-4"><div class="mdl-spinner__circle-clipper mdl-spinner__left"><div class="mdl-spinner__circle mdl-spinner__circleLeft"></div></div><div class="mdl-spinner__circle-clipper mdl-spinner__right"><div class="mdl-spinner__circle mdl-spinner__circleRight"></div></div></div>';
-
-    document.body.appendChild(elem);
-    return elem;
+    return 'assets/branding/media-loader.gif';
 }
 
-export function show() {
+function createLoader(type: LoaderType): HTMLDivElement {
+    const container = document.createElement('div');
+    container.setAttribute('dir', 'ltr');
+    container.classList.add('docspinner');
+    container.classList.add('gif-loader');
+
+    const img = document.createElement('img');
+    img.classList.add('loaderImage');
+    img.src = getLoaderSource(type);
+
+    loaderImage = img;
+    container.appendChild(img);
+    document.body.appendChild(container);
+
+    return container;
+}
+
+export function show(type: LoaderType = 'media') {
+    currentLoaderType = type;
+    const source = getLoaderSource(currentLoaderType);
+
     if (!loader) {
-        loader = createLoader();
+        loader = createLoader(currentLoaderType);
+    } else {
+        const image = loaderImage || loader.querySelector('.loaderImage');
+
+        if (image instanceof HTMLImageElement) {
+            loaderImage = image;
+        }
     }
+
+    if (loaderImage) {
+        loaderImage.src = source;
+    }
+
     loader.classList.add('mdlSpinnerActive');
 }
 

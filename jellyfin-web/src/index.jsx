@@ -219,7 +219,7 @@ async function renderApp() {
     // Remove the splash logo
     container.innerHTML = '';
 
-    loading.show();
+    loading.show('system');
 
     const root = createRoot(container);
     root.render(
