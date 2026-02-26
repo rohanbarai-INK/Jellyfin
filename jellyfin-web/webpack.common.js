@@ -23,7 +23,7 @@ const Assets = [
 const DEV_MODE = process.env.NODE_ENV !== 'production';
 const HARDCODED_SERVER_URL = process.env.JELLYFIN_SERVER_URL
     ?? process.env.SERVER_URL
-    ?? 'http://192.168.1.9:8097/';
+    ?? '';
 let COMMIT_SHA = '';
 try {
     COMMIT_SHA = require('child_process')

@@ -2,6 +2,7 @@ import Dashboard from '@mui/icons-material/Dashboard';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import LibraryAdd from '@mui/icons-material/LibraryAdd';
+import LiveHelp from '@mui/icons-material/LiveHelp';
 import Palette from '@mui/icons-material/Palette';
 import People from '@mui/icons-material/People';
 import PlayCircle from '@mui/icons-material/PlayCircle';
@@ -18,6 +19,8 @@ import { useLocation } from 'react-router-dom';
 
 import ListItemLink from 'components/ListItemLink';
 import globalize from 'lib/globalize';
+import requestBadgeGif from 'assets/branding/admin-request-badge.gif';
+import { useAdminUnseenPendingCount } from 'apps/dashboard/features/contentRequests/api/useAdminUnseenPendingCount';
 
 const LIBRARY_PATHS = [
     '/dashboard/libraries',
@@ -35,6 +38,7 @@ const PLAYBACK_PATHS = [
 
 const ServerDrawerSection = () => {
     const location = useLocation();
+    const { data: unseenPendingCount = 0 } = useAdminUnseenPendingCount();
 
     const [ isLibrarySectionOpen, setIsLibrarySectionOpen ] = useState(LIBRARY_PATHS.includes(location.pathname));
     const [ isPlaybackSectionOpen, setIsPlaybackSectionOpen ] = useState(PLAYBACK_PATHS.includes(location.pathname));
@@ -88,6 +92,28 @@ const ServerDrawerSection = () => {
                         <People />
                     </ListItemIcon>
                     <ListItemText primary={globalize.translate('HeaderUsers')} />
+                </ListItemLink>
+            </ListItem>
+            <ListItem disablePadding>
+                <ListItemLink to='/dashboard/requests'>
+                    <ListItemIcon>
+                        <LiveHelp />
+                    </ListItemIcon>
+                    <ListItemText primary={globalize.translate('RequestMenuLabel')} />
+                    {unseenPendingCount > 0 && (
+                        <img
+                            src={requestBadgeGif}
+                            alt=''
+                            aria-hidden='true'
+                            role='presentation'
+                            tabIndex={-1}
+                            style={{
+                                height: '1.8rem',
+                                maxHeight: '1.8rem',
+                                pointerEvents: 'none'
+                            }}
+                        />
+                    )}
                 </ListItemLink>
             </ListItem>
             <ListItem disablePadding>

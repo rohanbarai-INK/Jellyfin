@@ -1,0 +1,659 @@
+.requestPageContainer {
+    position: relative;
+    z-index: 1;
+    padding: 1rem;
+    overflow-x: visible;
+    color: var(--jf-palette-text-primary);
+    box-sizing: border-box;
+}
+
+.requestPageContainerInner {
+    width: min(1320px, 100%);
+    max-width: 100%;
+    min-width: 0;
+    margin: 0 auto;
+    display: grid;
+    gap: 1rem;
+    box-sizing: border-box;
+}
+
+.requestSection {
+    min-width: 0;
+    max-width: 100%;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: rgba(var(--jf-palette-background-paperChannel) / 0.88);
+    box-sizing: border-box;
+    overflow-x: visible;
+}
+
+.requestHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.requestHeaderText {
+    min-width: 0;
+}
+
+.requestHeaderTitle {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.requestHeaderSubtitle {
+    margin: 0.3rem 0 0;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.92rem;
+}
+
+.requestDisclaimer details summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.requestDisclaimer p {
+    margin: 0.75rem 0 0;
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestFormGrid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.requestFormGrid > * {
+    min-width: 0;
+}
+
+.requestFormFullWidth {
+    grid-column: 1 / -1;
+}
+
+.requestTypeToggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.requestTypeToggle button {
+    flex: 1 1 0;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--jf-palette-text-primary);
+    padding: 0.7rem 1rem;
+    min-height: 2.75rem;
+    min-width: 0;
+    box-sizing: border-box;
+    font: inherit;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.requestTypeToggle button[aria-pressed='true'] {
+    background: var(--jf-palette-primary-main);
+    color: var(--jf-palette-primary-contrastText);
+}
+
+.requestQuotaSummary {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.requestCaps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.requestCapPill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.7rem;
+    padding: 0.5rem 0.7rem;
+    box-sizing: border-box;
+    min-height: 2.75rem;
+    font-size: 0.92rem;
+    line-height: 1.2;
+    color: var(--jf-palette-text-secondary);
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.5);
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.requestInput {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.6rem;
+    padding: 0.65rem 0.75rem;
+    min-height: 2.75rem;
+    line-height: 1.25;
+    font: inherit;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.65);
+    color: var(--jf-palette-text-primary);
+}
+
+.requestInput::placeholder {
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestSubmitRow {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    justify-items: stretch;
+    align-items: start;
+    gap: 0.75rem;
+}
+
+.requestSubmitButton,
+.requestRenewButton,
+.requestActionButton {
+    box-sizing: border-box;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.65rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.75);
+    color: var(--jf-palette-text-primary);
+    padding: 0.6rem 0.9rem;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.requestRenewButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.requestSubmitButton {
+    display: block;
+    width: 100%;
+    max-width: none;
+    min-height: 2.75rem;
+    justify-self: stretch;
+    background: var(--jf-palette-primary-main);
+    color: var(--jf-palette-primary-contrastText);
+    border-color: var(--jf-palette-primary-main);
+}
+
+.requestActionButton.action-approve {
+    border-color: var(--jf-palette-success-main);
+}
+
+.requestActionButton.action-reject {
+    border-color: var(--jf-palette-error-main);
+}
+
+.requestActionButton.action-complete {
+    border-color: var(--jf-palette-info-main);
+}
+
+.requestSubmitButton:disabled,
+.requestActionButton:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.requestFormMessage {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.92rem;
+}
+
+.requestFormMessageTopSpacing {
+    margin-top: 0.75rem;
+}
+
+.requestFormMessage.warning {
+    color: var(--jf-palette-warning-main);
+}
+
+.requestFormMessage.error {
+    color: var(--jf-palette-error-main);
+}
+
+.requestStateBanner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.45);
+}
+
+.requestStateBanner.warning {
+    border-color: var(--jf-palette-warning-main);
+}
+
+.requestStateBanner.error {
+    border-color: var(--jf-palette-error-main);
+}
+
+.requestStateBanner.info {
+    border-color: var(--jf-palette-info-main);
+}
+
+.requestStateBannerIcon {
+    font-size: 1rem;
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestStateBannerText {
+    flex: 1;
+    min-width: 0;
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestExpiredCta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.requestTableTools {
+    margin-bottom: 0.75rem;
+    min-width: 0;
+}
+
+.requestTableViewport {
+    min-width: 0;
+    overflow-x: visible;
+}
+
+.requestTable {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+.requestTable th,
+.requestTable td {
+    text-align: left;
+    padding: 0.55rem 0.45rem;
+    border-bottom: 1px solid var(--jf-palette-divider);
+    font-size: 0.92rem;
+    vertical-align: middle;
+    overflow-wrap: break-word;
+    word-break: normal;
+}
+
+.requestTable th {
+    color: var(--jf-palette-text-secondary);
+    font-weight: 600;
+}
+
+.requestColRequestId {
+    width: 9.5rem;
+}
+
+.requestColTitle {
+    width: 30%;
+}
+
+.requestColType {
+    width: 5.6rem;
+}
+
+.requestColSeason {
+    width: 4.8rem;
+}
+
+.requestColDate {
+    text-align: right !important;
+    width: 12.2rem;
+}
+
+.requestColStatus {
+    text-align: center !important;
+    width: 8.2rem;
+}
+
+.requestColAction {
+    width: 14rem;
+}
+
+.requestStatusBadge {
+    display: inline-flex;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.8rem;
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestCellTruncate {
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.requestStatusBadge.status-pending {
+    border-color: var(--jf-palette-warning-main);
+    color: var(--jf-palette-warning-main);
+}
+
+.requestStatusBadge.status-approved {
+    border-color: var(--jf-palette-success-main);
+    color: var(--jf-palette-success-main);
+}
+
+.requestStatusBadge.status-rejected {
+    border-color: var(--jf-palette-error-main);
+    color: var(--jf-palette-error-main);
+}
+
+.requestStatusBadge.status-completed {
+    border-color: var(--jf-palette-info-main);
+    color: var(--jf-palette-info-main);
+}
+
+.requestEmptyState {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 0.35rem;
+    color: var(--jf-palette-text-secondary);
+    padding: 0.65rem 0.35rem;
+}
+
+.requestEmptyStateIcon {
+    color: var(--jf-palette-text-secondary);
+}
+
+.requestEmptyStateTitle {
+    font-weight: 600;
+    color: var(--jf-palette-text-primary);
+}
+
+.requestEmptyStateSubtitle {
+    font-size: 0.9rem;
+}
+
+.requestEmptyStateAction {
+    margin-top: 0.25rem;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.6rem;
+    padding: 0.4rem 0.75rem;
+    color: var(--jf-palette-text-primary);
+    text-decoration: none;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.6);
+}
+
+.requestCardList {
+    display: grid;
+    gap: 0.7rem;
+    min-width: 0;
+}
+
+.requestCard {
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.7rem;
+    padding: 0.75rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.6);
+}
+
+.requestCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.requestCardTitle {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.requestCardMeta {
+    margin: 0.6rem 0 0;
+    display: grid;
+    grid-template-columns: minmax(5rem, auto) 1fr;
+    gap: 0.35rem 0.55rem;
+}
+
+.requestCardMetaLabel {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.86rem;
+}
+
+.requestCardMetaValue {
+    margin: 0;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.requestCardActions {
+    margin-top: 0.7rem;
+}
+
+.adminRequestActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.adminRequestActionPlaceholder {
+    color: var(--jf-palette-text-secondary);
+}
+
+.adminCompleteSearchRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+}
+
+.adminCompleteSearchResults {
+    margin-top: 0.9rem;
+    display: grid;
+    gap: 0.65rem;
+    max-height: 48vh;
+    overflow: auto;
+}
+
+.adminCompleteSearchResult {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.65rem;
+    padding: 0.45rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.5);
+}
+
+.adminCompleteSearchPoster {
+    width: 3rem;
+    height: 4.5rem;
+    border-radius: 0.45rem;
+    object-fit: cover;
+    border: 1px solid var(--jf-palette-divider);
+}
+
+.adminCompleteResultText {
+    min-width: 0;
+}
+
+.adminCompleteResultTitle {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.adminCompleteResultYear {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.9rem;
+}
+
+.requestDesktopOnly {
+    display: block;
+}
+
+.requestMobileOnly {
+    display: none;
+}
+
+.layout-mobile .requestDesktopOnly {
+    display: none;
+}
+
+.layout-mobile .requestMobileOnly {
+    display: block;
+}
+
+@media (pointer: coarse) and (max-width: 1024px) {
+    .requestDesktopOnly {
+        display: none;
+    }
+
+    .requestMobileOnly {
+        display: block;
+    }
+
+    .requestFormGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.requestTypeToggle button:focus,
+.requestInput:focus,
+.requestSubmitButton:focus,
+.requestActionButton:focus,
+.requestRenewButton:focus {
+    outline: none;
+    border-color: var(--jf-palette-primary-main);
+    box-shadow: inset 0 0 0 0.12rem rgba(var(--jf-palette-primary-mainChannel) / 0.9);
+}
+
+.requestTypeToggle:focus-within {
+    border-color: var(--jf-palette-primary-main);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .requestTypeToggle button:hover:not([aria-pressed='true']),
+    .requestSubmitButton:hover,
+    .requestActionButton:hover,
+    .requestRenewButton:hover {
+        filter: brightness(1.08);
+    }
+}
+
+@media (max-width: 900px) {
+    .requestPageContainer {
+        padding: 0.85rem;
+    }
+}
+
+@media (min-width: 1080px) {
+    .requestMainGrid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.42fr);
+        gap: 1rem;
+        align-items: start;
+    }
+}
+
+@media (max-width: 767px) {
+    .requestFormGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .requestStateBanner {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .requestRenewButton {
+        width: 100%;
+        text-align: center;
+    }
+
+    .requestDesktopOnly {
+        display: none;
+    }
+
+    .requestMobileOnly {
+        display: block;
+    }
+
+    .requestColAction {
+        width: auto;
+    }
+
+    .requestColTitle,
+    .requestColType,
+    .requestColSeason {
+        width: auto;
+    }
+}
+
+@media (max-width: 560px) {
+    .requestCaps {
+        grid-template-columns: 1fr;
+    }
+
+    .requestCapPill {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .requestTypeToggle button {
+        padding-inline: 0.75rem;
+        font-size: 0.92rem;
+    }
+}
+
+.layout-tv .requestPageContainer {
+    padding: 1.2rem;
+}
+
+.layout-tv .requestHeaderTitle {
+    font-size: 1.25rem;
+}
+
+.layout-tv .requestInput,
+.layout-tv .requestSubmitButton,
+.layout-tv .requestRenewButton,
+.layout-tv .requestActionButton {
+    font-size: 1.05rem;
+    min-height: 2.7rem;
+}
+
+.layout-tv .requestCardTitle {
+    font-size: 1.05rem;
+}

@@ -1,0 +1,138 @@
+.requestNotificationDialog .MuiPaper-root {
+    width: min(960px, 96vw);
+    max-height: 80vh;
+    border-radius: 0.85rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-paperChannel) / 0.96);
+    color: var(--jf-palette-text-primary);
+}
+
+.requestNotificationHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--jf-palette-divider);
+    padding: 0.8rem 1rem;
+}
+
+.requestNotificationHeaderLeft {
+    flex: 1;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.requestNotificationHeaderRight {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.requestNotificationAccent {
+    display: block;
+    max-height: 56px;
+    height: auto;
+    width: auto;
+    pointer-events: none;
+}
+
+.requestNotificationDialog.mobile .requestNotificationAccent {
+    max-height: 48px;
+}
+
+.requestNotificationDialog.tv .requestNotificationAccent {
+    max-height: 72px;
+}
+
+.requestNotificationContent {
+    overflow: auto;
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem 1rem;
+}
+
+.requestNotificationCard {
+    display: grid;
+    grid-template-columns: minmax(5.2rem, 6rem) 1fr;
+    gap: 0.75rem;
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.75rem;
+    padding: 0.6rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.52);
+}
+
+.requestNotificationPoster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 0.55rem;
+    border: 1px solid var(--jf-palette-divider);
+    object-fit: cover;
+    background: rgba(var(--jf-palette-action-selectedOpacity) / 0.2);
+}
+
+.requestNotificationMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.2rem;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.86rem;
+}
+
+.requestNotificationOverview {
+    margin-top: 0.45rem;
+    margin-bottom: 0.5rem;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.89rem;
+    line-height: 1.35;
+}
+
+.requestNotificationActionRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.requestNotificationWatchButton,
+.requestNotificationCloseButton {
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.55rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.7);
+    color: var(--jf-palette-text-primary);
+    cursor: pointer;
+}
+
+.requestNotificationWatchButton {
+    padding: 0.4rem 0.65rem;
+    border-color: var(--jf-palette-primary-main);
+}
+
+.requestNotificationCloseButton {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.requestNotificationWatchButton:focus-visible,
+.requestNotificationCloseButton:focus-visible {
+    outline: 0.18rem solid var(--jf-palette-primary-main);
+    outline-offset: 0.1rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .requestNotificationWatchButton:hover,
+    .requestNotificationCloseButton:hover {
+        filter: brightness(1.08);
+    }
+}
+
+@media (max-width: 760px) {
+    .requestNotificationHeaderLeft {
+        font-size: 0.98rem;
+    }
+
+    .requestNotificationCard {
+        grid-template-columns: 4.8rem 1fr;
+    }
+}

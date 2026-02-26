@@ -9,6 +9,7 @@ using Jellyfin.Drawing;
 using Jellyfin.Drawing.Skia;
 using Jellyfin.LiveTv;
 using Jellyfin.Server.Implementations.Activity;
+using Jellyfin.Server.Implementations.ContentRequests;
 using Jellyfin.Server.Implementations.Devices;
 using Jellyfin.Server.Implementations.Events;
 using Jellyfin.Server.Implementations.Extensions;
@@ -18,6 +19,7 @@ using Jellyfin.Server.Implementations.Users;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Authentication;
 using MediaBrowser.Controller.BaseItemManager;
+using MediaBrowser.Controller.ContentRequests;
 using MediaBrowser.Controller.Devices;
 using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.Events;
@@ -88,6 +90,7 @@ namespace Jellyfin.Server
             serviceCollection.AddSingleton<IDeviceManager, DeviceManager>();
             serviceCollection.AddSingleton<ITrickplayManager, TrickplayManager>();
             serviceCollection.AddSingleton<IAccessKeyService, AccessKeyService>();
+            serviceCollection.AddSingleton<IContentRequestService, ContentRequestService>();
 
             // TODO search the assemblies instead of adding them manually?
             serviceCollection.AddSingleton<IWebSocketListener, SessionWebSocketListener>();

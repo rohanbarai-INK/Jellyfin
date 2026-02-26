@@ -4,6 +4,7 @@ import Close from '@mui/icons-material/Close';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Download from '@mui/icons-material/Download';
 import Edit from '@mui/icons-material/Edit';
+import LiveHelp from '@mui/icons-material/LiveHelp';
 import Logout from '@mui/icons-material/Logout';
 import PhonelinkLock from '@mui/icons-material/PhonelinkLock';
 import Settings from '@mui/icons-material/Settings';
@@ -179,6 +180,18 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
                 </ListItemIcon>
                 <ListItemText>
                     {globalize.translate('Settings')}
+                </ListItemText>
+            </MenuItem>
+            <MenuItem
+                component={Link}
+                to='/request'
+                onClick={onMenuClose}
+            >
+                <ListItemIcon>
+                    <LiveHelp />
+                </ListItemIcon>
+                <ListItemText>
+                    {globalize.translate('RequestMenuLabel')}
                 </ListItemText>
             </MenuItem>
             {subscriptionMenuItem}

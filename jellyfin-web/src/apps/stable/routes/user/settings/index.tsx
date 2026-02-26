@@ -326,6 +326,25 @@ const UserSettingsPage: FC = () => {
                             </div>
                         </LinkButton>
 
+                        <LinkButton
+                            href='#/request'
+                            className='lnkContentRequests listItem-border'
+                            style={{
+                                display: 'block',
+                                margin: 0,
+                                padding: 0
+                            }}
+                        >
+                            <div className='listItem'>
+                                <span className='material-icons listItemIcon listItemIcon-transparent live_help' aria-hidden='true' />
+                                <div className='listItemBody'>
+                                    <div className='listItemBodyText'>
+                                        {globalize.translate('RequestMenuLabel')}
+                                    </div>
+                                </div>
+                            </div>
+                        </LinkButton>
+
                         {appHost.supports(AppFeature.DownloadManagement) && (
                             <LinkButton
                                 onClick={shell.openDownloadManager}

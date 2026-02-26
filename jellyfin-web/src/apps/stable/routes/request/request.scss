@@ -1,0 +1,6 @@
+.requestPageRoot .requestPageContainer {
+    background:
+        radial-gradient(circle at 12% 8%, rgba(var(--jf-palette-primary-mainChannel) / 0.2), rgba(var(--jf-palette-primary-mainChannel) / 0)),
+        radial-gradient(circle at 88% 10%, rgba(var(--jf-palette-secondary-mainChannel) / 0.18), rgba(var(--jf-palette-secondary-mainChannel) / 0)),
+        var(--jf-palette-background-default);
+}

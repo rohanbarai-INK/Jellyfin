@@ -566,6 +566,67 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAdminViewed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid?>("JellyfinItemId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedTitle")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("NotificationCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SeasonNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsAdminViewed");
+
+                    b.HasIndex("NormalizedTitle");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "Type", "Status");
+
+                    b.ToTable("ContentRequests");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.CustomItemDisplayPreferences", b =>
                 {
                     b.Property<int>("Id")
@@ -1564,6 +1625,17 @@ namespace Jellyfin.Server.Implementations.Migrations
                         .IsRequired();
 
                     b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequest", b =>
+                {
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.DisplayPreferences", b =>

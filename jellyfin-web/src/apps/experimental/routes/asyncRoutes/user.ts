@@ -10,6 +10,7 @@ export const ASYNC_USER_ROUTES: AsyncRoute[] = [
     { path: 'mypreferencesdisplay', page: 'user/display', type: AppType.Experimental },
     { path: 'mypreferencesmenu', page: 'user/settings' },
     { path: 'quickconnect', page: 'quickConnect' },
+    { path: 'request', page: 'request', type: AppType.Stable },
     { path: 'search' },
     { path: 'subscription', page: 'subscription', type: AppType.Stable },
     { path: 'tv', page: 'shows', type: AppType.Experimental },

@@ -106,10 +106,19 @@ class CastPlayer {
         }
 
         const apiClient = ServerConnections.currentApiClient();
+        if (!apiClient) {
+            console.warn('Not initializing chromecast: apiClient is missing');
+            return;
+        }
+
         const userId = apiClient.getCurrentUserId();
+        if (!userId) {
+            console.debug('Not initializing chromecast: current user id is missing');
+            return;
+        }
 
         apiClient.getUser(userId).then(user => {
-            const applicationID = user.Configuration.CastReceiverId;
+            const applicationID = user?.Configuration?.CastReceiverId;
             if (!applicationID) {
                 console.warn(`Not initializing chromecast: CastReceiverId is ${applicationID}`);
                 return;
@@ -123,6 +132,8 @@ class CastPlayer {
 
             console.debug(`chromecast.initialize (applicationId=${applicationID})`);
             chrome.cast.initialize(apiConfig, this.onInitSuccess.bind(this), this.errorHandler);
+        }).catch(err => {
+            console.warn('[chromecastPlayer] failed to load user for cast initialization', err);
         });
     }
 

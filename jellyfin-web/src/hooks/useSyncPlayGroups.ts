@@ -15,10 +15,10 @@ const fetchSyncPlayGroups = async (
 };
 
 export const useSyncPlayGroups = () => {
-    const { api } = useApi();
+    const { api, user } = useApi();
     return useQuery({
         queryKey: [ 'SyncPlay', 'Groups' ],
         queryFn: ({ signal }) => fetchSyncPlayGroups(api!, { signal }),
-        enabled: !!api
+        enabled: !!api && !!user
     });
 };

@@ -48,6 +48,27 @@ import './styles/dashboard.scss';
 import './styles/detailtable.scss';
 import './styles/librarybrowser.scss';
 
+function registerIgnoredRuntimeRejections() {
+    if (!__WEBPACK_SERVE__) {
+        return;
+    }
+
+    window.addEventListener('unhandledrejection', event => {
+        const reason = event.reason;
+        const message = typeof reason?.message === 'string' ? reason.message : '';
+        const name = typeof reason?.name === 'string' ? reason.name : '';
+        const isCancelledQueryError = name === 'CancelledError'
+            || message === 'CancelledError'
+            || reason?.revert === true;
+
+        if (isCancelledQueryError) {
+            // TanStack query cancellations are expected during route transitions.
+            event.preventDefault();
+            console.debug('[runtime] Ignoring cancelled query rejection');
+        }
+    });
+}
+
 async function init() {
     // Log current version to console to help out with issue triage and debugging
     console.info(
@@ -55,6 +76,8 @@ async function init() {
 version: ${__PACKAGE_JSON_VERSION__}
 commit: ${__COMMIT_SHA__}
 build: ${__JF_BUILD_VERSION__}`);
+
+    registerIgnoredRuntimeRejections();
 
     // Register globals used in plugins
     window.Events = Events;
@@ -72,9 +95,14 @@ build: ${__JF_BUILD_VERSION__}`);
     await appHost.init();
 
     // Initialize the api client
-    const serverUrl = IS_HARDCODED_SERVER_MODE ? HARDCODED_SERVER_URL : await serverAddress();
+    // Prefer same-origin in browser deployments to avoid stale saved server addresses causing CORS.
+    const browserOrigin = window.location?.origin || '';
+    const originServerUrl = /^https?:\/\//i.test(browserOrigin) ? browserOrigin : null;
+    const devServerUrl = __WEBPACK_SERVE__ ? originServerUrl : null;
+    const fallbackServerUrl = IS_HARDCODED_SERVER_MODE ? HARDCODED_SERVER_URL : await serverAddress();
+    const serverUrl = devServerUrl || originServerUrl || fallbackServerUrl;
     if (serverUrl) {
-        if (IS_HARDCODED_SERVER_MODE) {
+        if (IS_HARDCODED_SERVER_MODE || devServerUrl || originServerUrl) {
             ServerConnections.enforceHardcodedServer(serverUrl);
         }
         ServerConnections.initApiClient(serverUrl);

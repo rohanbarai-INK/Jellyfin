@@ -39,6 +39,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing content requests.
+    /// </summary>
+    public DbSet<ContentRequest> ContentRequests => Set<ContentRequest>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing the API keys.
     /// </summary>
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
