@@ -1014,11 +1014,14 @@ export const Component = () => {
                                         spacing={1.5}
                                     >
                                         <Button
+                                            className='jfAnimatedActionButton subscriptionRedeemButton'
                                             onClick={onRedeemAccessKey}
                                             disabled={isRedeemingKey || !accessKey.trim()}
                                             size='large'
                                         >
-                                            {isRedeemingKey ? 'Redeeming...' : 'Redeem Key'}
+                                            <span className='jfAnimatedActionButtonLabel'>
+                                                {isRedeemingKey ? 'Redeeming...' : 'Redeem Key'}
+                                            </span>
                                         </Button>
                                         <Button
                                             variant='outlined'

@@ -330,6 +330,138 @@
     min-width: 0;
 }
 
+@keyframes requestSearchAmbientSweep {
+    0% {
+        background-position: 0 0, 0% 50%;
+    }
+
+    100% {
+        background-position: 0 0, 220% 50%;
+    }
+}
+
+@keyframes requestSearchInteractionSpin {
+    0% {
+        transform: rotate(0deg) scale(0.72);
+    }
+
+    100% {
+        transform: rotate(360deg) scale(0.72);
+    }
+}
+
+@keyframes requestSearchInteractionPulse {
+    0%,
+    100% {
+        opacity: 0.26;
+        filter: blur(12px);
+    }
+
+    50% {
+        opacity: 0.56;
+        filter: blur(18px);
+    }
+}
+
+.requestSearchField {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-radius: 0.72rem;
+    border: 1px solid transparent;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        linear-gradient(rgb(9 14 24 / 94%), rgb(9 14 24 / 94%)) padding-box,
+        linear-gradient(
+            90deg,
+            rgb(157 181 255),
+            rgb(122 143 255),
+            rgb(214 110 201),
+            rgb(255 168 206),
+            rgb(157 181 255)
+        ) border-box;
+    background-size: 100% 100%, 240% 100%;
+    animation: requestSearchAmbientSweep 7s linear infinite;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+    transition: box-shadow 220ms ease, filter 220ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .requestSearchField:hover {
+        animation-duration: 4s;
+        box-shadow: 0 10px 26px rgb(0 0 0 / 40%);
+        filter: saturate(1.08);
+    }
+}
+
+.requestSearchField:focus-within {
+    box-shadow: 0 0 0 1px rgb(143 171 255 / 54%), 0 12px 30px rgb(58 84 170 / 30%);
+}
+
+.requestSearchInput {
+    position: relative;
+    z-index: 2;
+    border: 0;
+    background: transparent;
+    min-height: 2.8rem;
+    padding: 0.66rem 0.82rem 0.66rem 2.55rem;
+}
+
+.requestSearchInput:focus {
+    outline: none;
+}
+
+.requestSearchFieldIcon {
+    position: absolute;
+    left: 0.88rem;
+    top: 50%;
+    width: 0.96rem;
+    height: 0.96rem;
+    transform: translateY(-50%);
+    border: 2px solid rgb(199 206 228 / 82%);
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.requestSearchFieldIcon::after {
+    content: '';
+    position: absolute;
+    width: 0.48rem;
+    height: 2px;
+    right: -0.27rem;
+    bottom: -0.08rem;
+    border-radius: 2px;
+    background: rgb(199 206 228 / 82%);
+    transform: rotate(45deg);
+    transform-origin: center;
+}
+
+.requestSearchInteractionRing {
+    position: absolute;
+    inset: -120% -45%;
+    border-radius: 999px;
+    background: conic-gradient(
+        from 0deg,
+        rgb(112 141 255 / 0%),
+        rgb(112 141 255 / 66%),
+        rgb(223 102 203 / 0%),
+        rgb(223 102 203 / 72%),
+        rgb(112 141 255 / 0%)
+    );
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.requestSearchField:focus-within .requestSearchInteractionRing {
+    animation:
+        requestSearchInteractionSpin 2s linear infinite,
+        requestSearchInteractionPulse 1.6s ease-in-out infinite;
+}
+
 .requestTableViewport {
     min-width: 0;
     overflow-x: visible;

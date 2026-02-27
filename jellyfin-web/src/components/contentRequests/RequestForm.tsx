@@ -111,13 +111,15 @@ const RequestForm: FC<RequestFormProps> = ({
 
             <div className='requestSubmitRow requestFormFullWidth'>
                 <button
-                    className='requestSubmitButton'
+                    className='requestSubmitButton jfAnimatedActionButton jfAnimatedActionButton--hoverOnly'
                     type='submit'
                     disabled={!isSubmitEnabled || isSubmitting}
                 >
-                    {isSubmitting
-                        ? globalize.translate('RequestSubmitting')
-                        : globalize.translate('ButtonSubmit')}
+                    <span className='jfAnimatedActionButtonLabel'>
+                        {isSubmitting
+                            ? globalize.translate('RequestSubmitting')
+                            : globalize.translate('ButtonSubmit')}
+                    </span>
                 </button>
                 {!!message && (
                     <span className={`requestFormMessage${isMessageError ? ' error' : ''}`}>

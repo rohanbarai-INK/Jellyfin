@@ -47,6 +47,7 @@ import './styles/livetv.scss';
 import './styles/dashboard.scss';
 import './styles/detailtable.scss';
 import './styles/librarybrowser.scss';
+import './styles/animatedActionButton.scss';
 
 function registerIgnoredRuntimeRejections() {
     if (!__WEBPACK_SERVE__) {

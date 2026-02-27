@@ -135,14 +135,18 @@ const RequestList: FC<RequestListProps> = ({ rows }) => {
         <section className='requestSection'>
             <RequestHeader title={globalize.translate('RequestMyRequestsTitle')} />
             <div className='requestTableTools'>
-                <input
-                    className='requestInput'
-                    type='search'
-                    value={search}
-                    onChange={event => setSearch(event.target.value)}
-                    placeholder={globalize.translate('RequestSearchPlaceholder')}
-                    aria-label={globalize.translate('Search')}
-                />
+                <label className='requestSearchField' aria-label={globalize.translate('Search')}>
+                    <span className='requestSearchFieldIcon' aria-hidden='true' />
+                    <span className='requestSearchInteractionRing' aria-hidden='true' />
+                    <input
+                        className='requestInput requestSearchInput'
+                        type='search'
+                        value={search}
+                        onChange={event => setSearch(event.target.value)}
+                        placeholder={globalize.translate('RequestSearchPlaceholder')}
+                        aria-label={globalize.translate('Search')}
+                    />
+                </label>
             </div>
 
             {!preferCardsLayout && (
