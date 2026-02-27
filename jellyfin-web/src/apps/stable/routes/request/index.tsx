@@ -1,6 +1,5 @@
 import React, { type FormEvent, useCallback, useMemo, useState } from 'react';
 
-import layoutManager from 'components/layoutManager';
 import RequestForm from 'components/contentRequests/RequestForm';
 import RequestHeader from 'components/contentRequests/RequestHeader';
 import RequestList from 'components/contentRequests/RequestList';
@@ -182,7 +181,7 @@ export const Component = () => {
         >
             <RequestPageContainer>
                 <section className='requestSection requestDisclaimer'>
-                    <details open={!layoutManager.tv}>
+                    <details>
                         <summary>{globalize.translate('RequestDisclaimerTitle')}</summary>
                         <p>{globalize.translate('RequestDisclaimerBody')}</p>
                     </details>

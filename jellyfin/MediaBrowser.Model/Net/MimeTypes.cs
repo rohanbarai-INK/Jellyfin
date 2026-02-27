@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Mime;
 using Jellyfin.Extensions;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace MediaBrowser.Model.Net
 {
@@ -25,6 +26,8 @@ namespace MediaBrowser.Model.Net
     /// </remarks>
     public static class MimeTypes
     {
+        private static readonly FileExtensionContentTypeProvider _defaultContentTypeProvider = new();
+
         /// <summary>
         /// Any extension in this list is considered a video file.
         /// </summary>
@@ -63,7 +66,7 @@ namespace MediaBrowser.Model.Net
         }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Used for extensions not in <see cref="Model.MimeTypes"/> or to override them.
+        /// Used for extensions not in the default provider map or to override it.
         /// </summary>
         private static readonly FrozenDictionary<string, string> _mimeTypeLookup = new KeyValuePair<string, string>[]
         {
@@ -166,7 +169,7 @@ namespace MediaBrowser.Model.Net
                 return result;
             }
 
-            if (Model.MimeTypes.TryGetMimeType(filename, out var mimeType))
+            if (_defaultContentTypeProvider.TryGetContentType(filename, out var mimeType))
             {
                 return mimeType;
             }
@@ -192,8 +195,11 @@ namespace MediaBrowser.Model.Net
                 return result;
             }
 
-            var extension = Model.MimeTypes.GetMimeTypeExtensions(mimeType).FirstOrDefault();
-            return string.IsNullOrEmpty(extension) ? null : "." + extension;
+            var extension = _defaultContentTypeProvider.Mappings
+                .FirstOrDefault(entry => string.Equals(entry.Value, mimeType, StringComparison.OrdinalIgnoreCase))
+                .Key;
+
+            return string.IsNullOrEmpty(extension) ? null : extension;
         }
 
         public static bool IsImage(ReadOnlySpan<char> mimeType)

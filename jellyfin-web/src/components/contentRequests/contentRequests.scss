@@ -87,6 +87,10 @@
     box-sizing: border-box;
 }
 
+.requestTypeToggle.requestFormFullWidth {
+    margin-top: 10px;
+}
+
 .requestTypeToggle button {
     flex: 1 1 0;
     appearance: none;
@@ -113,7 +117,7 @@
 
 .requestQuotaSummary {
     display: grid;
-    gap: 0.6rem;
+    gap: 0.75rem;
 }
 
 .requestCaps {
@@ -241,10 +245,11 @@
 .requestStateBanner {
     display: flex;
     align-items: center;
+    flex-wrap: nowrap;
     gap: 0.6rem;
     border: 1px solid var(--jf-palette-divider);
     border-radius: 0.75rem;
-    padding: 0.65rem 0.75rem;
+    padding: 0.75rem;
     background: rgba(var(--jf-palette-background-defaultChannel) / 0.45);
 }
 
@@ -263,12 +268,54 @@
 .requestStateBannerIcon {
     font-size: 1rem;
     color: var(--jf-palette-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+}
+
+.requestStateBannerIconMedia {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    overflow: hidden;
+    align-self: center;
+    margin-top: 0;
+}
+
+.requestStateBannerIconImage {
+    display: block;
+    width: 20px;
+    height: 20px;
+    max-width: 20px;
+    max-height: 20px;
+    object-fit: contain;
 }
 
 .requestStateBannerText {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
+    overflow-wrap: break-word;
     color: var(--jf-palette-text-secondary);
+    line-height: 1.35;
+}
+
+.requestStateBanner > .requestRenewButton {
+    flex: 0 0 auto;
+    align-self: center;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--jf-palette-background-paperChannel) / 0.42);
+    border-color: var(--jf-palette-divider);
+    color: var(--jf-palette-text-primary);
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
 }
 
 .requestExpiredCta {
@@ -594,13 +641,36 @@
     }
 
     .requestStateBanner {
-        align-items: flex-start;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 20px minmax(0, 1fr);
+        grid-template-areas:
+            'icon text'
+            'cta cta';
+        align-items: start;
+        column-gap: 0.65rem;
+        row-gap: 0.75rem;
+        padding: 0.75rem;
     }
 
-    .requestRenewButton {
+    .requestStateBannerIcon {
+        grid-area: icon;
+        align-self: center;
+        justify-self: center;
+        margin-top: 0;
+    }
+
+    .requestStateBannerText {
+        grid-area: text;
+        min-width: 0;
+    }
+
+    .requestStateBanner > .requestRenewButton {
+        grid-area: cta;
         width: 100%;
+        min-height: 2.5rem;
         text-align: center;
+        justify-content: center;
+        white-space: normal;
     }
 
     .requestDesktopOnly {
@@ -618,6 +688,17 @@
     .requestColTitle,
     .requestColType,
     .requestColSeason {
+        width: auto;
+    }
+}
+
+@media (min-width: 768px) {
+    .requestStateBanner {
+        display: flex;
+        align-items: center;
+    }
+
+    .requestStateBanner > .requestRenewButton {
         width: auto;
     }
 }
@@ -656,4 +737,21 @@
 
 .layout-tv .requestCardTitle {
     font-size: 1.05rem;
+}
+
+.requestStateBanner.error > .requestRenewButton {
+    border-color: var(--jf-palette-error-main);
+    color: var(--jf-palette-error-main);
+}
+
+.requestStateBanner.warning > .requestRenewButton {
+    border-color: var(--jf-palette-warning-main);
+    color: var(--jf-palette-warning-main);
+}
+
+.requestStateBanner > .requestRenewButton:focus,
+.requestStateBanner > .requestRenewButton:focus-visible {
+    outline: 2px solid var(--jf-palette-primary-main);
+    outline-offset: 2px;
+    box-shadow: none;
 }

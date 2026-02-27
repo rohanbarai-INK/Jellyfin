@@ -1,5 +1,6 @@
 import React, { type FC } from 'react';
 
+import inactiveBannerIconGif from 'assets/branding/request-subscription-inactive-v2.gif';
 import globalize from 'lib/globalize';
 import { type ContentRequestQuotaSummary } from 'utils/contentRequestsApi';
 
@@ -10,6 +11,18 @@ interface RequestQuotaSummaryProps {
     subscriptionUiState: RequestSubscriptionUiState
     isQuotaExhausted: boolean
 }
+
+const SubscriptionStateIcon: FC = () => (
+    <picture className='requestStateBannerIcon requestStateBannerIconMedia' aria-hidden='true'>
+        <img
+            className='requestStateBannerIconImage'
+            src={inactiveBannerIconGif}
+            alt=''
+            width={20}
+            height={20}
+        />
+    </picture>
+);
 
 const RequestQuotaSummary: FC<RequestQuotaSummaryProps> = ({
     quota,
@@ -25,7 +38,7 @@ const RequestQuotaSummary: FC<RequestQuotaSummaryProps> = ({
         <div className='requestQuotaSummary'>
             {subscriptionUiState === 'grace' && (
                 <div className='requestStateBanner warning'>
-                    <span className='requestStateBannerIcon' aria-hidden='true'>!</span>
+                    <SubscriptionStateIcon />
                     <span className='requestStateBannerText'>{globalize.translate('RequestGraceMessage')}</span>
                     <a className='requestRenewButton' href='#/subscription'>
                         {globalize.translate('RequestExpiredRenewCta')}
@@ -35,7 +48,7 @@ const RequestQuotaSummary: FC<RequestQuotaSummaryProps> = ({
 
             {subscriptionUiState === 'expired' && (
                 <div className='requestStateBanner error'>
-                    <span className='requestStateBannerIcon' aria-hidden='true'>!</span>
+                    <SubscriptionStateIcon />
                     <span className='requestStateBannerText'>{globalize.translate('RequestExpiredMessage')}</span>
                     <a className='requestRenewButton' href='#/subscription'>
                         {globalize.translate('RequestExpiredRenewCta')}
@@ -45,7 +58,7 @@ const RequestQuotaSummary: FC<RequestQuotaSummaryProps> = ({
 
             {showInactiveMessage && (
                 <div className='requestStateBanner error'>
-                    <span className='requestStateBannerIcon' aria-hidden='true'>!</span>
+                    <SubscriptionStateIcon />
                     <span className='requestStateBannerText'>{globalize.translate('RequestSubscriptionInactive')}</span>
                     <a className='requestRenewButton' href='#/subscription'>
                         {globalize.translate('RequestExpiredRenewCta')}

@@ -63,7 +63,7 @@ public class TrickplayController : BaseJellyfinApiController
             return NotFound();
         }
 
-        return Content(playlist, MimeTypes.GetMimeType("playlist.m3u8"), Encoding.UTF8);
+        return Content(playlist, MediaBrowser.Model.Net.MimeTypes.GetMimeType("playlist.m3u8"), Encoding.UTF8);
     }
 
     /// <summary>

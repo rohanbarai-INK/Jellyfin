@@ -11,9 +11,7 @@ interface RequestEmptyStateProps {
 const RequestEmptyState: FC<RequestEmptyStateProps> = ({
     message,
     title,
-    subtitle,
-    actionText,
-    actionHref
+    subtitle
 }) => (
     <div className='requestEmptyState'>
         <div className='requestEmptyStateIcon' aria-hidden='true'>o</div>
@@ -23,11 +21,6 @@ const RequestEmptyState: FC<RequestEmptyStateProps> = ({
         )}
         {(!subtitle && message !== title) && (
             <div className='requestEmptyStateSubtitle'>{message}</div>
-        )}
-        {!!actionText && !!actionHref && (
-            <a className='requestEmptyStateAction' href={actionHref}>
-                {actionText}
-            </a>
         )}
     </div>
 );
