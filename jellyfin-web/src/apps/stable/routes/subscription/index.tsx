@@ -86,7 +86,7 @@ const PLAN_DURATION_DAY_LOOKUP: Record<PlanDuration, number> = {
     6: 180,
     12: 365
 };
-const DESKTOP_HOVER_MEDIA_QUERY = '@media (hover: hover) and (pointer: fine) and (min-width: 1024px)';
+const DESKTOP_HOVER_MEDIA_QUERY = '@media (hover: hover) and (pointer: fine)';
 
 const getStatusErrorMessage = (statusCode: number | undefined) => {
     if (statusCode === 401) {
@@ -716,13 +716,30 @@ export const Component = () => {
                                 const highlightedCardStyles = {
                                     borderColor: alpha(planAccentColor, 0.95),
                                     background: hoverBackground,
-                                    boxShadow: `0 0 0 1px ${alpha(planAccentColor, 0.36)}, 0 20px 38px ${alpha(surfaceDarkColor, 0.5)}, 0 0 46px ${ambientGlowColor}`
+                                    boxShadow: `0 0 0 1px ${alpha(planAccentColor, 0.36)}, 0 20px 38px ${alpha(surfaceDarkColor, 0.5)}, 0 0 46px ${ambientGlowColor}`,
+                                    transform: 'translateY(-4px) scale(1.015)'
                                 };
 
                                 return (
                                     <Box
                                         key={plan.durationMonths}
                                         sx={{
+                                            '@keyframes subscriptionPlanInnerSweep': {
+                                                '0%': {
+                                                    opacity: 0,
+                                                    transform: 'rotate(-45deg) translateY(-120%)'
+                                                },
+                                                '18%': {
+                                                    opacity: 0.9
+                                                },
+                                                '55%': {
+                                                    opacity: 1
+                                                },
+                                                '100%': {
+                                                    opacity: 0,
+                                                    transform: 'rotate(-45deg) translateY(120%)'
+                                                }
+                                            },
                                             position: 'relative',
                                             overflow: 'visible',
                                             isolation: 'isolate',
@@ -745,20 +762,23 @@ export const Component = () => {
                                             },
                                             [DESKTOP_HOVER_MEDIA_QUERY]: {
                                                 '&:hover': {
-                                                    transform: 'translateY(-5px) scale(1.02)'
+                                                    transform: 'translateY(-6px) scale(1.022)'
                                                 },
                                                 '&:hover::after': {
                                                     opacity: 0.88,
                                                     transform: 'scale(1.04)'
                                                 },
                                                 '&:hover .subscriptionPlanCard': highlightedCardStyles,
-                                                '&:hover .subscriptionPlanCard::before': {
-                                                    left: '124%',
-                                                    opacity: 1
+                                                '&:hover .subscriptionPopularBadgeWrap': {
+                                                    transform: 'translate(-50%, -62%) scale(1.05)'
                                                 },
-                                                '&:hover .subscriptionPlanCard::after': {
-                                                    left: '118%',
-                                                    opacity: 1
+                                                '&:hover .subscriptionPopularBadge': {
+                                                    boxShadow: `0 14px 30px ${alpha(surfaceDarkColor, 0.42)}`
+                                                },
+                                                '&:hover .subscriptionPlanCard::before': {
+                                                    opacity: 1,
+                                                    animation: 'subscriptionPlanInnerSweep 1.05s cubic-bezier(0.22, 1, 0.36, 1) infinite',
+                                                    transform: 'rotate(-45deg) translateY(120%)'
                                                 }
                                             },
                                             '@media (hover: none), (pointer: coarse)': {
@@ -777,34 +797,42 @@ export const Component = () => {
                                                     transform: 'scale(0.96)'
                                                 },
                                                 '& .subscriptionPlanCard': {
+                                                    transition: 'none',
+                                                    transform: 'none'
+                                                },
+                                                '& .subscriptionPopularBadgeWrap': {
                                                     transition: 'none'
                                                 },
-                                                '& .subscriptionPlanCard::before, & .subscriptionPlanCard::after': {
+                                                '& .subscriptionPopularBadge': {
+                                                    transition: 'none'
+                                                },
+                                                '& .subscriptionPlanCard::before': {
                                                     transition: 'none',
-                                                    opacity: 0
+                                                    opacity: 0,
+                                                    animation: 'none'
                                                 },
                                                 '&:hover .subscriptionPlanCard::before': {
-                                                    left: '-130%'
-                                                },
-                                                '&:hover .subscriptionPlanCard::after': {
-                                                    left: '-120%'
+                                                    transform: 'rotate(-45deg) translateY(-120%)'
                                                 }
                                             }
                                         }}
                                     >
                                         {plan.isPopular && (
                                             <Box
+                                                className='subscriptionPopularBadgeWrap'
                                                 sx={{
                                                     position: 'absolute',
                                                     top: 0,
                                                     left: '50%',
                                                     transform: 'translate(-50%, -50%)',
+                                                    transition: 'transform 320ms ease',
                                                     zIndex: 10,
                                                     pointerEvents: 'none'
                                                 }}
                                             >
                                                 <Box
                                                     component='span'
+                                                    className='subscriptionPopularBadge'
                                                     sx={{
                                                         display: 'inline-block',
                                                         px: 1.5,
@@ -816,7 +844,8 @@ export const Component = () => {
                                                         whiteSpace: 'nowrap',
                                                         color: '#fff',
                                                         background: 'linear-gradient(90deg, #ff9800 0%, #ff5722 100%)',
-                                                        boxShadow: '0 10px 24px rgba(0, 0, 0, 0.3)'
+                                                        boxShadow: '0 10px 24px rgba(0, 0, 0, 0.3)',
+                                                        transition: 'box-shadow 320ms ease'
                                                     }}
                                                 >
                                                     Most Popular
@@ -839,33 +868,34 @@ export const Component = () => {
                                                 background: cardBackground,
                                                 boxShadow: cardShadow,
                                                 cursor: 'pointer',
-                                                transition: 'box-shadow 320ms ease, border-color 320ms ease, background 320ms ease',
+                                                transform: 'translateY(0) scale(1)',
+                                                transformOrigin: 'center center',
+                                                transition: 'box-shadow 320ms ease, border-color 320ms ease, background 320ms ease, transform 320ms ease',
                                                 '&::before': {
                                                     content: '""',
                                                     position: 'absolute',
-                                                    top: '-36%',
-                                                    bottom: '-36%',
-                                                    left: '-130%',
-                                                    width: '28%',
-                                                    background: `linear-gradient(112deg, ${alpha(surfaceLightColor, 0)} 0%, ${sweepStrongColor} 50%, ${alpha(surfaceLightColor, 0)} 100%)`,
-                                                    transform: 'skewX(-20deg)',
-                                                    opacity: 0.9,
-                                                    transition: 'left 620ms ease, opacity 320ms ease',
+                                                    top: '-50%',
+                                                    left: '-50%',
+                                                    width: '200%',
+                                                    height: '200%',
+                                                    background: `linear-gradient(
+                                                        0deg,
+                                                        transparent 0%,
+                                                        transparent 34%,
+                                                        ${alpha(surfaceLightColor, 0.06)} 46%,
+                                                        ${sweepStrongColor} 60%,
+                                                        ${alpha(surfaceLightColor, 0.28)} 68%,
+                                                        ${sweepSoftColor} 78%,
+                                                        transparent 100%
+                                                    )`,
+                                                    transform: 'rotate(-45deg) translateY(-120%)',
+                                                    opacity: 0,
+                                                    transition: 'opacity 180ms ease',
+                                                    animation: 'none',
+                                                    mixBlendMode: 'screen',
+                                                    willChange: 'transform, opacity',
                                                     pointerEvents: 'none',
-                                                    zIndex: 0
-                                                },
-                                                '&::after': {
-                                                    content: '""',
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    bottom: 0,
-                                                    left: '-120%',
-                                                    width: '120%',
-                                                    background: `linear-gradient(108deg, ${alpha(surfaceLightColor, 0)} 0%, ${sweepSoftColor} 45%, ${alpha(surfaceLightColor, 0)} 100%)`,
-                                                    opacity: 0.8,
-                                                    transition: 'left 860ms ease, opacity 320ms ease',
-                                                    pointerEvents: 'none',
-                                                    zIndex: 0
+                                                    zIndex: 1
                                                 }
                                             }}
                                         >
