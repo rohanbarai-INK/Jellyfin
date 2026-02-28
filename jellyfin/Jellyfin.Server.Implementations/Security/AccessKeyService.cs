@@ -112,10 +112,8 @@ namespace Jellyfin.Server.Implementations.Security
                     ?? throw new ResourceNotFoundException("User not found.");
 
                 var now = DateTime.UtcNow;
-                var effectiveStart = dbUser.ExpiryDate.HasValue && dbUser.ExpiryDate.Value > now
-                    ? dbUser.ExpiryDate.Value
-                    : now;
-                var updatedExpiryDate = effectiveStart.AddMonths(accessKey.DurationMonths);
+                // Renewal always starts from the redemption moment.
+                var updatedExpiryDate = CalculateUpdatedExpiryDate(now, accessKey.DurationMonths);
 
                 dbUser.ExpiryDate = updatedExpiryDate;
 
@@ -230,6 +228,19 @@ namespace Jellyfin.Server.Implementations.Security
             }
 
             throw new ArgumentOutOfRangeException(nameof(months), "Duration must be one of: 1, 3, 6, 12.");
+        }
+
+        private static DateTime CalculateUpdatedExpiryDate(DateTime redeemedAtUtc, int durationMonths)
+        {
+            var monthBasedExpiry = redeemedAtUtc.AddMonths(durationMonths);
+            if (redeemedAtUtc.Month != 2)
+            {
+                return monthBasedExpiry;
+            }
+
+            // February renewals must provide at least 30 days per purchased month.
+            var minimumFairExpiry = redeemedAtUtc.AddDays(durationMonths * 30);
+            return monthBasedExpiry >= minimumFairExpiry ? monthBasedExpiry : minimumFairExpiry;
         }
 
         private int GetGracePeriodDays()

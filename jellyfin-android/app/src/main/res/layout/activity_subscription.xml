@@ -499,6 +499,78 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/redeemCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                app:cardBackgroundColor="#1A1A1A"
+                app:strokeColor="#33FFFFFF"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/redeemTitleText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/subscription_redeem_title"
+                        android:textColor="@android:color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/redeemKeyInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="@string/subscription_redeem_hint"
+                        android:textColorHint="#CCFFFFFF"
+                        app:boxBackgroundColor="#10141D"
+                        app:boxBackgroundMode="outline"
+                        app:boxStrokeColor="#66FFFFFF"
+                        app:expandedHintEnabled="false"
+                        app:hintTextColor="#CCFFFFFF"
+                        app:placeholderText="@string/subscription_redeem_placeholder"
+                        app:placeholderTextColor="#7FFFFFFF">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/redeemKeyInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:autofillHints=""
+                            android:importantForAutofill="no"
+                            android:inputType="textCapCharacters|textNoSuggestions"
+                            android:maxLines="1"
+                            android:textAllCaps="true"
+                            android:textColor="@android:color/white"
+                            android:textColorHint="#7FFFFFFF" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/redeemKeyButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:minHeight="44dp"
+                        android:textAllCaps="false"
+                        app:cornerRadius="10dp"
+                        android:text="@string/subscription_redeem_button" />
+
+                    <TextView
+                        android:id="@+id/redeemMessageText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

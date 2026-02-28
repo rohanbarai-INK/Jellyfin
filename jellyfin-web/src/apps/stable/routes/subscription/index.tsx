@@ -11,7 +11,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import Loading from 'components/loading/LoadingComponent';
 import Page from 'components/Page';
@@ -174,7 +173,6 @@ const getInitialAutoRenewToggleState = () => {
 };
 
 export const Component = () => {
-    const navigate = useNavigate();
     const { user } = useApi();
     const theme = useTheme();
     const [ accessKey, setAccessKey ] = useState('');
@@ -429,19 +427,32 @@ export const Component = () => {
                 contentType: 'application/json'
             });
 
-            const refreshedUser = await apiClient.getCurrentUser();
+            const currentUserId = apiClient.getCurrentUserId?.() || user?.Id;
+            const refreshedUser = currentUserId
+                ? await apiClient.getUser(currentUserId)
+                : await apiClient.getCurrentUser();
+
+            // Keep legacy apiClient user cache aligned with the refreshed server user.
+            (apiClient as { _currentUser?: unknown })._currentUser = refreshedUser;
+            const refreshedServerId = refreshedUser?.ServerId || apiClient.serverId?.();
+            if (refreshedUser?.Id && refreshedServerId) {
+                try {
+                    window.localStorage.setItem(`user-${refreshedUser.Id}-${refreshedServerId}`, JSON.stringify(refreshedUser));
+                } catch (_storageError) {
+                    // Ignore storage write failures in embedded browsers.
+                }
+            }
             events.trigger(ServerConnections, 'localusersignedin', [ refreshedUser ]);
 
             setAccessKey('');
-            setRedeemSuccessMessage('Access key redeemed successfully.');
-            navigate('/home', { replace: true });
+            setRedeemSuccessMessage('Redeem successful. Subscription activated. All features are now available.');
         } catch (err) {
             console.error('[subscription] failed to redeem access key', err);
             setRedeemErrorMessage((await getServerErrorMessage(err)) || 'Failed to redeem access key. Check the key and try again.');
         } finally {
             setIsRedeemingKey(false);
         }
-    }, [ accessKey, navigate ]);
+    }, [ accessKey, user?.Id ]);
 
     const onLogoutClick = useCallback(() => {
         Dashboard.logout();

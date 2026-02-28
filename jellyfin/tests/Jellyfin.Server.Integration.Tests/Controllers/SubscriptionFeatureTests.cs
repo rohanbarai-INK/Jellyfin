@@ -370,6 +370,63 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.Equal(0, currentSubscription.GraceDaysRemaining);
         }
 
+        [Fact]
+        [Priority(10)]
+        public async Task RedeemKey_OnActiveUser_StartsFromRedeemDateInsteadOfExistingExpiry()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"active-renew-reset-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+            var existingExpiry = DateTime.UtcNow.AddMonths(6);
+            await SetUserExpiryDate(createdUser.Id, existingExpiry);
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var keyResponse = await adminClient.PostAsJsonAsync(
+                "Keys/Generate",
+                new GenerateAccessKeyRequest
+                {
+                    DurationMonths = 1
+                },
+                _jsonOptions);
+            Assert.Equal(HttpStatusCode.OK, keyResponse.StatusCode);
+
+            var generatedKey = await keyResponse.Content.ReadFromJsonAsync<GenerateAccessKeyResponse>(_jsonOptions);
+            Assert.NotNull(generatedKey);
+
+            var beforeRedeemUtc = DateTime.UtcNow;
+            using var redeemResponse = await userClient.PostAsJsonAsync(
+                "Keys/Redeem",
+                new RedeemAccessKeyRequest
+                {
+                    Key = generatedKey.Key
+                },
+                _jsonOptions);
+            var afterRedeemUtc = DateTime.UtcNow;
+
+            Assert.Equal(HttpStatusCode.OK, redeemResponse.StatusCode);
+            var redeemPayload = await redeemResponse.Content.ReadFromJsonAsync<RedeemAccessKeyResponse>(_jsonOptions);
+            Assert.NotNull(redeemPayload);
+            Assert.NotNull(redeemPayload.ExpiryDate);
+
+            var expectedLowerBound = CalculateExpectedExpiryDate(beforeRedeemUtc, 1).AddMinutes(-2);
+            var expectedUpperBound = CalculateExpectedExpiryDate(afterRedeemUtc, 1).AddMinutes(2);
+            Assert.InRange(redeemPayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
+            Assert.True(redeemPayload.ExpiryDate.Value < existingExpiry.AddMonths(-3));
+
+            using var meResponse = await userClient.GetAsync("Users/Me");
+            Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+            var mePayload = await meResponse.Content.ReadFromJsonAsync<UserDto>(_jsonOptions);
+            Assert.NotNull(mePayload);
+            Assert.NotNull(mePayload.ExpiryDate);
+            Assert.InRange(mePayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
+        }
+
         private async Task<UserDto> CreateUser(HttpClient adminClient, string username, string password)
         {
             using var createResponse = await adminClient.PostAsJsonAsync(
@@ -435,6 +492,18 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
                 SixMonthPrice = defaultConfig.SixMonthPrice + 66.5m,
                 TwelveMonthPrice = defaultConfig.TwelveMonthPrice + 99.75m
             };
+        }
+
+        private static DateTime CalculateExpectedExpiryDate(DateTime redeemedAtUtc, int durationMonths)
+        {
+            var monthBasedExpiry = redeemedAtUtc.AddMonths(durationMonths);
+            if (redeemedAtUtc.Month != 2)
+            {
+                return monthBasedExpiry;
+            }
+
+            var minimumFairExpiry = redeemedAtUtc.AddDays(durationMonths * 30);
+            return monthBasedExpiry >= minimumFairExpiry ? monthBasedExpiry : minimumFairExpiry;
         }
 
         private static void AssertPlanBreakdown(SubscriptionConfiguration config)

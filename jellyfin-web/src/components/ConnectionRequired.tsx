@@ -172,7 +172,10 @@ const ConnectionRequired: FunctionComponent<ConnectionRequiredProps> = ({
         // If this is an admin route, ensure the user has access
         if (level === AccessLevel.Admin) {
             try {
-                const user = await client?.getCurrentUser();
+                const currentUserId = client?.getCurrentUserId?.();
+                const user = currentUserId
+                    ? await client?.getUser(currentUserId)
+                    : await client?.getCurrentUser();
                 if (shouldRedirectToSubscription(user, location.pathname)) {
                     navigateIfNotThere(BounceRoutes.Subscription);
                     return;
@@ -199,7 +202,10 @@ const ConnectionRequired: FunctionComponent<ConnectionRequiredProps> = ({
 
         if (level === AccessLevel.User) {
             try {
-                const user = await client?.getCurrentUser();
+                const currentUserId = client?.getCurrentUserId?.();
+                const user = currentUserId
+                    ? await client?.getUser(currentUserId)
+                    : await client?.getCurrentUser();
                 if (shouldRedirectToSubscription(user, location.pathname)) {
                     navigateIfNotThere(BounceRoutes.Subscription);
                     return;

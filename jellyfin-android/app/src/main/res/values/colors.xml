@@ -27,4 +27,7 @@
     <color name="subscription_card_stroke">#33FFFFFF</color>
     <color name="subscription_popular_stroke">#579DFF</color>
     <color name="subscription_last_plan_stroke">#5EF6BC</color>
+    <color name="subscription_redeem_surface">#F5090E18</color>
+    <color name="subscription_redeem_disabled_text">#88FFFFFF</color>
+    <color name="subscription_redeem_enabled_text_fallback">#FFFFFFFF</color>
 </resources>

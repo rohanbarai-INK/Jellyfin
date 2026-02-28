@@ -28,20 +28,34 @@ export const ApiProvider: FC<PropsWithChildren<unknown>> = ({ children }) => {
     }), [ api, legacyApiClient, user ]);
 
     useEffect(() => {
+        const updateApiUser = (_e: Event | undefined, newUser: UserDto) => {
+            const currentApiClient = newUser.ServerId
+                ? ServerConnections.getApiClient(newUser.ServerId)
+                : ServerConnections.currentApiClient();
+
+            if (newUser.ServerId) {
+                setLegacyApiClient(currentApiClient);
+            }
+
+            // Resolve user from the server to avoid stale local cached status.
+            if (currentApiClient && newUser.Id) {
+                currentApiClient.getUser(newUser.Id)
+                    .then(setUser)
+                    .catch(() => {
+                        setUser(newUser);
+                    });
+                return;
+            }
+
+            setUser(newUser);
+        };
+
         ServerConnections.currentApiClient()
             ?.getCurrentUser()
             .then(newUser => updateApiUser(undefined, newUser))
             .catch(err => {
                 console.info('[ApiProvider] Could not get current user', err);
             });
-
-        const updateApiUser = (_e: Event | undefined, newUser: UserDto) => {
-            setUser(newUser);
-
-            if (newUser.ServerId) {
-                setLegacyApiClient(ServerConnections.getApiClient(newUser.ServerId));
-            }
-        };
 
         const resetApiUser = () => {
             setLegacyApiClient(undefined);

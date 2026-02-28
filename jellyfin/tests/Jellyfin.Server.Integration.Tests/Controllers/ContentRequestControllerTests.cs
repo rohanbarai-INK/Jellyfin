@@ -131,6 +131,44 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
         }
 
         [Fact]
+        public async Task CreateRequest_RenewAfterExpiry_ResetsCycleAnchorToLatestRedemption()
+        {
+            var (user, userClient) = await CreateActiveUserClient();
+
+            var now = DateTime.UtcNow;
+            var firstRedeemAt = now.AddMonths(-3).AddDays(-10);
+            var secondRedeemAt = now.AddDays(-2);
+            var secondExpiryDate = secondRedeemAt.AddMonths(1);
+
+            await InsertRedeemedKey(user.Id, firstRedeemAt, firstRedeemAt.AddMonths(1));
+            await InsertRedeemedKey(user.Id, secondRedeemAt, secondExpiryDate);
+
+            var oldCycleStart = GetCurrentCycleStart(firstRedeemAt, now);
+            Assert.True(oldCycleStart.AddMinutes(5) < secondRedeemAt);
+
+            for (var index = 0; index < 5; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"Lapsed Cycle Movie {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    oldCycleStart.AddMinutes(index + 1));
+            }
+
+            using var response = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Renewed Cycle Movie {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
         public async Task CreateRequest_CompletedRowsCountTowardsMovieCapWithinCycle()
         {
             var (user, userClient) = await CreateActiveUserClient();

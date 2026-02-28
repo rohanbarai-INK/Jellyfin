@@ -45,6 +45,17 @@
     <string name="subscription_cycle_remaining_format">%1$d%% of current cycle remaining</string>
     <string name="subscription_price_format">Rs %1$s</string>
     <string name="subscription_savings_format">Save Rs %1$s (%2$d%%)</string>
+    <string name="subscription_redeem_title">Redeem Access Key</string>
+    <string name="subscription_redeem_hint">Access Key</string>
+    <string name="subscription_redeem_placeholder">JF-XXXX-XXXX</string>
+    <string name="subscription_redeem_button">Redeem Key</string>
+    <string name="subscription_redeeming_button">Redeeming...</string>
+    <string name="subscription_redeem_success">Access key redeemed successfully.</string>
+    <string name="subscription_redeem_failed">Failed to redeem access key. Check the key and try again.</string>
+    <string name="subscription_redeem_key_required">Enter an access key to redeem.</string>
+    <string name="subscription_redeem_server_unavailable">Unable to reach server API.</string>
+    <string name="subscription_redeem_endpoint_missing">Redeem endpoint not found. Make sure the backend has access key support.</string>
+    <string name="subscription_redeem_unauthorized">Unauthorized request. Sign in again, then retry.</string>
 
     <string name="connect_to_server_title">Connect to Server</string>
     <string name="host_input_hint">Host</string>

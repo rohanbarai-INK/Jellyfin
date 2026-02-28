@@ -570,18 +570,22 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 throw new ContentRequestInactiveSubscriptionException("User not found.");
             }
 
-            var subscriptionStartDate = await dbContext.AccessKeys
+            var redeemedKeys = await dbContext.AccessKeys
                 .AsNoTracking()
                 .Where(accessKey => accessKey.IsRedeemed
                     && accessKey.RedeemedByUserId.HasValue
                     && accessKey.RedeemedByUserId.Value.Equals(userId)
                     && accessKey.RedeemedAt.HasValue)
                 .OrderBy(accessKey => accessKey.RedeemedAt)
-                .Select(accessKey => accessKey.RedeemedAt)
-                .FirstOrDefaultAsync()
+                .Select(accessKey => new
+                {
+                    RedeemedAt = accessKey.RedeemedAt!.Value,
+                    accessKey.DurationMonths
+                })
+                .ToListAsync()
                 .ConfigureAwait(false);
 
-            if (!subscriptionStartDate.HasValue
+            if (redeemedKeys.Count == 0
                 && user.ExpiryDate.HasValue
                 && user.ExpiryDate.Value > nowUtc)
             {
@@ -590,19 +594,41 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 return new SubscriptionCycleInfo(true, DateTime.UnixEpoch);
             }
 
-            if (!subscriptionStartDate.HasValue)
+            if (redeemedKeys.Count == 0)
             {
                 return new SubscriptionCycleInfo(false, nowUtc);
             }
 
-            if (nowUtc < subscriptionStartDate.Value)
+            // Build the active streak anchor from redeemed keys. A redemption after a lapse
+            // starts a fresh cycle anchor, while in-time renewals extend the same streak.
+            var currentStreakStart = redeemedKeys[0].RedeemedAt;
+            var currentStreakExpiry = currentStreakStart.AddMonths(redeemedKeys[0].DurationMonths);
+            for (var index = 1; index < redeemedKeys.Count; index++)
             {
-                return new SubscriptionCycleInfo(false, subscriptionStartDate.Value);
+                var redeemedKey = redeemedKeys[index];
+                if (redeemedKey.RedeemedAt <= currentStreakExpiry)
+                {
+                    currentStreakExpiry = currentStreakExpiry.AddMonths(redeemedKey.DurationMonths);
+                    continue;
+                }
+
+                currentStreakStart = redeemedKey.RedeemedAt;
+                currentStreakExpiry = redeemedKey.RedeemedAt.AddMonths(redeemedKey.DurationMonths);
+            }
+
+            if (!user.ExpiryDate.HasValue || user.ExpiryDate.Value <= nowUtc)
+            {
+                return new SubscriptionCycleInfo(false, nowUtc);
+            }
+
+            if (nowUtc < currentStreakStart)
+            {
+                return new SubscriptionCycleInfo(false, currentStreakStart);
             }
 
             return new SubscriptionCycleInfo(
                 true,
-                GetCurrentCycleStart(subscriptionStartDate.Value, nowUtc));
+                GetCurrentCycleStart(currentStreakStart, nowUtc));
         }
 
         private sealed record SubscriptionCycleInfo(bool IsSubscriptionActive, DateTime CycleStartDate);

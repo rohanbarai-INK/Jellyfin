@@ -121,16 +121,12 @@ export const normalizeSubscriptionPricing = (config: SubscriptionPricingConfig |
 };
 
 export const isExpiredStatus = (status: string | null | undefined, expiryDate: string | null | undefined) => {
-    if (status) {
-        return status.toLowerCase() === 'expired';
+    const parsedDate = expiryDate ? new Date(expiryDate) : null;
+    if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
+        return parsedDate.getTime() < Date.now();
     }
 
-    if (!expiryDate) {
-        return false;
-    }
-
-    const parsedDate = new Date(expiryDate);
-    return !Number.isNaN(parsedDate.getTime()) && parsedDate.getTime() < Date.now();
+    return typeof status === 'string' && status.toLowerCase() === 'expired';
 };
 
 export const isInGraceSubscriptionUser = (user: UserWithSubscriptionState) => {
