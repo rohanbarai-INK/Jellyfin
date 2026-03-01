@@ -14,6 +14,7 @@ using Jellyfin.Server.Implementations.Devices;
 using Jellyfin.Server.Implementations.Events;
 using Jellyfin.Server.Implementations.Extensions;
 using Jellyfin.Server.Implementations.Security;
+using Jellyfin.Server.Implementations.Tracking;
 using Jellyfin.Server.Implementations.Trickplay;
 using Jellyfin.Server.Implementations.Users;
 using MediaBrowser.Controller;
@@ -26,6 +27,7 @@ using MediaBrowser.Controller.Events;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Lyrics;
 using MediaBrowser.Controller.Net;
+using MediaBrowser.Controller.PersonalInsights;
 using MediaBrowser.Controller.Security;
 using MediaBrowser.Controller.Trickplay;
 using MediaBrowser.Model.Activity;
@@ -91,6 +93,10 @@ namespace Jellyfin.Server
             serviceCollection.AddSingleton<ITrickplayManager, TrickplayManager>();
             serviceCollection.AddSingleton<IAccessKeyService, AccessKeyService>();
             serviceCollection.AddSingleton<IContentRequestService, ContentRequestService>();
+            serviceCollection.AddSingleton<TimeProvider>(TimeProvider.System);
+            serviceCollection.AddSingleton<WatchSessionAggregationService>();
+            serviceCollection.AddSingleton<WatchSessionTrackingService>();
+            serviceCollection.AddSingleton<IPersonalInsightsService, PersonalInsightsService>();
 
             // TODO search the assemblies instead of adding them manually?
             serviceCollection.AddSingleton<IWebSocketListener, SessionWebSocketListener>();

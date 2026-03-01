@@ -1455,6 +1455,36 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserBingeSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EpisodeCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("SeriesId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SessionDateUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("TotalWatchTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "SessionDateUtc");
+
+                    b.ToTable("UserBingeSessions");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserData", b =>
                 {
                     b.Property<Guid>("ItemId")
@@ -1509,6 +1539,177 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasIndex("ItemId", "UserId", "Played");
 
                     b.ToTable("UserData");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserGenrePeriodStats", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GenreId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PeriodKey")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PeriodType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalValidatedTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "PeriodType", "PeriodKey", "GenreId")
+                        .IsUnique();
+
+                    b.ToTable("UserGenrePeriodStats");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserPeriodHourlyStats", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Hour")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PeriodKey")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PeriodType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalValidatedTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "PeriodType", "PeriodKey", "Hour")
+                        .IsUnique();
+
+                    b.ToTable("UserPeriodHourlyStats");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserPeriodStats", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BingeSessions")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CompletedEpisodes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CompletedMovies")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("PeriodEndUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PeriodKey")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PeriodStartUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PeriodType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SessionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalValidatedTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "PeriodType", "PeriodKey")
+                        .IsUnique();
+
+                    b.ToTable("UserPeriodStats");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserWatchSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AccumulatedTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndTimeUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsValidSession")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("PlaybackSpeed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(1.0);
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartTimeUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SuspicionScore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ValidatedTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("ItemId", "StartTimeUtc");
+
+                    b.HasIndex("UserId", "StartTimeUtc");
+
+                    b.ToTable("UserWatchSessions");
 
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });

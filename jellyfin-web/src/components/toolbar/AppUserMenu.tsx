@@ -4,6 +4,7 @@ import Close from '@mui/icons-material/Close';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Download from '@mui/icons-material/Download';
 import Edit from '@mui/icons-material/Edit';
+import Insights from '@mui/icons-material/Insights';
 import LiveHelp from '@mui/icons-material/LiveHelp';
 import Logout from '@mui/icons-material/Logout';
 import PhonelinkLock from '@mui/icons-material/PhonelinkLock';
@@ -192,6 +193,18 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
                 </ListItemIcon>
                 <ListItemText>
                     {globalize.translate('RequestMenuLabel')}
+                </ListItemText>
+            </MenuItem>
+            <MenuItem
+                component={Link}
+                to={`/personalinsights?period=month&userId=${user?.Id}`}
+                onClick={onMenuClose}
+            >
+                <ListItemIcon>
+                    <Insights />
+                </ListItemIcon>
+                <ListItemText>
+                    Personal Insights
                 </ListItemText>
             </MenuItem>
             {subscriptionMenuItem}

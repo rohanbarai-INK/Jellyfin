@@ -1,14 +1,11 @@
 package org.jellyfin.androidtv.ui.base.form
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -55,8 +52,7 @@ fun RangeControl(
 	enabled: Boolean = true,
 	colors: RangeControlColors = RangeControlDefaults.colors(),
 ) {
-	val focused by interactionSource.collectIsFocusedAsState()
-	val knobSize by animateFloatAsState(if (focused) 1.75f else 1f)
+	val knobSize = 1f
 
 	Box(
 		modifier = modifier

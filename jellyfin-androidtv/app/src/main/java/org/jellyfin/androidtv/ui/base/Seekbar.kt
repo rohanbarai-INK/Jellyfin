@@ -1,9 +1,7 @@
 package org.jellyfin.androidtv.ui.base
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -101,10 +99,9 @@ fun Seekbar(
 	colors: SeekbarColors = SeekbarDefaults.colors(),
 ) {
 	val coroutineScope = rememberCoroutineScope()
-	val focused by interactionSource.collectIsFocusedAsState()
 	var progressOverride by remember { mutableStateOf<Float?>(null) }
 	val visibleProgress = progressOverride ?: progress
-	val knobAlpha by animateFloatAsState(if (focused) 1f else 0f)
+	val knobAlpha = 1f
 	var scrubCancelJob by remember { mutableStateOf<Job?>(null) }
 
 	Box(

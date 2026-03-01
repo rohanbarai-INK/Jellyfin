@@ -44,6 +44,31 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<ContentRequest> ContentRequests => Set<ContentRequest>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing watch sessions.
+    /// </summary>
+    public DbSet<UserWatchSession> UserWatchSessions => Set<UserWatchSession>();
+
+    /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user period stats.
+    /// </summary>
+    public DbSet<UserPeriodStats> UserPeriodStats => Set<UserPeriodStats>();
+
+    /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user period hourly stats.
+    /// </summary>
+    public DbSet<UserPeriodHourlyStats> UserPeriodHourlyStats => Set<UserPeriodHourlyStats>();
+
+    /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user genre period stats.
+    /// </summary>
+    public DbSet<UserGenrePeriodStats> UserGenrePeriodStats => Set<UserGenrePeriodStats>();
+
+    /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user binge sessions.
+    /// </summary>
+    public DbSet<UserBingeSession> UserBingeSessions => Set<UserBingeSession>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing the API keys.
     /// </summary>
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();

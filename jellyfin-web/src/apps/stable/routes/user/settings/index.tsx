@@ -229,6 +229,27 @@ const UserSettingsPage: FC = () => {
                             </div>
                         </LinkButton>
 
+                        {isLoggedInUser && (
+                            <LinkButton
+                                href={`#/personalinsights?period=month&userId=${userId}`}
+                                className='lnkPersonalInsights listItem-border'
+                                style={{
+                                    display: 'block',
+                                    margin: 0,
+                                    padding: 0
+                                }}
+                            >
+                                <div className='listItem'>
+                                    <span className='material-icons listItemIcon listItemIcon-transparent insights' aria-hidden='true' />
+                                    <div className='listItemBody'>
+                                        <div className='listItemBodyText'>
+                                            Personal Insights
+                                        </div>
+                                    </div>
+                                </div>
+                            </LinkButton>
+                        )}
+
                         {isQuickConnectEnabled && (
                             <LinkButton
                                 href={`#/quickconnect?userId=${userId}`}
