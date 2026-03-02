@@ -159,7 +159,8 @@ public class AchievementsController : BaseJellyfinApiController
             Rarity = row.Rarity,
             Xp = row.Xp,
             Coins = row.Coins,
-            IsSeasonal = row.IsSeasonal
+            IsSeasonal = row.IsSeasonal,
+            SeasonType = row.SeasonType
         };
 
     private static UserAchievementDto ToDto(UserAchievementInfo row)
@@ -172,7 +173,10 @@ public class AchievementsController : BaseJellyfinApiController
             Rarity = row.Rarity,
             Xp = row.Xp,
             Coins = row.Coins,
-            UnlockedAt = row.UnlockedAt
+            UnlockedAt = row.UnlockedAt,
+            IsSeasonal = row.IsSeasonal,
+            SeasonType = row.SeasonType,
+            SeasonYear = row.SeasonYear
         };
 
     private static AchievementUnlockResponse ToDto(AchievementUnlockResult row)

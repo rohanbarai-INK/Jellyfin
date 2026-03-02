@@ -19,7 +19,15 @@ namespace Jellyfin.Database.Implementations.ModelConfiguration
 
             builder
                 .HasIndex(entity => new { entity.UserId, entity.AchievementId })
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("\"SeasonYear\" IS NULL")
+                .HasDatabaseName("IX_UserAchievements_UserId_AchievementId_Permanent");
+
+            builder
+                .HasIndex(entity => new { entity.UserId, entity.AchievementId, entity.SeasonYear })
+                .IsUnique()
+                .HasFilter("\"SeasonYear\" IS NOT NULL")
+                .HasDatabaseName("IX_UserAchievements_UserId_AchievementId_SeasonYear");
 
             builder
                 .HasIndex(entity => new { entity.UserId, entity.UnlockedAtUtc });

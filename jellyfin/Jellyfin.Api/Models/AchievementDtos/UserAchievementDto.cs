@@ -46,4 +46,19 @@ public class UserAchievementDto
     /// Gets or sets the unlock timestamp in UTC.
     /// </summary>
     public DateTime UnlockedAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this achievement is seasonal.
+    /// </summary>
+    public bool IsSeasonal { get; set; }
+
+    /// <summary>
+    /// Gets or sets the seasonal cadence (for example, "yearly").
+    /// </summary>
+    public string? SeasonType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the season year for seasonal unlocks.
+    /// </summary>
+    public int? SeasonYear { get; set; }
 }

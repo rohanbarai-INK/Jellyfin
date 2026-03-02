@@ -56,5 +56,12 @@ namespace Jellyfin.Database.Implementations.Entities
         /// Gets or sets a value indicating whether this achievement is seasonal.
         /// </summary>
         public bool IsSeasonal { get; set; }
+
+        /// <summary>
+        /// Gets or sets the seasonal cadence (for example, "yearly") when <see cref="IsSeasonal"/> is true.
+        /// </summary>
+        [MaxLength(16)]
+        [StringLength(16)]
+        public string? SeasonType { get; set; }
     }
 }

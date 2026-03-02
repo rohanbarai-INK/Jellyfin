@@ -342,6 +342,10 @@ export interface ShowAchievementOptions {
     progress?: number;
     duration?: number;
     historyDisabled?: boolean;
+    unlockedAt?: string;
+    isSeasonal?: boolean;
+    seasonType?: string;
+    seasonYear?: number;
 }
 
 function ensureStyleElement() {
@@ -535,9 +539,10 @@ export function mountAchievementOverlay() {
 
         const color = RARITY_COLORS[achievement.rarity] || RARITY_COLORS.common;
         const glow = RARITY_GLOW[achievement.rarity] || RARITY_GLOW.common;
-        const now = new Date();
-        const unlockedAt = now.toISOString();
-        const timeStr = now.toLocaleTimeString([], {
+        const unlockedAtDate = achievement.unlockedAt ? new Date(achievement.unlockedAt) : new Date();
+        const normalizedUnlockedAtDate = Number.isNaN(unlockedAtDate.getTime()) ? new Date() : unlockedAtDate;
+        const unlockedAt = normalizedUnlockedAtDate.toISOString();
+        const timeStr = normalizedUnlockedAtDate.toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
         });
@@ -600,7 +605,10 @@ export function mountAchievementOverlay() {
                 rarity: achievement.rarity,
                 xp: achievement.xp,
                 coins: achievement.coins,
-                unlockedAt
+                unlockedAt,
+                isSeasonal: achievement.isSeasonal === true,
+                seasonType: achievement.seasonType,
+                seasonYear: Number.isFinite(achievement.seasonYear) ? Number(achievement.seasonYear) : undefined
             });
         }
 
@@ -664,7 +672,11 @@ export function showAchievement(options: ShowAchievementOptions) {
             rarity: options.rarity,
             progress: options.progress,
             duration: options.duration,
-            historyDisabled: options.historyDisabled
+            historyDisabled: options.historyDisabled,
+            unlockedAt: options.unlockedAt,
+            isSeasonal: options.isSeasonal,
+            seasonType: options.seasonType,
+            seasonYear: options.seasonYear
         }
     });
 }
@@ -689,7 +701,11 @@ export async function unlockAchievementAndShow(achievementId: string): Promise<A
             description: result.achievement.description,
             imageEmoji: result.achievement.imageEmoji,
             emoji: result.achievement.imageEmoji,
-            rarity: result.achievement.rarity
+            rarity: result.achievement.rarity,
+            unlockedAt: result.achievement.unlockedAt,
+            isSeasonal: result.achievement.isSeasonal,
+            seasonType: result.achievement.seasonType,
+            seasonYear: result.achievement.seasonYear ?? undefined
         }
     });
 
@@ -712,7 +728,11 @@ export async function syncAchievementsAndShow(): Promise<UserAchievementRow[]> {
                 description: row.description,
                 imageEmoji: row.imageEmoji,
                 emoji: row.imageEmoji,
-                rarity: row.rarity
+                rarity: row.rarity,
+                unlockedAt: row.unlockedAt,
+                isSeasonal: row.isSeasonal,
+                seasonType: row.seasonType,
+                seasonYear: row.seasonYear ?? undefined
             }
         });
     });

@@ -762,6 +762,60 @@
         text-transform: uppercase;
     }
 
+    .achievementsHistorySectionHeader {
+        margin: 0.35rem 0 0.25rem;
+        padding-left: 0.3rem;
+        color: rgba(161, 196, 223, 0.82);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+    }
+
+    .achievementsPastSeasonSection {
+        margin-top: 0.3rem;
+    }
+
+    .achievementsPastSeasonGroup {
+        margin-top: 0.34rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.75rem;
+        background: linear-gradient(155deg, rgba(12, 16, 30, 0.72), rgba(9, 12, 22, 0.58));
+        overflow: hidden;
+    }
+
+    .achievementsPastSeasonSummary {
+        list-style: none;
+        cursor: pointer;
+        padding: 0.56rem 0.7rem;
+        color: rgba(207, 230, 247, 0.9);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        user-select: none;
+    }
+
+    .achievementsPastSeasonSummary::-webkit-details-marker {
+        display: none;
+    }
+
+    .achievementsPastSeasonSummary::before {
+        content: '\25B8';
+        display: inline-block;
+        margin-right: 0.45rem;
+        color: rgba(146, 196, 228, 0.9);
+        transition: transform 180ms ease;
+    }
+
+    .achievementsPastSeasonGroup[open] .achievementsPastSeasonSummary::before {
+        transform: rotate(90deg);
+    }
+
+    .achievementsPastSeasonRows {
+        padding: 0.18rem 0.25rem 0.36rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
     .achievementHistoryItem {
         display: grid;
         grid-template-columns: 3rem minmax(0, 1fr) auto;

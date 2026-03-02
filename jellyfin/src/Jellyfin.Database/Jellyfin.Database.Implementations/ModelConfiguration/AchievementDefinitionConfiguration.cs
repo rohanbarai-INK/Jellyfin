@@ -47,6 +47,10 @@ namespace Jellyfin.Database.Implementations.ModelConfiguration
                 .HasDefaultValue(false);
 
             builder
+                .Property(entity => entity.SeasonType)
+                .HasMaxLength(16);
+
+            builder
                 .HasIndex(entity => entity.IsSeasonal);
         }
     }

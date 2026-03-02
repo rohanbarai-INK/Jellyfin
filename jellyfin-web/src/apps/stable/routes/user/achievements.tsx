@@ -153,7 +153,10 @@ function toHistoryEntry(row: UserAchievementRow, userId: string): AchievementHis
         rarity: row.rarity,
         xp: row.xp,
         coins: row.coins,
-        unlockedAt: row.unlockedAt
+        unlockedAt: row.unlockedAt,
+        isSeasonal: row.isSeasonal,
+        seasonType: row.seasonType,
+        seasonYear: row.seasonYear ?? undefined
     };
 }
 
@@ -226,7 +229,7 @@ const AchievementHistoryPage: FC = () => {
 
         const loadDefinitions = async () => {
             try {
-                const rows = await getAchievementDefinitions(false, apiClient);
+                const rows = await getAchievementDefinitions(true, apiClient);
                 if (!isCancelled) {
                     setTotalAchievements(rows.length || DEFAULT_TOTAL_ACHIEVEMENTS);
                 }
@@ -378,6 +381,103 @@ const AchievementHistoryPage: FC = () => {
     const xpToMilestone = Math.max(0, getTotalXpForLevel(nextMilestoneLevel) - totalXp);
     const normalizedUserName = targetUserName.trim().toLowerCase();
     const shouldShowOverlayPreviewControls = normalizedUserName === DEMO_USER_NAME;
+    const {
+        currentSeasonYear,
+        permanentHistory,
+        currentSeasonHistory,
+        pastSeasonHistory
+    } = useMemo(() => {
+        const seasonYear = new Date().getFullYear();
+        const permanent: AchievementHistoryEntry[] = [];
+        const seasonalCurrent: AchievementHistoryEntry[] = [];
+        const pastSeasonMap = new Map<number, AchievementHistoryEntry[]>();
+
+        history.forEach((entry) => {
+            if (!entry.isSeasonal) {
+                permanent.push(entry);
+                return;
+            }
+
+            if (!Number.isFinite(entry.seasonYear)) {
+                seasonalCurrent.push(entry);
+                return;
+            }
+
+            const entrySeasonYear = Number(entry.seasonYear);
+            if (entrySeasonYear >= seasonYear) {
+                seasonalCurrent.push(entry);
+                return;
+            }
+
+            const existing = pastSeasonMap.get(entrySeasonYear);
+            if (existing) {
+                existing.push(entry);
+                return;
+            }
+
+            pastSeasonMap.set(entrySeasonYear, [ entry ]);
+        });
+
+        const pastSeasons = [ ...pastSeasonMap.entries() ]
+            .sort((left, right) => right[0] - left[0])
+            .map(([ season, entries ]) => ({
+                season,
+                entries
+            }));
+
+        return {
+            currentSeasonYear: seasonYear,
+            permanentHistory: permanent,
+            currentSeasonHistory: seasonalCurrent,
+            pastSeasonHistory: pastSeasons
+        };
+    }, [ history ]);
+
+    const renderHistoryRows = (entries: AchievementHistoryEntry[]) => entries.map(entry => {
+        const badge = entry.imageUrl ? (
+            <img
+                src={entry.imageUrl}
+                alt=''
+                className='achievementHistoryBadgeImage'
+            />
+        ) : (
+            <span className='achievementHistoryBadgeEmoji'>
+                {entry.emoji || '\uD83C\uDFC6'}
+            </span>
+        );
+
+        return (
+            <div
+                key={entry.id}
+                className='achievementHistoryItem'
+            >
+                <div className='achievementHistoryIcon'>
+                    {badge}
+                </div>
+                <div className='achievementHistoryBody'>
+                    <div className='achievementHistoryTitle'>
+                        {entry.title}
+                    </div>
+                    <div className='achievementHistoryDescription secondary'>
+                        {entry.description}
+                    </div>
+                </div>
+                <div className='achievementHistoryMeta'>
+                    <div className='achievementHistoryRewards'>
+                        <span className='achievementHistoryRewardPill achievementHistoryRewardPill-xp'>
+                            +{entry.xp} XP
+                        </span>
+                        <span className='achievementHistoryRewardPill achievementHistoryRewardPill-coins'>
+                            +{entry.coins} Coins
+                        </span>
+                    </div>
+                    <span className='achievementHistoryTimestamp'>
+                        {formatUnlockedAt(entry.unlockedAt)}
+                    </span>
+                </div>
+            </div>
+        );
+    });
 
     const triggerCoinOverlayPreview = () => {
         RewardSystem.enqueue({
@@ -566,53 +666,41 @@ const AchievementHistoryPage: FC = () => {
                             </div>
                         )}
 
-                        {history.map(entry => {
-                            const badge = entry.imageUrl ? (
-                                <img
-                                    src={entry.imageUrl}
-                                    alt=''
-                                    className='achievementHistoryBadgeImage'
-                                />
-                            ) : (
-                                <span
-                                    className='achievementHistoryBadgeEmoji'
-                                >
-                                    {entry.emoji || '\uD83C\uDFC6'}
-                                </span>
-                            );
-
-                            return (
-                                <div
-                                    key={entry.id}
-                                    className='achievementHistoryItem'
-                                >
-                                    <div className='achievementHistoryIcon'>
-                                        {badge}
-                                    </div>
-                                    <div className='achievementHistoryBody'>
-                                        <div className='achievementHistoryTitle'>
-                                            {entry.title}
-                                        </div>
-                                        <div className='achievementHistoryDescription secondary'>
-                                            {entry.description}
-                                        </div>
-                                    </div>
-                                    <div className='achievementHistoryMeta'>
-                                        <div className='achievementHistoryRewards'>
-                                            <span className='achievementHistoryRewardPill achievementHistoryRewardPill-xp'>
-                                                +{entry.xp} XP
-                                            </span>
-                                            <span className='achievementHistoryRewardPill achievementHistoryRewardPill-coins'>
-                                                +{entry.coins} Coins
-                                            </span>
-                                        </div>
-                                        <span className='achievementHistoryTimestamp'>
-                                            {formatUnlockedAt(entry.unlockedAt)}
-                                        </span>
-                                    </div>
+                        {permanentHistory.length > 0 && (
+                            <>
+                                <div className='achievementsHistorySectionHeader'>
+                                    Permanent
                                 </div>
-                            );
-                        })}
+                                {renderHistoryRows(permanentHistory)}
+                            </>
+                        )}
+
+                        {currentSeasonHistory.length > 0 && (
+                            <>
+                                <div className='achievementsHistorySectionHeader'>
+                                    Seasonal ({currentSeasonYear})
+                                </div>
+                                {renderHistoryRows(currentSeasonHistory)}
+                            </>
+                        )}
+
+                        {pastSeasonHistory.length > 0 && (
+                            <div className='achievementsPastSeasonSection'>
+                                <div className='achievementsHistorySectionHeader'>
+                                    Past Seasons
+                                </div>
+                                {pastSeasonHistory.map(group => (
+                                    <details key={group.season} className='achievementsPastSeasonGroup'>
+                                        <summary className='achievementsPastSeasonSummary'>
+                                            {group.season} Season ({group.entries.length})
+                                        </summary>
+                                        <div className='achievementsPastSeasonRows'>
+                                            {renderHistoryRows(group.entries)}
+                                        </div>
+                                    </details>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -12,6 +12,9 @@ export interface AchievementHistoryEntry {
     xp: number;
     coins: number;
     unlockedAt: string;
+    isSeasonal?: boolean;
+    seasonType?: string;
+    seasonYear?: number;
 }
 
 interface NewAchievementHistoryEntry {
@@ -25,6 +28,9 @@ interface NewAchievementHistoryEntry {
     xp?: number;
     coins?: number;
     unlockedAt?: string;
+    isSeasonal?: boolean;
+    seasonType?: string;
+    seasonYear?: number;
 }
 
 type AchievementHistoryListener = (entries: AchievementHistoryEntry[]) => void;
@@ -107,7 +113,12 @@ function normalizeEntry(value: unknown): AchievementHistoryEntry | null {
         rarity: normalizeRarity(source.rarity),
         xp,
         coins,
-        unlockedAt
+        unlockedAt,
+        isSeasonal: source.isSeasonal === true,
+        seasonType: normalizeString(source.seasonType) || undefined,
+        seasonYear: Number.isFinite(Number(source.seasonYear))
+            ? Number(source.seasonYear)
+            : undefined
     };
 }
 

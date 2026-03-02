@@ -44,4 +44,9 @@ public class AchievementDefinitionDto
     /// Gets or sets a value indicating whether this achievement is seasonal.
     /// </summary>
     public bool IsSeasonal { get; set; }
+
+    /// <summary>
+    /// Gets or sets the seasonal cadence (for example, "yearly").
+    /// </summary>
+    public string? SeasonType { get; set; }
 }

@@ -26,6 +26,10 @@ export interface RewardPayload {
         progress?: number;
         duration?: number;
         historyDisabled?: boolean;
+        unlockedAt?: string;
+        isSeasonal?: boolean;
+        seasonType?: string;
+        seasonYear?: number;
     };
 }
 
@@ -114,6 +118,22 @@ function sanitizeAchievement(achievement: RewardPayload['achievement']): RewardP
         sanitizedAchievement.historyDisabled = true;
     }
 
+    if (achievement.unlockedAt?.trim()) {
+        sanitizedAchievement.unlockedAt = achievement.unlockedAt.trim();
+    }
+
+    if (achievement.isSeasonal === true) {
+        sanitizedAchievement.isSeasonal = true;
+    }
+
+    if (achievement.seasonType?.trim()) {
+        sanitizedAchievement.seasonType = achievement.seasonType.trim();
+    }
+
+    if (Number.isFinite(achievement.seasonYear)) {
+        sanitizedAchievement.seasonYear = Number(achievement.seasonYear);
+    }
+
     return sanitizedAchievement;
 }
 
@@ -159,7 +179,11 @@ function clonePayload(payload: RewardPayload): RewardPayload {
             rarity: payload.achievement.rarity,
             progress: payload.achievement.progress,
             duration: payload.achievement.duration,
-            historyDisabled: payload.achievement.historyDisabled
+            historyDisabled: payload.achievement.historyDisabled,
+            unlockedAt: payload.achievement.unlockedAt,
+            isSeasonal: payload.achievement.isSeasonal,
+            seasonType: payload.achievement.seasonType,
+            seasonYear: payload.achievement.seasonYear
         } : undefined
     };
 }

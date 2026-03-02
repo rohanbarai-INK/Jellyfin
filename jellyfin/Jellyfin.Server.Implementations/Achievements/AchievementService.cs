@@ -102,7 +102,10 @@ namespace Jellyfin.Server.Implementations.Achievements
                         Rarity = definition.Rarity,
                         Xp = definition.Xp,
                         Coins = definition.Coins,
-                        UnlockedAt = unlock.UnlockedAtUtc
+                        UnlockedAt = unlock.UnlockedAtUtc,
+                        IsSeasonal = definition.IsSeasonal,
+                        SeasonType = definition.SeasonType,
+                        SeasonYear = unlock.SeasonYear
                     })
                     .Take(normalizedTake)
                     .ToListAsync()
@@ -135,29 +138,39 @@ namespace Jellyfin.Server.Implementations.Achievements
                     .ConfigureAwait(false)
                     ?? throw new AchievementNotFoundException("Achievement not found.");
 
+                var nowUtc = DateTime.UtcNow;
+                var seasonYear = GetSeasonYear(definition, nowUtc);
+
                 var existingUnlockedAt = await dbContext.UserAchievements
                     .AsNoTracking()
-                    .Where(row => row.UserId.Equals(userId) && row.AchievementId == normalizedAchievementId)
-                    .Select(row => (DateTime?)row.UnlockedAtUtc)
+                    .Where(row => row.UserId.Equals(userId)
+                        && row.AchievementId == normalizedAchievementId
+                        && row.SeasonYear == seasonYear)
+                    .Select(row => new
+                    {
+                        row.UnlockedAtUtc,
+                        row.SeasonYear
+                    })
                     .FirstOrDefaultAsync()
                     .ConfigureAwait(false);
 
-                if (existingUnlockedAt.HasValue)
+                if (existingUnlockedAt is not null)
                 {
                     return new AchievementUnlockResult
                     {
                         Unlocked = false,
-                        Achievement = ToUserAchievementInfo(definition, existingUnlockedAt.Value)
+                        Achievement = ToUserAchievementInfo(definition, existingUnlockedAt.UnlockedAtUtc, existingUnlockedAt.SeasonYear)
                     };
                 }
 
-                var unlockTimestampUtc = DateTime.UtcNow;
+                var unlockTimestampUtc = nowUtc;
                 dbContext.UserAchievements.Add(new UserAchievement
                 {
                     Id = Guid.NewGuid(),
                     UserId = userId,
                     AchievementId = normalizedAchievementId,
-                    UnlockedAtUtc = unlockTimestampUtc
+                    UnlockedAtUtc = unlockTimestampUtc,
+                    SeasonYear = seasonYear
                 });
 
                 try
@@ -168,12 +181,18 @@ namespace Jellyfin.Server.Implementations.Achievements
                 {
                     var duplicateUnlockedAt = await dbContext.UserAchievements
                         .AsNoTracking()
-                        .Where(row => row.UserId.Equals(userId) && row.AchievementId == normalizedAchievementId)
-                        .Select(row => (DateTime?)row.UnlockedAtUtc)
+                        .Where(row => row.UserId.Equals(userId)
+                            && row.AchievementId == normalizedAchievementId
+                            && row.SeasonYear == seasonYear)
+                        .Select(row => new
+                        {
+                            row.UnlockedAtUtc,
+                            row.SeasonYear
+                        })
                         .FirstOrDefaultAsync()
                         .ConfigureAwait(false);
 
-                    if (!duplicateUnlockedAt.HasValue)
+                    if (duplicateUnlockedAt is null)
                     {
                         throw;
                     }
@@ -181,14 +200,14 @@ namespace Jellyfin.Server.Implementations.Achievements
                     return new AchievementUnlockResult
                     {
                         Unlocked = false,
-                        Achievement = ToUserAchievementInfo(definition, duplicateUnlockedAt.Value)
+                        Achievement = ToUserAchievementInfo(definition, duplicateUnlockedAt.UnlockedAtUtc, duplicateUnlockedAt.SeasonYear)
                     };
                 }
 
                 return new AchievementUnlockResult
                 {
                     Unlocked = true,
-                    Achievement = ToUserAchievementInfo(definition, unlockTimestampUtc)
+                    Achievement = ToUserAchievementInfo(definition, unlockTimestampUtc, seasonYear)
                 };
             }
         }
@@ -204,9 +223,10 @@ namespace Jellyfin.Server.Implementations.Achievements
             var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
             await using (dbContext.ConfigureAwait(false))
             {
+                var nowUtc = DateTime.UtcNow;
+                var currentSeasonYear = GetCurrentSeasonYear(nowUtc);
                 var definitions = await dbContext.AchievementDefinitions
                     .AsNoTracking()
-                    .Where(definition => !definition.IsSeasonal)
                     .ToDictionaryAsync(definition => definition.Id, StringComparer.Ordinal)
                     .ConfigureAwait(false);
 
@@ -215,28 +235,55 @@ namespace Jellyfin.Server.Implementations.Achievements
                     return [];
                 }
 
-                var unlockedIds = await dbContext.UserAchievements
+                var existingUnlockRows = await dbContext.UserAchievements
                     .AsNoTracking()
                     .Where(row => row.UserId.Equals(userId))
-                    .Select(row => row.AchievementId)
-                    .ToHashSetAsync(StringComparer.Ordinal)
+                    .Select(row => new
+                    {
+                        row.AchievementId,
+                        row.SeasonYear
+                    })
+                    .ToListAsync()
                     .ConfigureAwait(false);
 
+                var unlockedIds = new HashSet<string>(StringComparer.Ordinal);
+                var lifetimeUnlockedIds = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var unlockRow in existingUnlockRows)
+                {
+                    lifetimeUnlockedIds.Add(unlockRow.AchievementId);
+
+                    if (!definitions.TryGetValue(unlockRow.AchievementId, out var definition))
+                    {
+                        continue;
+                    }
+
+                    if (!definition.IsSeasonal && !unlockRow.SeasonYear.HasValue)
+                    {
+                        unlockedIds.Add(unlockRow.AchievementId);
+                        continue;
+                    }
+
+                    if (definition.IsSeasonal && unlockRow.SeasonYear == currentSeasonYear)
+                    {
+                        unlockedIds.Add(unlockRow.AchievementId);
+                    }
+                }
+
                 var metrics = await BuildMetricsAsync(dbContext, userId).ConfigureAwait(false);
-                var pendingIds = EvaluatePendingUnlocks(definitions, metrics, unlockedIds);
+                var pendingIds = EvaluatePendingUnlocks(definitions, metrics, unlockedIds, lifetimeUnlockedIds);
                 if (pendingIds.Count == 0)
                 {
                     return [];
                 }
 
-                var nowUtc = DateTime.UtcNow;
                 var rows = pendingIds
                     .Select((achievementId, index) => new UserAchievement
                     {
                         Id = Guid.NewGuid(),
                         UserId = userId,
                         AchievementId = achievementId,
-                        UnlockedAtUtc = nowUtc.AddMilliseconds(index)
+                        UnlockedAtUtc = nowUtc.AddMilliseconds(index),
+                        SeasonYear = GetSeasonYear(definitions[achievementId], nowUtc)
                     })
                     .ToList();
 
@@ -245,7 +292,7 @@ namespace Jellyfin.Server.Implementations.Achievements
                 try
                 {
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                    return rows.Select(row => ToUserAchievementInfo(definitions[row.AchievementId], row.UnlockedAtUtc)).ToList();
+                    return rows.Select(row => ToUserAchievementInfo(definitions[row.AchievementId], row.UnlockedAtUtc, row.SeasonYear)).ToList();
                 }
                 catch (DbUpdateException)
                 {
@@ -273,16 +320,18 @@ namespace Jellyfin.Server.Implementations.Achievements
         private static List<string> EvaluatePendingUnlocks(
             IReadOnlyDictionary<string, AchievementDefinition> definitions,
             Metrics metrics,
-            HashSet<string> unlockedIds)
+            HashSet<string> unlockedIds,
+            HashSet<string> lifetimeUnlockedIds)
         {
             var pendingIds = new List<string>();
+            var pendingCoins = 0;
             var loops = 0;
 
             while (loops++ < definitions.Count)
             {
                 var before = unlockedIds.Count;
-                var totalCoins = unlockedIds.Where(definitions.ContainsKey).Sum(id => definitions[id].Coins);
-                var unlockedCount = unlockedIds.Count;
+                var totalCoins = metrics.EarnedAchievementCoins + pendingCoins;
+                var unlockedCount = lifetimeUnlockedIds.Count;
                 int Genre(string key) => metrics.GenreCounts.TryGetValue(key, out var count) ? count : 0;
 
                 void TryUnlock(string id, bool condition)
@@ -293,6 +342,8 @@ namespace Jellyfin.Server.Implementations.Achievements
                     }
 
                     pendingIds.Add(id);
+                    pendingCoins += definitions[id].Coins;
+                    lifetimeUnlockedIds.Add(id);
                 }
 
                 // ONBOARDING
@@ -424,6 +475,14 @@ namespace Jellyfin.Server.Implementations.Achievements
         {
             var nowUtc = DateTime.UtcNow;
             var metrics = new Metrics();
+            metrics.EarnedAchievementCoins = await (
+                    from unlock in dbContext.UserAchievements.AsNoTracking()
+                    join definition in dbContext.AchievementDefinitions.AsNoTracking()
+                        on unlock.AchievementId equals definition.Id
+                    where unlock.UserId.Equals(userId)
+                    select (int?)definition.Coins)
+                .SumAsync()
+                .ConfigureAwait(false) ?? 0;
 
             var allTime = await dbContext.UserPeriodStats
                 .AsNoTracking()
@@ -1225,6 +1284,19 @@ namespace Jellyfin.Server.Implementations.Achievements
             }
         }
 
+        private static int GetCurrentSeasonYear(DateTime utcDateTime)
+            => ToInsightsLocalTime(utcDateTime).Year;
+
+        private static int? GetSeasonYear(AchievementDefinition definition, DateTime unlockTimestampUtc)
+        {
+            if (!definition.IsSeasonal)
+            {
+                return null;
+            }
+
+            return GetCurrentSeasonYear(unlockTimestampUtc);
+        }
+
         private static string NormalizeAchievementId(string achievementId)
             => achievementId?.Trim().ToLowerInvariant() ?? string.Empty;
 
@@ -1238,10 +1310,11 @@ namespace Jellyfin.Server.Implementations.Achievements
                 Rarity = row.Rarity,
                 Xp = row.Xp,
                 Coins = row.Coins,
-                IsSeasonal = row.IsSeasonal
+                IsSeasonal = row.IsSeasonal,
+                SeasonType = row.SeasonType
             };
 
-        private static UserAchievementInfo ToUserAchievementInfo(AchievementDefinition row, DateTime unlockedAtUtc)
+        private static UserAchievementInfo ToUserAchievementInfo(AchievementDefinition row, DateTime unlockedAtUtc, int? seasonYear)
             => new()
             {
                 Id = row.Id,
@@ -1251,11 +1324,16 @@ namespace Jellyfin.Server.Implementations.Achievements
                 Rarity = row.Rarity,
                 Xp = row.Xp,
                 Coins = row.Coins,
-                UnlockedAt = unlockedAtUtc
+                UnlockedAt = unlockedAtUtc,
+                IsSeasonal = row.IsSeasonal,
+                SeasonType = row.SeasonType,
+                SeasonYear = seasonYear
             };
 
         private sealed class Metrics
         {
+            public int EarnedAchievementCoins { get; set; }
+
             public bool HasAnyWatch { get; set; }
 
             public int CompletedMovies { get; set; }

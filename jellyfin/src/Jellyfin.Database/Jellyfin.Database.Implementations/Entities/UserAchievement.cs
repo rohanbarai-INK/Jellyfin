@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Jellyfin.Database.Implementations.Entities
 {
     /// <summary>
-    /// Stores a user unlock record for a permanent achievement.
+    /// Stores a user unlock record for a permanent or seasonal achievement.
     /// </summary>
     public class UserAchievement
     {
@@ -29,6 +29,11 @@ namespace Jellyfin.Database.Implementations.Entities
         /// Gets or sets the unlock timestamp in UTC.
         /// </summary>
         public DateTime UnlockedAtUtc { get; set; }
+
+        /// <summary>
+        /// Gets or sets the season year for seasonal unlocks. Null for permanent unlocks.
+        /// </summary>
+        public int? SeasonYear { get; set; }
 
         /// <summary>
         /// Gets or sets the associated user.

@@ -13,6 +13,7 @@ export interface AchievementDefinitionRow {
     xp: number
     coins: number
     isSeasonal: boolean
+    seasonType?: string
 }
 
 export interface UserAchievementRow {
@@ -24,6 +25,9 @@ export interface UserAchievementRow {
     xp: number
     coins: number
     unlockedAt: string
+    isSeasonal: boolean
+    seasonType?: string
+    seasonYear: number | null
 }
 
 export interface AchievementUnlockResult {
@@ -73,6 +77,10 @@ const toNumberValue = (value: unknown, fallback = 0) => (
     typeof value === 'number' && Number.isFinite(value) ? value : fallback
 );
 
+const toNullableNumberValue = (value: unknown): number | null => (
+    typeof value === 'number' && Number.isFinite(value) ? value : null
+);
+
 const normalizeRarity = (value: unknown): AchievementRarity => {
     if (value === 'uncommon' || value === 'rare' || value === 'legendary' || value === 'epic') {
         return value;
@@ -93,7 +101,8 @@ const toDefinitionRow = (source: unknown): AchievementDefinitionRow => ({
     rarity: normalizeRarity(read(source, 'Rarity', 'rarity')),
     xp: toNumberValue(read(source, 'Xp', 'xp')),
     coins: toNumberValue(read(source, 'Coins', 'coins')),
-    isSeasonal: toBooleanValue(read(source, 'IsSeasonal', 'isSeasonal'))
+    isSeasonal: toBooleanValue(read(source, 'IsSeasonal', 'isSeasonal')),
+    seasonType: toStringValue(read(source, 'SeasonType', 'seasonType')) || undefined
 });
 
 const toUserAchievementRow = (source: unknown): UserAchievementRow => ({
@@ -104,7 +113,10 @@ const toUserAchievementRow = (source: unknown): UserAchievementRow => ({
     rarity: normalizeRarity(read(source, 'Rarity', 'rarity')),
     xp: toNumberValue(read(source, 'Xp', 'xp')),
     coins: toNumberValue(read(source, 'Coins', 'coins')),
-    unlockedAt: toStringValue(read(source, 'UnlockedAt', 'unlockedAt'))
+    unlockedAt: toStringValue(read(source, 'UnlockedAt', 'unlockedAt')),
+    isSeasonal: toBooleanValue(read(source, 'IsSeasonal', 'isSeasonal')),
+    seasonType: toStringValue(read(source, 'SeasonType', 'seasonType')) || undefined,
+    seasonYear: toNullableNumberValue(read(source, 'SeasonYear', 'seasonYear'))
 });
 
 const toUnlockResult = (source: unknown): AchievementUnlockResult => ({
