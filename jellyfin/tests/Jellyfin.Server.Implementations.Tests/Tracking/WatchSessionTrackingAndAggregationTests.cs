@@ -899,7 +899,7 @@ public class WatchSessionTrackingAndAggregationTests
             LibraryManager
                 .Setup(manager => manager.GetItemById(It.IsAny<Guid>()))
                 .Returns<Guid>(id => _items.TryGetValue(id, out var item) ? item : null);
-            AggregationService = new WatchSessionAggregationService(DbFactory, LibraryManager.Object, NullLogger<WatchSessionAggregationService>.Instance);
+            AggregationService = new WatchSessionAggregationService(DbFactory, null, LibraryManager.Object, NullLogger<WatchSessionAggregationService>.Instance);
             TrackingService = new WatchSessionTrackingService(DbFactory, AggregationService, TimeProvider, NullLogger<WatchSessionTrackingService>.Instance);
         }
 

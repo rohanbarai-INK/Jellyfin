@@ -69,6 +69,11 @@ namespace Jellyfin.Database.Implementations.Entities
         public bool IsAdminViewed { get; set; }
 
         /// <summary>
+        /// Gets or sets the coin cost charged when this request used quota top-up.
+        /// </summary>
+        public int CoinRedeemCost { get; set; }
+
+        /// <summary>
         /// Gets or sets request owner.
         /// </summary>
         public virtual User? User { get; set; }

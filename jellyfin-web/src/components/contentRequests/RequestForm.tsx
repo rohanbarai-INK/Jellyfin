@@ -12,6 +12,8 @@ interface RequestFormProps {
     isSubmitting: boolean
     isSubmitEnabled: boolean
     isTypeSelectionEnabled: boolean
+    isMovieSelectionEnabled: boolean
+    isSeriesSelectionEnabled: boolean
     isVisible: boolean
     remainingMovies: number
     remainingSeries: number
@@ -30,6 +32,8 @@ const RequestForm: FC<RequestFormProps> = ({
     isSubmitting,
     isSubmitEnabled,
     isTypeSelectionEnabled,
+    isMovieSelectionEnabled,
+    isSeriesSelectionEnabled,
     isVisible,
     remainingMovies,
     remainingSeries,
@@ -46,8 +50,11 @@ const RequestForm: FC<RequestFormProps> = ({
         return null;
     }
 
-    const areInputsDisabled = !isSubmitEnabled || isSubmitting;
+    // Keep form entry tied to subscription/quota eligibility, not redeem affordability.
+    const areInputsDisabled = !isTypeSelectionEnabled || isSubmitting;
     const isToggleDisabled = !isTypeSelectionEnabled || isSubmitting;
+    const isMovieToggleDisabled = isToggleDisabled || !isMovieSelectionEnabled;
+    const isSeriesToggleDisabled = isToggleDisabled || !isSeriesSelectionEnabled;
     const movieToggleLabel = isMobileLayout
         ? globalize.translate('Movies')
         : globalize.translate('TypeOptionPluralMovie');
@@ -62,7 +69,7 @@ const RequestForm: FC<RequestFormProps> = ({
                     type='button'
                     aria-pressed={requestType === 'Movie'}
                     onClick={() => onRequestTypeChange('Movie')}
-                    disabled={isToggleDisabled}
+                    disabled={isMovieToggleDisabled}
                 >
                     {movieToggleLabel}
                 </button>
@@ -70,7 +77,7 @@ const RequestForm: FC<RequestFormProps> = ({
                     type='button'
                     aria-pressed={requestType === 'Series'}
                     onClick={() => onRequestTypeChange('Series')}
-                    disabled={isToggleDisabled}
+                    disabled={isSeriesToggleDisabled}
                 >
                     {seriesToggleLabel}
                 </button>

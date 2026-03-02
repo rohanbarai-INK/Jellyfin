@@ -4,6 +4,7 @@ import Close from '@mui/icons-material/Close';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Download from '@mui/icons-material/Download';
 import Edit from '@mui/icons-material/Edit';
+import EmojiEvents from '@mui/icons-material/EmojiEvents';
 import Insights from '@mui/icons-material/Insights';
 import LiveHelp from '@mui/icons-material/LiveHelp';
 import Logout from '@mui/icons-material/Logout';
@@ -205,6 +206,18 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
                 </ListItemIcon>
                 <ListItemText>
                     Personal Insights
+                </ListItemText>
+            </MenuItem>
+            <MenuItem
+                component={Link}
+                to={`/achievements?userId=${user?.Id}`}
+                onClick={onMenuClose}
+            >
+                <ListItemIcon>
+                    <EmojiEvents />
+                </ListItemIcon>
+                <ListItemText>
+                    Achievements
                 </ListItemText>
             </MenuItem>
             {subscriptionMenuItem}

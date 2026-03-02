@@ -5,6 +5,7 @@ import React from 'react';
 import { ApiProvider } from 'hooks/useApi';
 import { UserSettingsProvider } from 'hooks/useUserSettings';
 import { WebConfigProvider } from 'hooks/useWebConfig';
+import RewardSystemRoot from 'components/rewardSystem/RewardSystemRoot';
 import GracePeriodTopAlert from 'components/subscription/GracePeriodTopAlert';
 import browser from 'scripts/browser';
 import { queryClient } from 'utils/query/queryClient';
@@ -21,6 +22,7 @@ const RootApp = () => (
                 <WebConfigProvider>
                     <GracePeriodTopAlert />
                     <RootAppRouter />
+                    <RewardSystemRoot />
                 </WebConfigProvider>
             </UserSettingsProvider>
         </ApiProvider>

@@ -61,6 +61,78 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
         }
 
         [Fact]
+        public async Task CreateRequest_AllowsQuotaTopUpWithServerCoinBalance()
+        {
+            var (user, userClient) = await CreateActiveUserClient();
+            await SeedAchievementCoins(user.Id, 500);
+
+            for (var index = 0; index < 5; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"Movie Quota Exhaust {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    DateTime.UtcNow.AddMinutes(-index));
+            }
+
+            using var response = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Movie Top Up {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var createdRow = await response.Content.ReadFromJsonAsync<ContentRequestRowDto>(JsonDefaults.Options);
+            Assert.NotNull(createdRow);
+
+            var dbContextFactory = _factory.Services.GetRequiredService<IDbContextFactory<JellyfinDbContext>>();
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+            var createdEntity = await dbContext.ContentRequests.FirstAsync(row => row.Id.Equals(createdRow.Id));
+            Assert.Equal(200, createdEntity.CoinRedeemCost);
+        }
+
+        [Fact]
+        public async Task CreateRequest_QuotaTopUpDeductsCoinsAndBlocksWhenBalanceRunsOut()
+        {
+            var (user, userClient) = await CreateActiveUserClient();
+            await SeedAchievementCoins(user.Id, 200);
+
+            for (var index = 0; index < 5; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"Quota Exhausted Movie {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    DateTime.UtcNow.AddMinutes(-index));
+            }
+
+            using var firstTopUp = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Top Up First {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+            Assert.Equal(HttpStatusCode.OK, firstTopUp.StatusCode);
+
+            using var secondTopUp = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Top Up Second {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+            Assert.Equal(HttpStatusCode.Conflict, secondTopUp.StatusCode);
+        }
+
+        [Fact]
         public async Task CreateRequest_BlocksDuplicatesForPendingAndApproved()
         {
             var (user, userClient) = await CreateActiveUserClient();
@@ -546,7 +618,8 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             int? seasonNumber = null,
             Guid? jellyfinItemId = null,
             int notificationCount = 0,
-            bool isAdminViewed = false)
+            bool isAdminViewed = false,
+            int coinRedeemCost = 0)
         {
             var dbContextFactory = _factory.Services.GetRequiredService<IDbContextFactory<JellyfinDbContext>>();
             await using var dbContext = await dbContextFactory.CreateDbContextAsync();
@@ -563,12 +636,42 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
                 Status = status,
                 JellyfinItemId = jellyfinItemId,
                 NotificationCount = notificationCount,
-                IsAdminViewed = isAdminViewed
+                IsAdminViewed = isAdminViewed,
+                CoinRedeemCost = coinRedeemCost
             };
 
             dbContext.ContentRequests.Add(requestEntity);
             await dbContext.SaveChangesAsync();
             return requestEntity.Id;
+        }
+
+        private async Task SeedAchievementCoins(Guid userId, int coins)
+        {
+            var dbContextFactory = _factory.Services.GetRequiredService<IDbContextFactory<JellyfinDbContext>>();
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+
+            var achievementId = $"server-coin-balance-{Guid.NewGuid():N}";
+            dbContext.AchievementDefinitions.Add(new AchievementDefinition
+            {
+                Id = achievementId,
+                Title = "Server Coin Seed",
+                Description = "Seeded server coin balance for integration test.",
+                ImageEmoji = "S",
+                Rarity = "legendary",
+                Xp = 0,
+                Coins = Math.Max(0, coins),
+                IsSeasonal = false
+            });
+
+            dbContext.UserAchievements.Add(new UserAchievement
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                AchievementId = achievementId,
+                UnlockedAtUtc = DateTime.UtcNow
+            });
+
+            await dbContext.SaveChangesAsync();
         }
 
         private static async Task<string> GetAdminAccessToken(HttpClient client)

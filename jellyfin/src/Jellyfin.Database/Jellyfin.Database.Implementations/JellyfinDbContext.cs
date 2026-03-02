@@ -39,6 +39,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing achievement definitions.
+    /// </summary>
+    public DbSet<AchievementDefinition> AchievementDefinitions => Set<AchievementDefinition>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing content requests.
     /// </summary>
     public DbSet<ContentRequest> ContentRequests => Set<ContentRequest>();
@@ -47,6 +52,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     /// Gets the <see cref="DbSet{TEntity}"/> containing watch sessions.
     /// </summary>
     public DbSet<UserWatchSession> UserWatchSessions => Set<UserWatchSession>();
+
+    /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user achievement unlocks.
+    /// </summary>
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing user period stats.

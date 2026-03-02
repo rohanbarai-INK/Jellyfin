@@ -31,6 +31,10 @@ namespace Jellyfin.Database.Implementations.ModelConfiguration
                 .HasDefaultValue(false);
 
             builder
+                .Property(entity => entity.CoinRedeemCost)
+                .HasDefaultValue(0);
+
+            builder
                 .HasIndex(entity => entity.UserId);
 
             builder
@@ -44,6 +48,9 @@ namespace Jellyfin.Database.Implementations.ModelConfiguration
 
             builder
                 .HasIndex(entity => entity.NormalizedTitle);
+
+            builder
+                .HasIndex(entity => new { entity.UserId, entity.CoinRedeemCost });
 
             builder
                 .HasOne(entity => entity.User)

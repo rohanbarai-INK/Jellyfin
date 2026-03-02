@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Extensions;
+using MediaBrowser.Controller.Achievements;
 using MediaBrowser.Controller.ContentRequests;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,18 +17,23 @@ namespace Jellyfin.Server.Implementations.ContentRequests
     {
         private const int _movieCap = 5;
         private const int _seriesCap = 2;
+        private const int _movieRedeemCoinCost = 200;
+        private const int _seriesRedeemCoinCost = 400;
 
         private static readonly Regex _whitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
+        private readonly IAchievementService? _achievementService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentRequestService"/> class.
         /// </summary>
         /// <param name="dbProvider">Database provider.</param>
-        public ContentRequestService(IDbContextFactory<JellyfinDbContext> dbProvider)
+        /// <param name="achievementService">Achievement service.</param>
+        public ContentRequestService(IDbContextFactory<JellyfinDbContext> dbProvider, IAchievementService? achievementService = null)
         {
             _dbProvider = dbProvider;
+            _achievementService = achievementService;
         }
 
         /// <inheritdoc />
@@ -67,19 +73,6 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                         throw new ContentRequestInactiveSubscriptionException("Subscription is inactive.");
                     }
 
-                    var usedCounts = await GetCycleUsageAsync(dbContext, userId, cycleInfo.CycleStartDate).ConfigureAwait(false);
-                    if (dbType == Jellyfin.Database.Implementations.Enums.ContentRequestType.Movie
-                        && usedCounts.UsedMovies >= _movieCap)
-                    {
-                        throw new ContentRequestConflictException("Movie request cap reached for the current subscription cycle.");
-                    }
-
-                    if (dbType == Jellyfin.Database.Implementations.Enums.ContentRequestType.Series
-                        && usedCounts.UsedSeries >= _seriesCap)
-                    {
-                        throw new ContentRequestConflictException("Series request cap reached for the current subscription cycle.");
-                    }
-
                     var duplicateExists = await dbContext.ContentRequests
                         .AnyAsync(request => request.NormalizedTitle == normalizedTitle
                             && request.Type == dbType
@@ -90,6 +83,19 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                     if (duplicateExists)
                     {
                         throw new ContentRequestConflictException("An active request with the same title and type already exists.");
+                    }
+
+                    var usage = await GetCycleUsageAsync(dbContext, userId, cycleInfo.CycleStartDate).ConfigureAwait(false);
+                    var coinRedeemCost = GetCoinRedeemCost(type, usage);
+                    if (coinRedeemCost > 0)
+                    {
+                        var (earnedCoins, spentCoins) = await GetCoinTotalsAsync(dbContext, userId).ConfigureAwait(false);
+                        var availableCoins = Math.Max(0, earnedCoins - spentCoins);
+                        if (availableCoins < coinRedeemCost)
+                        {
+                            throw new ContentRequestConflictException(
+                                $"Insufficient coin balance. Need {coinRedeemCost} coins to redeem this {type.ToString().ToLowerInvariant()} request.");
+                        }
                     }
 
                     var requestEntity = new ContentRequest
@@ -104,13 +110,15 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                         Status = Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Pending,
                         JellyfinItemId = null,
                         NotificationCount = 0,
-                        IsAdminViewed = false
+                        IsAdminViewed = false,
+                        CoinRedeemCost = coinRedeemCost
                     };
 
                     dbContext.ContentRequests.Add(requestEntity);
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
                     await transaction.CommitAsync().ConfigureAwait(false);
 
+                    await TrySyncAchievementsAsync(userId).ConfigureAwait(false);
                     return ToContractModel(requestEntity);
                 }
             }
@@ -265,6 +273,7 @@ namespace Jellyfin.Server.Implementations.ContentRequests
 
                 row.Status = Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Approved;
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                await TrySyncAchievementsAsync(row.UserId).ConfigureAwait(false);
                 return ToContractModel(row);
             }
         }
@@ -319,7 +328,25 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 row.Status = Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Completed;
                 row.JellyfinItemId = jellyfinItemId;
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                await TrySyncAchievementsAsync(row.UserId).ConfigureAwait(false);
                 return ToContractModel(row);
+            }
+        }
+
+        private async Task TrySyncAchievementsAsync(Guid userId)
+        {
+            if (_achievementService is null || userId.IsEmpty())
+            {
+                return;
+            }
+
+            try
+            {
+                await _achievementService.Sync(userId).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Do not block request flows on milestone sync failures.
             }
         }
 
@@ -496,6 +523,37 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 NotificationCount = row.NotificationCount,
                 IsAdminViewed = row.IsAdminViewed
             };
+
+        private static int GetCoinRedeemCost(ContentRequestType type, (int UsedMovies, int UsedSeries) usage)
+            => type switch
+            {
+                ContentRequestType.Movie when usage.UsedMovies >= _movieCap => _movieRedeemCoinCost,
+                ContentRequestType.Series when usage.UsedSeries >= _seriesCap => _seriesRedeemCoinCost,
+                _ => 0
+            };
+
+        private static async Task<(int EarnedCoins, int SpentCoins)> GetCoinTotalsAsync(
+            JellyfinDbContext dbContext,
+            Guid userId)
+        {
+            var earnedCoins = await (
+                from unlock in dbContext.UserAchievements.AsNoTracking()
+                join definition in dbContext.AchievementDefinitions.AsNoTracking()
+                    on unlock.AchievementId equals definition.Id
+                where unlock.UserId.Equals(userId)
+                select (int?)definition.Coins)
+                .SumAsync()
+                .ConfigureAwait(false) ?? 0;
+
+            var spentCoins = await dbContext.ContentRequests
+                .AsNoTracking()
+                .Where(request => request.UserId.Equals(userId))
+                .Select(request => (int?)request.CoinRedeemCost)
+                .SumAsync()
+                .ConfigureAwait(false) ?? 0;
+
+            return (earnedCoins, spentCoins);
+        }
 
         private static async Task<(int UsedMovies, int UsedSeries)> GetCycleUsageAsync(
             JellyfinDbContext dbContext,

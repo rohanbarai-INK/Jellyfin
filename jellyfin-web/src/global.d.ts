@@ -1,5 +1,8 @@
 export declare global {
     import { ApiClient, Events } from 'jellyfin-apiclient';
+    import { RewardPayload, RewardSystemPublicApi } from 'components/rewardSystem/RewardSystem';
+    import { ShowAchievementOptions } from 'components/rewardSystem/AchievementOverlayMount';
+    import { AchievementUnlockResult, UserAchievementRow } from 'utils/achievementsApi';
 
     interface Window {
         ApiClient: ApiClient;
@@ -9,7 +12,13 @@ export declare global {
         Loading: {
             show(type?: 'system' | 'media'): void;
             hide(): void;
-        }
+        };
+        RewardSystem?: RewardSystemPublicApi;
+        showAchievement?: (options: ShowAchievementOptions) => void;
+        unlockAchievement?: (achievementId: string) => Promise<AchievementUnlockResult>;
+        syncAchievements?: () => Promise<UserAchievementRow[]>;
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        __triggerRewardTest?: (payload: RewardPayload) => void;
     }
 
     interface DocumentEventMap {

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
+using MediaBrowser.Controller.Achievements;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
@@ -23,6 +24,7 @@ namespace Jellyfin.Server.Implementations.Tracking
         private static readonly TimeZoneInfo _insightsTimeZone = ResolveInsightsTimeZone();
 
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
+        private readonly IAchievementService? _achievementService;
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<WatchSessionAggregationService> _logger;
 
@@ -30,14 +32,17 @@ namespace Jellyfin.Server.Implementations.Tracking
         /// Initializes a new instance of the <see cref="WatchSessionAggregationService"/> class.
         /// </summary>
         /// <param name="dbProvider">Database provider.</param>
+        /// <param name="achievementService">Achievement service.</param>
         /// <param name="libraryManager">Library manager.</param>
         /// <param name="logger">Logger.</param>
         public WatchSessionAggregationService(
             IDbContextFactory<JellyfinDbContext> dbProvider,
+            IAchievementService? achievementService,
             ILibraryManager libraryManager,
             ILogger<WatchSessionAggregationService> logger)
         {
             _dbProvider = dbProvider;
+            _achievementService = achievementService;
             _libraryManager = libraryManager;
             _logger = logger;
         }
@@ -234,6 +239,20 @@ namespace Jellyfin.Server.Implementations.Tracking
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
                     await transaction.CommitAsync().ConfigureAwait(false);
                 }
+            }
+
+            if (_achievementService is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _achievementService.Sync(session.UserId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Achievement sync failed after watch aggregation for user {UserId}.", session.UserId);
             }
         }
 
