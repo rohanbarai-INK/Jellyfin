@@ -1916,7 +1916,7 @@
     "RequestGraceMessage": "Your subscription is in Grace Period. Renew to continue submitting requests.",
     "RequestExpiredRenewCta": "Renew Subscription",
     "RequestExpiredMessage": "Your subscription has expired. Renew to submit new requests.",
-    "RequestQuotaExhaustedMessage": "You have used all request quota for this cycle. Try again in the next cycle.",
+    "RequestQuotaExhaustedMessage": "You have used all your request quota for this cycle. If your subscription is active, you can continue by using coins, or wait for the next cycle.",
     "ButtonApprove": "Approve",
     "Reject": "Reject"
 }
