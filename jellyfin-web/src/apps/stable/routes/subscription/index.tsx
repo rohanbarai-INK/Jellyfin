@@ -7,6 +7,13 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableFooter from '@mui/material/TableFooter';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
@@ -51,6 +58,47 @@ type CurrentSubscriptionMetadata = {
     lastDurationMonths?: number | null
     LastRedeemedAt?: string | null
     lastRedeemedAt?: string | null
+};
+
+type BillingStatus = 'Active' | 'Expired' | 'Cancelled';
+
+interface BillingHistoryRecord {
+    reference: string
+    plan: string
+    billingPeriodLabel: string
+    startDate: string
+    endDate: string
+    redeemedDate: string
+    amount: number
+    status: BillingStatus
+}
+
+type BillingHistoryApiEntry = {
+    Reference?: unknown
+    reference?: unknown
+    DurationMonths?: unknown
+    durationMonths?: unknown
+    CycleStartDate?: unknown
+    cycleStartDate?: unknown
+    CycleEndDate?: unknown
+    cycleEndDate?: unknown
+    RedeemedAt?: unknown
+    redeemedAt?: unknown
+    Amount?: unknown
+    amount?: unknown
+    Status?: unknown
+    status?: unknown
+};
+
+type BillingHistoryApiResponse = {
+    Items?: BillingHistoryApiEntry[] | null
+    items?: BillingHistoryApiEntry[] | null
+};
+
+type BillingButtonRipple = {
+    id: number
+    x: number
+    y: number
 };
 
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -172,10 +220,132 @@ const getInitialAutoRenewToggleState = () => {
     }
 };
 
+const formatBillingDate = (value: Date | string | null | undefined) => {
+    if (!value) {
+        return 'Not available';
+    }
+
+    const parsedDate = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return typeof value === 'string' ? value : 'Not available';
+    }
+
+    return parsedDate.toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+};
+
+const getBillingStatusFromText = (status: unknown): BillingStatus => {
+    if (typeof status !== 'string') {
+        return 'Expired';
+    }
+
+    const normalizedStatus = status.toLowerCase();
+    if (normalizedStatus.includes('cancel')) {
+        return 'Cancelled';
+    }
+
+    if (normalizedStatus.includes('active')) {
+        return 'Active';
+    }
+
+    if (normalizedStatus.includes('expired') || normalizedStatus.includes('grace')) {
+        return 'Expired';
+    }
+
+    return 'Expired';
+};
+
+const getPlanDotColor = (plan: string) => {
+    const normalizedPlan = plan.toLowerCase();
+    if (normalizedPlan.includes('pro')) {
+        return '#9b6dff';
+    }
+
+    if (normalizedPlan.includes('starter')) {
+        return '#4ea6ff';
+    }
+
+    if (normalizedPlan.includes('enterprise') || normalizedPlan.includes('annual')) {
+        return '#ffc14d';
+    }
+
+    return '#9ca3af';
+};
+
+const getBillingHistoryPlanTitle = (durationMonths: number) => {
+    switch (durationMonths) {
+        case 1:
+            return 'Starter';
+        case 3:
+            return 'Standard';
+        case 6:
+            return 'Pro';
+        case 12:
+            return 'Enterprise';
+        default:
+            return `${durationMonths} Month Plan`;
+    }
+};
+
+const getBillingPeriodLabel = (durationMonths: number) => {
+    if (durationMonths === 12) {
+        return 'Annual';
+    }
+
+    if (durationMonths === 1) {
+        return 'Monthly';
+    }
+
+    return `${durationMonths} Months`;
+};
+
+const parseBillingDateInput = (value: unknown): Date | string | null => {
+    if (value instanceof Date || typeof value === 'string') {
+        return value;
+    }
+
+    return null;
+};
+
+const parseBillingHistoryRows = (response: unknown): BillingHistoryRecord[] => {
+    if (!response || typeof response !== 'object') {
+        return [];
+    }
+
+    const payload = response as BillingHistoryApiResponse;
+    const entries = Array.isArray(payload.Items)
+        ? payload.Items
+        : (Array.isArray(payload.items) ? payload.items : []);
+
+    return entries.map((entry, index) => {
+        const durationMonths = Number(entry.DurationMonths ?? entry.durationMonths);
+        const resolvedDurationMonths = Number.isInteger(durationMonths) && durationMonths > 0 ? durationMonths : 1;
+        const referenceValue = entry.Reference ?? entry.reference;
+        const amountValue = Number(entry.Amount ?? entry.amount);
+
+        return {
+            reference: typeof referenceValue === 'string' && referenceValue.trim()
+                ? referenceValue
+                : `INV-${index + 1}`,
+            plan: getBillingHistoryPlanTitle(resolvedDurationMonths),
+            billingPeriodLabel: getBillingPeriodLabel(resolvedDurationMonths),
+            startDate: formatBillingDate(parseBillingDateInput(entry.CycleStartDate ?? entry.cycleStartDate)),
+            endDate: formatBillingDate(parseBillingDateInput(entry.CycleEndDate ?? entry.cycleEndDate)),
+            redeemedDate: formatBillingDate(parseBillingDateInput(entry.RedeemedAt ?? entry.redeemedAt)),
+            amount: Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0,
+            status: getBillingStatusFromText(entry.Status ?? entry.status)
+        };
+    });
+};
+
 export const Component = () => {
     const { user } = useApi();
     const theme = useTheme();
     const [ accessKey, setAccessKey ] = useState('');
+    const [ showBillingHistory, setShowBillingHistory ] = useState(false);
     const [ isRedeemingKey, setIsRedeemingKey ] = useState(false);
     const [ redeemErrorMessage, setRedeemErrorMessage ] = useState('');
     const [ redeemSuccessMessage, setRedeemSuccessMessage ] = useState('');
@@ -183,7 +353,12 @@ export const Component = () => {
     const [ currentSubscriptionError, setCurrentSubscriptionError ] = useState('');
     const [ isLoadingCurrentSubscription, setIsLoadingCurrentSubscription ] = useState(false);
     const [ autoRenewEnabled, setAutoRenewEnabled ] = useState(getInitialAutoRenewToggleState);
+    const [ billingButtonRipples, setBillingButtonRipples ] = useState<BillingButtonRipple[]>([]);
+    const [ billingHistoryRows, setBillingHistoryRows ] = useState<BillingHistoryRecord[]>([]);
+    const [ billingHistoryError, setBillingHistoryError ] = useState('');
+    const [ isLoadingBillingHistory, setIsLoadingBillingHistory ] = useState(false);
     const plansSectionRef = useRef<HTMLDivElement | null>(null);
+    const billingRippleIdRef = useRef(0);
 
     const {
         data: pricingConfig,
@@ -346,6 +521,22 @@ export const Component = () => {
         return '#ff5252';
     }, [ daysRemaining, isInGracePeriod ]);
 
+    const billingSummary = useMemo(() => {
+        const total = billingHistoryRows.length;
+        const active = billingHistoryRows.filter(row => row.status === 'Active').length;
+        const expired = billingHistoryRows.filter(row => row.status === 'Expired').length;
+        const cancelled = billingHistoryRows.filter(row => row.status === 'Cancelled').length;
+        const totalSpent = billingHistoryRows.reduce((sum, row) => sum + row.amount, 0);
+
+        return {
+            total,
+            active,
+            expired,
+            cancelled,
+            totalSpent
+        };
+    }, [ billingHistoryRows ]);
+
     useEffect(() => {
         try {
             window.localStorage.setItem(AUTO_RENEW_STORAGE_KEY, autoRenewEnabled ? 'true' : 'false');
@@ -397,6 +588,49 @@ export const Component = () => {
             isDisposed = true;
         };
     }, [ isExpiredUser, user?.Id ]);
+
+    useEffect(() => {
+        if (!showBillingHistory) {
+            return;
+        }
+
+        const apiClient = ServerConnections.currentApiClient();
+        if (!apiClient) {
+            setBillingHistoryRows([]);
+            setBillingHistoryError('Unable to load billing history.');
+            setIsLoadingBillingHistory(false);
+            return;
+        }
+
+        let isDisposed = false;
+        setBillingHistoryError('');
+        setIsLoadingBillingHistory(true);
+
+        apiClient.ajax({
+            type: 'GET',
+            url: apiClient.getUrl('Keys/BillingHistory'),
+            dataType: 'json',
+            contentType: 'application/json'
+        }).then((response: unknown) => {
+            if (!isDisposed) {
+                setBillingHistoryRows(parseBillingHistoryRows(response));
+            }
+        }).catch(async err => {
+            console.error('[subscription] failed to load billing history', err);
+            if (!isDisposed) {
+                setBillingHistoryRows([]);
+                setBillingHistoryError((await getServerErrorMessage(err)) || 'Unable to load billing history.');
+            }
+        }).finally(() => {
+            if (!isDisposed) {
+                setIsLoadingBillingHistory(false);
+            }
+        });
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [ showBillingHistory, user?.Id ]);
 
     const onAccessKeyChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setAccessKey(event.target.value);
@@ -469,6 +703,22 @@ export const Component = () => {
         });
     }, []);
 
+    const onBillingHistoryToggleClick = useCallback((event: React.MouseEvent<HTMLButtonElement>, nextValue: boolean) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const rippleId = Date.now() + billingRippleIdRef.current;
+        billingRippleIdRef.current += 1;
+
+        setBillingButtonRipples(prevRipples => [ ...prevRipples, { id: rippleId, x, y } ]);
+
+        window.setTimeout(() => {
+            setBillingButtonRipples(prevRipples => prevRipples.filter(ripple => ripple.id !== rippleId));
+        }, 600);
+
+        setShowBillingHistory(nextValue);
+    }, []);
+
     if (isPending) {
         return <Loading />;
     }
@@ -495,6 +745,32 @@ export const Component = () => {
                     px: {
                         xs: 2,
                         md: 4
+                    },
+                    '@keyframes subscriptionBillingBorderSpin': {
+                        '0%': {
+                            transform: 'rotate(0deg)'
+                        },
+                        '100%': {
+                            transform: 'rotate(360deg)'
+                        }
+                    },
+                    '@keyframes subscriptionBillingRipple': {
+                        '0%': {
+                            opacity: 0.55,
+                            transform: 'translate(-50%, -50%) scale(0)'
+                        },
+                        '100%': {
+                            opacity: 0,
+                            transform: 'translate(-50%, -50%) scale(16)'
+                        }
+                    },
+                    '@keyframes subscriptionStatusPulse': {
+                        '0%': {
+                            boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.6)'
+                        },
+                        '100%': {
+                            boxShadow: '0 0 0 10px rgba(34, 197, 94, 0)'
+                        }
                     }
                 }}
             >
@@ -509,26 +785,340 @@ export const Component = () => {
                             spacing={1}
                             sx={{
                                 pr: {
-                                    xs: 8,
+                                    xs: 0,
                                     sm: 0
                                 }
                             }}
                         >
-                            <Typography variant='h3' sx={{ fontWeight: 700 }}>
-                                {isExpiredUser ? 'Subscription Required' : 'Subscription Management'}
-                            </Typography>
-                            <Typography sx={{ opacity: 0.8 }}>
-                                {isExpiredUser
-                                    ? 'Your account access is limited until a valid key is redeemed.'
-                                    : 'Manage your active plan and renew before it expires.'}
-                            </Typography>
-                            {!!user?.Name && (
-                                <Typography sx={{ opacity: 0.75 }}>
-                                    Signed in as {user.Name}
-                                </Typography>
-                            )}
+                            <Stack
+                                direction={{
+                                    xs: 'column',
+                                    sm: 'row'
+                                }}
+                                spacing={2}
+                                justifyContent='space-between'
+                                alignItems={{
+                                    xs: 'flex-start',
+                                    sm: 'flex-start'
+                                }}
+                            >
+                                <Stack spacing={0.8}>
+                                    <Typography variant='h3' sx={{ fontWeight: 700 }}>
+                                        {showBillingHistory
+                                            ? 'Billing History'
+                                            : (isExpiredUser ? 'Subscription Required' : 'Subscription Management')}
+                                    </Typography>
+                                    <Typography sx={{ opacity: 0.8 }}>
+                                        {showBillingHistory
+                                            ? 'Review all redeemed plans, billing periods, and payment statuses.'
+                                            : (isExpiredUser
+                                                ? 'Your account access is limited until a valid key is redeemed.'
+                                                : 'Manage your active plan and renew before it expires.')}
+                                    </Typography>
+                                    {!!user?.Name && (
+                                        <Typography sx={{ opacity: 0.75 }}>
+                                            Signed in as {user.Name}
+                                        </Typography>
+                                    )}
+                                </Stack>
+
+                                <Box
+                                    sx={{
+                                        position: 'relative',
+                                        p: '2px',
+                                        borderRadius: 999,
+                                        overflow: 'hidden',
+                                        isolation: 'isolate',
+                                        '&::before': {
+                                            content: '""',
+                                            position: 'absolute',
+                                            inset: '-30%',
+                                            background: 'conic-gradient(from 120deg, rgba(124, 58, 237, 1), rgba(34, 211, 238, 0.95), rgba(56, 189, 248, 0.98), rgba(168, 85, 247, 1), rgba(124, 58, 237, 1))',
+                                            animation: 'subscriptionBillingBorderSpin 3s linear infinite',
+                                            zIndex: 0
+                                        },
+                                        '@media (prefers-reduced-motion: reduce)': {
+                                            '&::before': {
+                                                animation: 'none'
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <Box
+                                        component='button'
+                                        type='button'
+                                        onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+                                            onBillingHistoryToggleClick(event, !showBillingHistory);
+                                        }}
+                                        sx={{
+                                            position: 'relative',
+                                            zIndex: 1,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            minWidth: 196,
+                                            px: 2.2,
+                                            py: 1,
+                                            borderRadius: 999,
+                                            border: 'none',
+                                            color: '#eff5ff',
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            letterSpacing: 0.15,
+                                            cursor: 'pointer',
+                                            overflow: 'hidden',
+                                            background: 'linear-gradient(145deg, rgba(11, 16, 26, 0.95) 0%, rgba(16, 24, 38, 0.96) 100%)',
+                                            boxShadow: '0 0 0 rgba(34, 211, 238, 0)',
+                                            transition: 'box-shadow 260ms ease, transform 260ms ease',
+                                            [DESKTOP_HOVER_MEDIA_QUERY]: {
+                                                '&:hover': {
+                                                    boxShadow: '0 0 24px rgba(34, 211, 238, 0.5)',
+                                                    transform: 'translateY(-1px)'
+                                                }
+                                            },
+                                            '&:active': {
+                                                transform: 'translateY(0)'
+                                            },
+                                            '@media (prefers-reduced-motion: reduce)': {
+                                                transition: 'none'
+                                            }
+                                        }}
+                                    >
+                                        <Box component='span' sx={{ position: 'relative', zIndex: 2 }}>
+                                            {showBillingHistory ? '<- Back to Subscription' : 'Billing History'}
+                                        </Box>
+                                        {billingButtonRipples.map(ripple => (
+                                            <Box
+                                                key={ripple.id}
+                                                component='span'
+                                                sx={{
+                                                    position: 'absolute',
+                                                    left: ripple.x,
+                                                    top: ripple.y,
+                                                    width: 10,
+                                                    height: 10,
+                                                    borderRadius: '50%',
+                                                    backgroundColor: 'rgba(34, 211, 238, 0.45)',
+                                                    pointerEvents: 'none',
+                                                    animation: 'subscriptionBillingRipple 600ms ease-out forwards',
+                                                    zIndex: 1
+                                                }}
+                                            />
+                                        ))}
+                                    </Box>
+                                </Box>
+                            </Stack>
                         </Stack>
 
+                        {showBillingHistory ? (
+                            <Stack spacing={2.4}>
+                                {!!billingHistoryError && (
+                                    <Alert severity='warning'>
+                                        {billingHistoryError}
+                                    </Alert>
+                                )}
+
+                                <Box
+                                    sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: {
+                                            xs: 'repeat(2, minmax(0, 1fr))',
+                                            md: 'repeat(4, minmax(0, 1fr))'
+                                        },
+                                        gap: 2
+                                    }}
+                                >
+                                    {[
+                                        {
+                                            label: 'Total Subscriptions',
+                                            value: billingSummary.total
+                                        },
+                                        {
+                                            label: 'Active',
+                                            value: billingSummary.active
+                                        },
+                                        {
+                                            label: 'Expired',
+                                            value: billingSummary.expired
+                                        },
+                                        {
+                                            label: 'Cancelled',
+                                            value: billingSummary.cancelled
+                                        }
+                                    ].map(summary => (
+                                        <Card
+                                            key={summary.label}
+                                            sx={{
+                                                borderRadius: 3,
+                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                background: 'rgba(13, 18, 30, 0.88)'
+                                            }}
+                                        >
+                                            <CardContent sx={{ p: 2 }}>
+                                                <Typography sx={{ fontSize: 12, opacity: 0.72, letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                                                    {summary.label}
+                                                </Typography>
+                                                <Typography variant='h5' sx={{ mt: 0.4, fontWeight: 700 }}>
+                                                    {summary.value}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </Box>
+
+                                <Card
+                                    sx={{
+                                        borderRadius: 3,
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        background: 'rgba(13, 18, 30, 0.88)'
+                                    }}
+                                >
+                                    <CardContent sx={{ p: 0 }}>
+                                        <TableContainer sx={{ overflowX: 'auto' }}>
+                                            <Table size='small' sx={{ minWidth: 920 }}>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell>#</TableCell>
+                                                        <TableCell>Reference</TableCell>
+                                                        <TableCell>Plan</TableCell>
+                                                        <TableCell>Billing Period</TableCell>
+                                                        <TableCell>Redeemed Date</TableCell>
+                                                        <TableCell align='right'>Amount</TableCell>
+                                                        <TableCell>Status</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {isLoadingBillingHistory && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={7}>
+                                                                <Typography sx={{ py: 2, opacity: 0.78 }}>
+                                                                    Loading billing history...
+                                                                </Typography>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                    {!isLoadingBillingHistory && billingHistoryRows.length === 0 && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={7}>
+                                                                <Typography sx={{ py: 2, opacity: 0.78 }}>
+                                                                    No billing history records found.
+                                                                </Typography>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                    {!isLoadingBillingHistory && billingHistoryRows.map((row, index) => {
+                                                        const isActiveStatus = row.status === 'Active';
+                                                        const isExpiredStatus = row.status === 'Expired';
+                                                        const badgeBackgroundColor = isActiveStatus
+                                                            ? 'rgba(34, 197, 94, 0.2)'
+                                                            : (isExpiredStatus ? 'rgba(148, 163, 184, 0.22)' : 'rgba(239, 68, 68, 0.2)');
+                                                        const badgeTextColor = isActiveStatus
+                                                            ? '#86efac'
+                                                            : (isExpiredStatus ? '#cbd5e1' : '#fca5a5');
+                                                        const badgeBorderColor = isActiveStatus
+                                                            ? 'rgba(34, 197, 94, 0.45)'
+                                                            : (isExpiredStatus ? 'rgba(148, 163, 184, 0.45)' : 'rgba(239, 68, 68, 0.45)');
+
+                                                        return (
+                                                            <TableRow key={`${row.reference}-${row.redeemedDate}`}>
+                                                                <TableCell>{index + 1}</TableCell>
+                                                                <TableCell sx={{ whiteSpace: 'nowrap', opacity: 0.86 }}>
+                                                                    {row.reference}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Stack direction='row' alignItems='center' spacing={1}>
+                                                                        <Box
+                                                                            component='span'
+                                                                            sx={{
+                                                                                width: 9,
+                                                                                height: 9,
+                                                                                borderRadius: '50%',
+                                                                                backgroundColor: getPlanDotColor(row.plan),
+                                                                                boxShadow: '0 0 10px rgba(255, 255, 255, 0.2)'
+                                                                            }}
+                                                                        />
+                                                                        <span>{row.plan}</span>
+                                                                    </Stack>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography sx={{ fontSize: 13 }}>
+                                                                        {row.billingPeriodLabel}
+                                                                    </Typography>
+                                                                    <Typography sx={{ fontSize: 12, opacity: 0.7 }}>
+                                                                        {`${row.startDate} - ${row.endDate}`}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                                    {row.redeemedDate}
+                                                                </TableCell>
+                                                                <TableCell align='right' sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                                                    Rs {formatPrice(row.amount)}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Box
+                                                                        component='span'
+                                                                        sx={{
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 0.8,
+                                                                            px: 1.1,
+                                                                            py: 0.35,
+                                                                            borderRadius: 999,
+                                                                            fontSize: 12,
+                                                                            fontWeight: 700,
+                                                                            whiteSpace: 'nowrap',
+                                                                            color: badgeTextColor,
+                                                                            border: `1px solid ${badgeBorderColor}`,
+                                                                            backgroundColor: badgeBackgroundColor
+                                                                        }}
+                                                                    >
+                                                                        {isActiveStatus && (
+                                                                            <Box
+                                                                                component='span'
+                                                                                sx={{
+                                                                                    width: 8,
+                                                                                    height: 8,
+                                                                                    borderRadius: '50%',
+                                                                                    backgroundColor: '#22c55e',
+                                                                                    animation: 'subscriptionStatusPulse 1.2s ease-out infinite'
+                                                                                }}
+                                                                            />
+                                                                        )}
+                                                                        {row.status}
+                                                                    </Box>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                </TableBody>
+                                                <TableFooter>
+                                                    <TableRow>
+                                                        <TableCell colSpan={7}>
+                                                            <Stack
+                                                                direction={{
+                                                                    xs: 'column',
+                                                                    sm: 'row'
+                                                                }}
+                                                                spacing={0.8}
+                                                                justifyContent='space-between'
+                                                            >
+                                                                <Typography sx={{ fontSize: 13, opacity: 0.78 }}>
+                                                                    Total records: {billingSummary.total}
+                                                                </Typography>
+                                                                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                                                                    Total Spent: Rs {formatPrice(billingSummary.totalSpent)}
+                                                                </Typography>
+                                                            </Stack>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableFooter>
+                                            </Table>
+                                        </TableContainer>
+                                    </CardContent>
+                                </Card>
+                            </Stack>
+                        ) : (
+                            <>
                         {isInGracePeriod && (
                             <Alert severity='warning'>
                                 {`Your subscription expired ${graceDaysElapsed} day${graceDaysElapsed === 1 ? '' : 's'} ago. `}
@@ -1052,6 +1642,8 @@ export const Component = () => {
                                 </Stack>
                             </CardContent>
                         </Card>
+                            </>
+                        )}
                     </Stack>
                 </Box>
             </Box>

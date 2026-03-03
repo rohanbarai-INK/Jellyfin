@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MediaBrowser.Controller.Security
@@ -29,6 +30,13 @@ namespace MediaBrowser.Controller.Security
         /// <param name="userId">The user identifier.</param>
         /// <returns>A <see cref="CurrentSubscriptionResult"/>.</returns>
         Task<CurrentSubscriptionResult> GetCurrentSubscription(Guid userId);
+
+        /// <summary>
+        /// Gets immutable billing history records for the provided user.
+        /// </summary>
+        /// <param name="userId">The user identifier.</param>
+        /// <returns>A list of <see cref="BillingHistoryEntryResult"/>.</returns>
+        Task<IReadOnlyList<BillingHistoryEntryResult>> GetBillingHistory(Guid userId);
 
         /// <summary>
         /// Gets a value indicating whether the user is inside the configured grace period.

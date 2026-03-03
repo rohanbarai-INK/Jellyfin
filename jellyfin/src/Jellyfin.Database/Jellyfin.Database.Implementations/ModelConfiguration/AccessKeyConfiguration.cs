@@ -17,6 +17,10 @@ namespace Jellyfin.Database.Implementations.ModelConfiguration
                 .IsUnique();
 
             builder
+                .Property(entity => entity.RedeemedAmount)
+                .HasPrecision(10, 2);
+
+            builder
                 .HasOne(entity => entity.RedeemedByUser)
                 .WithMany()
                 .HasForeignKey(entity => entity.RedeemedByUserId)

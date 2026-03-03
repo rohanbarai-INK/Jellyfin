@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.Api.Extensions;
 using Jellyfin.Api.Models.AccessKeyDtos;
@@ -122,6 +123,40 @@ public class AccessKeyController : BaseJellyfinApiController
             GraceDaysRemaining = result.GraceDaysRemaining,
             LastDurationMonths = result.LastDurationMonths,
             LastRedeemedAt = result.LastRedeemedAt
+        };
+    }
+
+    /// <summary>
+    /// Gets immutable billing history records for the authenticated user.
+    /// </summary>
+    /// <response code="200">Billing history returned.</response>
+    /// <response code="400">User is not authenticated.</response>
+    /// <returns>A <see cref="BillingHistoryResponse"/>.</returns>
+    [HttpGet("BillingHistory")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<BillingHistoryResponse>> GetBillingHistory()
+    {
+        var userId = User.GetUserId();
+        if (userId.IsEmpty())
+        {
+            return BadRequest("User is not authenticated.");
+        }
+
+        var items = await _accessKeyService.GetBillingHistory(userId).ConfigureAwait(false);
+        return new BillingHistoryResponse
+        {
+            Items = items.Select(item => new BillingHistoryEntryResponse
+            {
+                Reference = item.Reference,
+                DurationMonths = item.DurationMonths,
+                CycleStartDate = item.CycleStartDate,
+                CycleEndDate = item.CycleEndDate,
+                RedeemedAt = item.RedeemedAt,
+                Amount = item.Amount,
+                Status = item.Status
+            }).ToList()
         };
     }
 }

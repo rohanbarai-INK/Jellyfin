@@ -112,14 +112,24 @@ namespace Jellyfin.Server.Implementations.Security
                     ?? throw new ResourceNotFoundException("User not found.");
 
                 var now = DateTime.UtcNow;
-                // Renewal always starts from the redemption moment.
-                var updatedExpiryDate = CalculateUpdatedExpiryDate(now, accessKey.DurationMonths);
+                var renewalStartDate = now;
+                if (dbUser.ExpiryDate.HasValue && dbUser.ExpiryDate.Value > now)
+                {
+                    // Active users keep their remaining days; renewal extends from current expiry.
+                    renewalStartDate = dbUser.ExpiryDate.Value;
+                }
+
+                var updatedExpiryDate = CalculateUpdatedExpiryDate(renewalStartDate, accessKey.DurationMonths);
+                var redeemedAmount = GetPlanPriceForDuration(accessKey.DurationMonths);
 
                 dbUser.ExpiryDate = updatedExpiryDate;
 
                 accessKey.IsRedeemed = true;
                 accessKey.RedeemedByUserId = userId;
                 accessKey.RedeemedAt = now;
+                accessKey.RedeemedAmount = redeemedAmount;
+                accessKey.CycleStartDate = renewalStartDate;
+                accessKey.CycleEndDate = updatedExpiryDate;
 
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -162,6 +172,60 @@ namespace Jellyfin.Server.Implementations.Security
                     graceDaysRemaining,
                     latestRedeemedKey?.DurationMonths,
                     latestRedeemedKey?.RedeemedAt);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<IReadOnlyList<BillingHistoryEntryResult>> GetBillingHistory(Guid userId)
+        {
+            if (userId.IsEmpty())
+            {
+                throw new ArgumentException("User id cannot be empty.", nameof(userId));
+            }
+
+            var now = DateTime.UtcNow;
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var redeemedKeys = await dbContext.AccessKeys
+                    .Where(accessKey => accessKey.IsRedeemed
+                        && accessKey.RedeemedByUserId.HasValue
+                        && accessKey.RedeemedByUserId.Value.Equals(userId))
+                    .OrderBy(accessKey => accessKey.RedeemedAt ?? accessKey.CreatedAt)
+                    .ThenBy(accessKey => accessKey.CreatedAt)
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                var items = new List<BillingHistoryEntryResult>(redeemedKeys.Count);
+                DateTime? previousCycleEndDate = null;
+                foreach (var accessKey in redeemedKeys)
+                {
+                    var redeemedAt = accessKey.RedeemedAt ?? accessKey.CreatedAt;
+                    var cycleStartDate = accessKey.CycleStartDate ?? redeemedAt;
+                    if (!accessKey.CycleStartDate.HasValue
+                        && previousCycleEndDate.HasValue
+                        && previousCycleEndDate.Value > cycleStartDate)
+                    {
+                        cycleStartDate = previousCycleEndDate.Value;
+                    }
+
+                    var cycleEndDate = accessKey.CycleEndDate ?? CalculateUpdatedExpiryDate(cycleStartDate, accessKey.DurationMonths);
+                    previousCycleEndDate = cycleEndDate;
+                    var status = cycleEndDate >= now ? "Active" : "Expired";
+                    var amount = accessKey.RedeemedAmount ?? GetPlanPriceForDuration(accessKey.DurationMonths);
+
+                    items.Add(new BillingHistoryEntryResult(
+                        accessKey.Key,
+                        accessKey.DurationMonths,
+                        cycleStartDate,
+                        cycleEndDate,
+                        redeemedAt,
+                        amount,
+                        status));
+                }
+
+                items.Reverse();
+                return items;
             }
         }
 
@@ -247,6 +311,19 @@ namespace Jellyfin.Server.Implementations.Security
         {
             var configuration = _configurationManager.GetConfiguration<SubscriptionConfiguration>(SubscriptionConfigKey);
             return Math.Max(0, configuration.GracePeriodDays);
+        }
+
+        private decimal GetPlanPriceForDuration(int durationMonths)
+        {
+            var configuration = _configurationManager.GetConfiguration<SubscriptionConfiguration>(SubscriptionConfigKey);
+            return durationMonths switch
+            {
+                1 => configuration.OneMonthPrice,
+                3 => configuration.ThreeMonthPrice,
+                6 => configuration.SixMonthPrice,
+                12 => configuration.TwelveMonthPrice,
+                _ => configuration.BasePricePerMonth * durationMonths
+            };
         }
     }
 }

@@ -131,6 +131,12 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             Assert.Equal("Expired", currentSubscriptionPayload.Status);
             Assert.False(currentSubscriptionPayload.IsInGracePeriod);
 
+            using var billingHistoryResponse = await userClient.GetAsync("Keys/BillingHistory");
+            Assert.Equal(HttpStatusCode.OK, billingHistoryResponse.StatusCode);
+            var billingHistoryPayload = await billingHistoryResponse.Content.ReadFromJsonAsync<BillingHistoryResponse>(_jsonOptions);
+            Assert.NotNull(billingHistoryPayload);
+            Assert.Empty(billingHistoryPayload.Items);
+
             using var keyResponse = await adminClient.PostAsJsonAsync(
                 "Keys/Generate",
                 new GenerateAccessKeyRequest
@@ -372,12 +378,12 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
 
         [Fact]
         [Priority(10)]
-        public async Task RedeemKey_OnActiveUser_StartsFromRedeemDateInsteadOfExistingExpiry()
+        public async Task RedeemKey_OnActiveUser_ExtendsFromExistingExpiry()
         {
             var adminClient = _factory.CreateClient();
             adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
 
-            var username = $"active-renew-reset-{Guid.NewGuid():N}";
+            var username = $"active-renew-extend-{Guid.NewGuid():N}";
             var password = CreateTestPassword();
             var createdUser = await CreateUser(adminClient, username, password);
             var existingExpiry = DateTime.UtcNow.AddMonths(6);
@@ -399,6 +405,60 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var generatedKey = await keyResponse.Content.ReadFromJsonAsync<GenerateAccessKeyResponse>(_jsonOptions);
             Assert.NotNull(generatedKey);
 
+            using var redeemResponse = await userClient.PostAsJsonAsync(
+                "Keys/Redeem",
+                new RedeemAccessKeyRequest
+                {
+                    Key = generatedKey.Key
+                },
+                _jsonOptions);
+
+            Assert.Equal(HttpStatusCode.OK, redeemResponse.StatusCode);
+            var redeemPayload = await redeemResponse.Content.ReadFromJsonAsync<RedeemAccessKeyResponse>(_jsonOptions);
+            Assert.NotNull(redeemPayload);
+            Assert.NotNull(redeemPayload.ExpiryDate);
+
+            var expectedLowerBound = CalculateExpectedExpiryDate(existingExpiry, 1).AddMinutes(-2);
+            var expectedUpperBound = CalculateExpectedExpiryDate(existingExpiry, 1).AddMinutes(2);
+            Assert.InRange(redeemPayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
+            Assert.True(redeemPayload.ExpiryDate.Value > existingExpiry);
+
+            using var meResponse = await userClient.GetAsync("Users/Me");
+            Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
+            var mePayload = await meResponse.Content.ReadFromJsonAsync<UserDto>(_jsonOptions);
+            Assert.NotNull(mePayload);
+            Assert.NotNull(mePayload.ExpiryDate);
+            Assert.InRange(mePayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
+        }
+
+        [Fact]
+        [Priority(11)]
+        public async Task BillingHistory_OnActiveUserRenewal_ShowsExtendedCyclePeriod()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"billing-history-extend-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+            var existingExpiry = DateTime.UtcNow.AddDays(20);
+            await SetUserExpiryDate(createdUser.Id, existingExpiry);
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var keyResponse = await adminClient.PostAsJsonAsync(
+                "Keys/Generate",
+                new GenerateAccessKeyRequest
+                {
+                    DurationMonths = 1
+                },
+                _jsonOptions);
+            Assert.Equal(HttpStatusCode.OK, keyResponse.StatusCode);
+            var generatedKey = await keyResponse.Content.ReadFromJsonAsync<GenerateAccessKeyResponse>(_jsonOptions)
+                ?? throw new InvalidOperationException("Generate key payload was null.");
+
             var beforeRedeemUtc = DateTime.UtcNow;
             using var redeemResponse = await userClient.PostAsJsonAsync(
                 "Keys/Redeem",
@@ -410,21 +470,107 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var afterRedeemUtc = DateTime.UtcNow;
 
             Assert.Equal(HttpStatusCode.OK, redeemResponse.StatusCode);
-            var redeemPayload = await redeemResponse.Content.ReadFromJsonAsync<RedeemAccessKeyResponse>(_jsonOptions);
-            Assert.NotNull(redeemPayload);
-            Assert.NotNull(redeemPayload.ExpiryDate);
 
-            var expectedLowerBound = CalculateExpectedExpiryDate(beforeRedeemUtc, 1).AddMinutes(-2);
-            var expectedUpperBound = CalculateExpectedExpiryDate(afterRedeemUtc, 1).AddMinutes(2);
-            Assert.InRange(redeemPayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
-            Assert.True(redeemPayload.ExpiryDate.Value < existingExpiry.AddMonths(-3));
+            using var historyResponse = await userClient.GetAsync("Keys/BillingHistory");
+            Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+            var historyPayload = await historyResponse.Content.ReadFromJsonAsync<BillingHistoryResponse>(_jsonOptions);
+            Assert.NotNull(historyPayload);
 
-            using var meResponse = await userClient.GetAsync("Users/Me");
-            Assert.Equal(HttpStatusCode.OK, meResponse.StatusCode);
-            var mePayload = await meResponse.Content.ReadFromJsonAsync<UserDto>(_jsonOptions);
-            Assert.NotNull(mePayload);
-            Assert.NotNull(mePayload.ExpiryDate);
-            Assert.InRange(mePayload.ExpiryDate.Value, expectedLowerBound, expectedUpperBound);
+            var latestRecord = Assert.Single(historyPayload.Items, item => item.Reference == generatedKey.Key);
+            var expectedCycleStartLowerBound = existingExpiry.AddMinutes(-2);
+            var expectedCycleStartUpperBound = existingExpiry.AddMinutes(2);
+            Assert.InRange(latestRecord.CycleStartDate, expectedCycleStartLowerBound, expectedCycleStartUpperBound);
+
+            var expectedCycleEndLowerBound = CalculateExpectedExpiryDate(existingExpiry, 1).AddMinutes(-2);
+            var expectedCycleEndUpperBound = CalculateExpectedExpiryDate(existingExpiry, 1).AddMinutes(2);
+            Assert.InRange(latestRecord.CycleEndDate, expectedCycleEndLowerBound, expectedCycleEndUpperBound);
+
+            Assert.InRange(latestRecord.RedeemedAt, beforeRedeemUtc.AddMinutes(-1), afterRedeemUtc.AddMinutes(1));
+            Assert.True(latestRecord.CycleStartDate > latestRecord.RedeemedAt);
+        }
+
+        [Fact]
+        [Priority(12)]
+        public async Task BillingHistory_PreservesRedeemedAmountWhenPlanPriceChanges()
+        {
+            var adminClient = _factory.CreateClient();
+            adminClient.DefaultRequestHeaders.AddAuthHeader(await GetAdminAccessToken(adminClient));
+
+            var username = $"billing-history-immutable-{Guid.NewGuid():N}";
+            var password = CreateTestPassword();
+            var createdUser = await CreateUser(adminClient, username, password);
+
+            var userAuth = await AuthenticateByName(_factory.CreateClient(), username, password);
+            var userClient = _factory.CreateClient();
+            userClient.DefaultRequestHeaders.AddAuthHeader(userAuth.AccessToken);
+
+            using var currentPricingResponse = await adminClient.GetAsync("System/Configuration/subscription");
+            Assert.Equal(HttpStatusCode.OK, currentPricingResponse.StatusCode);
+            var originalConfig = await currentPricingResponse.Content.ReadFromJsonAsync<SubscriptionConfiguration>(_jsonOptions)
+                ?? throw new InvalidOperationException("Subscription config payload was null.");
+
+            var updatedConfig = new SubscriptionConfiguration
+            {
+                GracePeriodDays = originalConfig.GracePeriodDays,
+                BasePricePerMonth = originalConfig.BasePricePerMonth,
+                OneMonthPrice = originalConfig.OneMonthPrice,
+                ThreeMonthPrice = originalConfig.ThreeMonthPrice,
+                SixMonthPrice = originalConfig.SixMonthPrice + 123.45m,
+                TwelveMonthPrice = originalConfig.TwelveMonthPrice
+            };
+
+            try
+            {
+                using var keyResponse = await adminClient.PostAsJsonAsync(
+                    "Keys/Generate",
+                    new GenerateAccessKeyRequest
+                    {
+                        DurationMonths = 6
+                    },
+                    _jsonOptions);
+                Assert.Equal(HttpStatusCode.OK, keyResponse.StatusCode);
+
+                var generatedKey = await keyResponse.Content.ReadFromJsonAsync<GenerateAccessKeyResponse>(_jsonOptions)
+                    ?? throw new InvalidOperationException("Generate key payload was null.");
+
+                using var redeemResponse = await userClient.PostAsJsonAsync(
+                    "Keys/Redeem",
+                    new RedeemAccessKeyRequest
+                    {
+                        Key = generatedKey.Key
+                    },
+                    _jsonOptions);
+                Assert.Equal(HttpStatusCode.OK, redeemResponse.StatusCode);
+
+                using var historyBeforeResponse = await userClient.GetAsync("Keys/BillingHistory");
+                Assert.Equal(HttpStatusCode.OK, historyBeforeResponse.StatusCode);
+                var historyBefore = await historyBeforeResponse.Content.ReadFromJsonAsync<BillingHistoryResponse>(_jsonOptions);
+                Assert.NotNull(historyBefore);
+                var redeemedRecordBefore = Assert.Single(historyBefore.Items, item => item.Reference == generatedKey.Key);
+                Assert.Equal(originalConfig.SixMonthPrice, redeemedRecordBefore.Amount);
+
+                using var updatePricingResponse = await adminClient.PostAsJsonAsync(
+                    "System/Configuration/subscription",
+                    updatedConfig,
+                    _jsonOptions);
+                Assert.Equal(HttpStatusCode.NoContent, updatePricingResponse.StatusCode);
+
+                using var historyAfterResponse = await userClient.GetAsync("Keys/BillingHistory");
+                Assert.Equal(HttpStatusCode.OK, historyAfterResponse.StatusCode);
+                var historyAfter = await historyAfterResponse.Content.ReadFromJsonAsync<BillingHistoryResponse>(_jsonOptions);
+                Assert.NotNull(historyAfter);
+                var redeemedRecordAfter = Assert.Single(historyAfter.Items, item => item.Reference == generatedKey.Key);
+                Assert.Equal(originalConfig.SixMonthPrice, redeemedRecordAfter.Amount);
+                Assert.NotEqual(updatedConfig.SixMonthPrice, redeemedRecordAfter.Amount);
+            }
+            finally
+            {
+                using var restorePricingResponse = await adminClient.PostAsJsonAsync(
+                    "System/Configuration/subscription",
+                    originalConfig,
+                    _jsonOptions);
+                Assert.Equal(HttpStatusCode.NoContent, restorePricingResponse.StatusCode);
+            }
         }
 
         private async Task<UserDto> CreateUser(HttpClient adminClient, string username, string password)

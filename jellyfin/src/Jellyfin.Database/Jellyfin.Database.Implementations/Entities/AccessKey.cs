@@ -61,6 +61,21 @@ namespace Jellyfin.Database.Implementations.Entities
         public DateTime? RedeemedAt { get; set; }
 
         /// <summary>
+        /// Gets or sets the immutable billed amount captured at redemption time.
+        /// </summary>
+        public decimal? RedeemedAmount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the applied billing cycle start date in UTC.
+        /// </summary>
+        public DateTime? CycleStartDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the applied billing cycle end date in UTC.
+        /// </summary>
+        public DateTime? CycleEndDate { get; set; }
+
+        /// <summary>
         /// Gets or sets the user that redeemed this key.
         /// </summary>
         public virtual User? RedeemedByUser { get; set; }

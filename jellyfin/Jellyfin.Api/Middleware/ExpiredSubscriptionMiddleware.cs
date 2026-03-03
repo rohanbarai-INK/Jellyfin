@@ -121,6 +121,7 @@ public class ExpiredSubscriptionMiddleware
                 || PathEquals(path, "/System/Info/Public")
                 || PathEquals(path, "/System/Configuration/subscription")
                 || PathEquals(path, "/Keys/CurrentSubscription")
+                || PathEquals(path, "/Keys/BillingHistory")
                 || PathEquals(path, "/System/Endpoint")
                 || PathEquals(path, "/Playback/BitrateTest")
                 || PathEquals(path, "/DisplayPreferences/usersettings")

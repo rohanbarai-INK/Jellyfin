@@ -26,6 +26,12 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("CycleEndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CycleStartDate")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("DurationMonths")
                         .HasColumnType("INTEGER");
 
@@ -35,6 +41,10 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("RedeemedAmount")
+                        .HasPrecision(10, 2)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("RedeemedAt")
@@ -78,6 +88,56 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("AccessSchedules");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.AchievementDefinition", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Coins")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ImageEmoji")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsSeasonal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Rarity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeasonType")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Xp")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsSeasonal");
+
+                    b.ToTable("AchievementDefinition", (string)null);
 
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
@@ -572,6 +632,11 @@ namespace Jellyfin.Server.Implementations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("CoinRedeemCost")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsAdminViewed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -619,6 +684,8 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasIndex("Status");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "CoinRedeemCost");
 
                     b.HasIndex("UserId", "Type", "Status");
 
@@ -1455,6 +1522,47 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserAchievement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AchievementId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SeasonYear")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UnlockedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AchievementId");
+
+                    b.HasIndex("UserId", "AchievementId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserAchievements_UserId_AchievementId_Permanent")
+                        .HasFilter("\"SeasonYear\" IS NULL");
+
+                    b.HasIndex("UserId", "UnlockedAtUtc");
+
+                    b.HasIndex("UserId", "AchievementId", "SeasonYear")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserAchievements_UserId_AchievementId_SeasonYear")
+                        .HasFilter("\"SeasonYear\" IS NOT NULL");
+
+                    b.ToTable("UserAchievements");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserBingeSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1957,6 +2065,25 @@ namespace Jellyfin.Server.Implementations.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserAchievement", b =>
+                {
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.AchievementDefinition", "AchievementDefinition")
+                        .WithMany()
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AchievementDefinition");
 
                     b.Navigation("User");
                 });
