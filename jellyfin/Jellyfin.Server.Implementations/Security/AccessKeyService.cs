@@ -210,8 +210,15 @@ namespace Jellyfin.Server.Implementations.Security
                     }
 
                     var cycleEndDate = accessKey.CycleEndDate ?? CalculateUpdatedExpiryDate(cycleStartDate, accessKey.DurationMonths);
+                    var previousCycleEndForStatus = previousCycleEndDate;
+                    var status = ResolveBillingStatus(
+                        now,
+                        redeemedAt,
+                        cycleStartDate,
+                        cycleEndDate,
+                        accessKey.CycleStartDate.HasValue && accessKey.CycleEndDate.HasValue,
+                        previousCycleEndForStatus);
                     previousCycleEndDate = cycleEndDate;
-                    var status = cycleEndDate >= now ? "Active" : "Expired";
                     var amount = accessKey.RedeemedAmount ?? GetPlanPriceForDuration(accessKey.DurationMonths);
 
                     items.Add(new BillingHistoryEntryResult(
@@ -305,6 +312,49 @@ namespace Jellyfin.Server.Implementations.Security
             // February renewals must provide at least 30 days per purchased month.
             var minimumFairExpiry = redeemedAtUtc.AddDays(durationMonths * 30);
             return monthBasedExpiry >= minimumFairExpiry ? monthBasedExpiry : minimumFairExpiry;
+        }
+
+        private static string ResolveBillingStatus(
+            DateTime nowUtc,
+            DateTime redeemedAtUtc,
+            DateTime cycleStartDateUtc,
+            DateTime cycleEndDateUtc,
+            bool hasPersistedCycleWindow,
+            DateTime? previousCycleEndDateUtc)
+        {
+            if (cycleStartDateUtc > nowUtc)
+            {
+                if (!hasPersistedCycleWindow)
+                {
+                    return "Pending Activation";
+                }
+
+                if (IsContiguousWithPreviousCycle(cycleStartDateUtc, previousCycleEndDateUtc))
+                {
+                    return "Scheduled";
+                }
+
+                if (cycleStartDateUtc > redeemedAtUtc.AddMinutes(1))
+                {
+                    // Renewal was purchased now but scheduled to start later.
+                    return "Scheduled";
+                }
+
+                return "Upcoming";
+            }
+
+            return cycleEndDateUtc >= nowUtc ? "Active" : "Expired";
+        }
+
+        private static bool IsContiguousWithPreviousCycle(DateTime cycleStartDateUtc, DateTime? previousCycleEndDateUtc)
+        {
+            if (!previousCycleEndDateUtc.HasValue)
+            {
+                return false;
+            }
+
+            // Stored timestamps can differ slightly due DB precision/rounding; accept <= 1 minute drift.
+            return Math.Abs((cycleStartDateUtc - previousCycleEndDateUtc.Value).TotalMinutes) <= 1;
         }
 
         private int GetGracePeriodDays()

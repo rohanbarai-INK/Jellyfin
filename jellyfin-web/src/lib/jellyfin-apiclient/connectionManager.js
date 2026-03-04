@@ -38,6 +38,20 @@ function updateServerInfo(server, systemInfo) {
     }
 }
 
+function normalizeSystemInfo(systemInfo) {
+    if (!systemInfo || typeof systemInfo !== 'object') {
+        return systemInfo;
+    }
+
+    return {
+        ...systemInfo,
+        Id: systemInfo.Id || systemInfo.id,
+        Version: systemInfo.Version || systemInfo.version,
+        ServerName: systemInfo.ServerName || systemInfo.serverName,
+        LocalAddress: systemInfo.LocalAddress || systemInfo.localAddress
+    };
+}
+
 function normalizeAddress(address) {
     // Attempt to correct bad input
     address = address.trim();
@@ -243,7 +257,8 @@ export default class ConnectionManager {
                     )
                 }
             }).then(
-                (systemInfo) => {
+                (response) => {
+                    const systemInfo = normalizeSystemInfo(response);
                     updateServerInfo(server, systemInfo);
                     return Promise.resolve();
                 },
@@ -446,7 +461,8 @@ export default class ConnectionManager {
                 type: 'GET',
                 dataType: 'json'
             }).then(
-                (result) => {
+                (response) => {
+                    const result = normalizeSystemInfo(response);
                     if (!state.resolved) {
                         state.resolved = true;
 
@@ -546,7 +562,7 @@ export default class ConnectionManager {
                                 State: ConnectionState.ServerUpdateNeeded,
                                 Servers: [server]
                             });
-                        } else if (server.Id && result.Id !== server.Id) {
+                        } else if (server.Id && result.Id && result.Id !== server.Id) {
                             console.warn(
                                 '[ConnectionManager] http request succeeded, but found a different server Id than what was expected'
                             );

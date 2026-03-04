@@ -60,7 +60,8 @@ type CurrentSubscriptionMetadata = {
     lastRedeemedAt?: string | null
 };
 
-type BillingStatus = 'Active' | 'Expired' | 'Cancelled';
+type BillingStatus = 'Active' | 'Expired' | 'Cancelled' | 'Upcoming' | 'Scheduled' | 'Pending Activation';
+type BillingHistoryFilter = 'all' | 'past' | 'future';
 
 interface BillingHistoryRecord {
     reference: string
@@ -71,6 +72,10 @@ interface BillingHistoryRecord {
     redeemedDate: string
     amount: number
     status: BillingStatus
+    isFuture: boolean
+    paymentPending: boolean
+    cycleStartDateValue: Date | null
+    cycleEndDateValue: Date | null
 }
 
 type BillingHistoryApiEntry = {
@@ -247,6 +252,18 @@ const getBillingStatusFromText = (status: unknown): BillingStatus => {
         return 'Cancelled';
     }
 
+    if (normalizedStatus.includes('pending')) {
+        return 'Pending Activation';
+    }
+
+    if (normalizedStatus.includes('schedule')) {
+        return 'Scheduled';
+    }
+
+    if (normalizedStatus.includes('upcoming') || normalizedStatus.includes('future')) {
+        return 'Upcoming';
+    }
+
     if (normalizedStatus.includes('active')) {
         return 'Active';
     }
@@ -302,12 +319,17 @@ const getBillingPeriodLabel = (durationMonths: number) => {
     return `${durationMonths} Months`;
 };
 
-const parseBillingDateInput = (value: unknown): Date | string | null => {
-    if (value instanceof Date || typeof value === 'string') {
-        return value;
+const parseBillingDateInput = (value: unknown): Date | null => {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
     }
 
-    return null;
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
 const parseBillingHistoryRows = (response: unknown): BillingHistoryRecord[] => {
@@ -325,6 +347,18 @@ const parseBillingHistoryRows = (response: unknown): BillingHistoryRecord[] => {
         const resolvedDurationMonths = Number.isInteger(durationMonths) && durationMonths > 0 ? durationMonths : 1;
         const referenceValue = entry.Reference ?? entry.reference;
         const amountValue = Number(entry.Amount ?? entry.amount);
+        const cycleStartDateValue = parseBillingDateInput(entry.CycleStartDate ?? entry.cycleStartDate);
+        const cycleEndDateValue = parseBillingDateInput(entry.CycleEndDate ?? entry.cycleEndDate);
+        const redeemedAtDateValue = parseBillingDateInput(entry.RedeemedAt ?? entry.redeemedAt);
+        const isFuture = Boolean(cycleStartDateValue && cycleStartDateValue.getTime() > Date.now());
+        const paymentPending = isFuture && (!cycleStartDateValue || !cycleEndDateValue);
+        let status = getBillingStatusFromText(entry.Status ?? entry.status);
+        if (paymentPending) {
+            status = 'Pending Activation';
+        } else if (isFuture && (status === 'Active' || status === 'Expired' || status === 'Cancelled')) {
+            // Backward-compatible fallback when older servers don't send future statuses.
+            status = 'Upcoming';
+        }
 
         return {
             reference: typeof referenceValue === 'string' && referenceValue.trim()
@@ -332,11 +366,15 @@ const parseBillingHistoryRows = (response: unknown): BillingHistoryRecord[] => {
                 : `INV-${index + 1}`,
             plan: getBillingHistoryPlanTitle(resolvedDurationMonths),
             billingPeriodLabel: getBillingPeriodLabel(resolvedDurationMonths),
-            startDate: formatBillingDate(parseBillingDateInput(entry.CycleStartDate ?? entry.cycleStartDate)),
-            endDate: formatBillingDate(parseBillingDateInput(entry.CycleEndDate ?? entry.cycleEndDate)),
-            redeemedDate: formatBillingDate(parseBillingDateInput(entry.RedeemedAt ?? entry.redeemedAt)),
+            startDate: formatBillingDate(cycleStartDateValue),
+            endDate: formatBillingDate(cycleEndDateValue),
+            redeemedDate: formatBillingDate(redeemedAtDateValue),
             amount: Number.isFinite(amountValue) && amountValue >= 0 ? amountValue : 0,
-            status: getBillingStatusFromText(entry.Status ?? entry.status)
+            status,
+            isFuture,
+            paymentPending,
+            cycleStartDateValue,
+            cycleEndDateValue
         };
     });
 };
@@ -355,6 +393,7 @@ export const Component = () => {
     const [ autoRenewEnabled, setAutoRenewEnabled ] = useState(getInitialAutoRenewToggleState);
     const [ billingButtonRipples, setBillingButtonRipples ] = useState<BillingButtonRipple[]>([]);
     const [ billingHistoryRows, setBillingHistoryRows ] = useState<BillingHistoryRecord[]>([]);
+    const [ billingHistoryFilter, setBillingHistoryFilter ] = useState<BillingHistoryFilter>('all');
     const [ billingHistoryError, setBillingHistoryError ] = useState('');
     const [ isLoadingBillingHistory, setIsLoadingBillingHistory ] = useState(false);
     const plansSectionRef = useRef<HTMLDivElement | null>(null);
@@ -521,21 +560,40 @@ export const Component = () => {
         return '#ff5252';
     }, [ daysRemaining, isInGracePeriod ]);
 
+    const visibleBillingHistoryRows = useMemo(() => {
+        if (billingHistoryFilter === 'past') {
+            return billingHistoryRows.filter(row => !row.isFuture);
+        }
+
+        if (billingHistoryFilter === 'future') {
+            return billingHistoryRows.filter(row => row.isFuture);
+        }
+
+        return billingHistoryRows;
+    }, [ billingHistoryFilter, billingHistoryRows ]);
+
     const billingSummary = useMemo(() => {
+        const pastRows = billingHistoryRows.filter(row => !row.isFuture);
+        const futureRows = billingHistoryRows.filter(row => row.isFuture);
         const total = billingHistoryRows.length;
-        const active = billingHistoryRows.filter(row => row.status === 'Active').length;
-        const expired = billingHistoryRows.filter(row => row.status === 'Expired').length;
-        const cancelled = billingHistoryRows.filter(row => row.status === 'Cancelled').length;
-        const totalSpent = billingHistoryRows.reduce((sum, row) => sum + row.amount, 0);
+        const active = pastRows.filter(row => row.status === 'Active').length;
+        const expired = pastRows.filter(row => row.status === 'Expired').length;
+        const cancelled = pastRows.filter(row => row.status === 'Cancelled').length;
+        const future = futureRows.length;
+        const totalSpent = pastRows.reduce((sum, row) => sum + row.amount, 0);
+        const futureCommitments = futureRows.reduce((sum, row) => sum + row.amount, 0);
 
         return {
             total,
             active,
             expired,
             cancelled,
-            totalSpent
+            future,
+            totalSpent,
+            futureCommitments,
+            visibleTotal: visibleBillingHistoryRows.length
         };
-    }, [ billingHistoryRows ]);
+    }, [ billingHistoryRows, visibleBillingHistoryRows.length ]);
 
     useEffect(() => {
         try {
@@ -591,6 +649,7 @@ export const Component = () => {
 
     useEffect(() => {
         if (!showBillingHistory) {
+            setBillingHistoryFilter('all');
             return;
         }
 
@@ -923,7 +982,7 @@ export const Component = () => {
                                         display: 'grid',
                                         gridTemplateColumns: {
                                             xs: 'repeat(2, minmax(0, 1fr))',
-                                            md: 'repeat(4, minmax(0, 1fr))'
+                                            md: 'repeat(5, minmax(0, 1fr))'
                                         },
                                         gap: 2
                                     }}
@@ -944,6 +1003,10 @@ export const Component = () => {
                                         {
                                             label: 'Cancelled',
                                             value: billingSummary.cancelled
+                                        },
+                                        {
+                                            label: 'Future',
+                                            value: billingSummary.future
                                         }
                                     ].map(summary => (
                                         <Card
@@ -965,6 +1028,45 @@ export const Component = () => {
                                         </Card>
                                     ))}
                                 </Box>
+
+                                <Stack direction='row' spacing={1} flexWrap='wrap' useFlexGap>
+                                    {[
+                                        {
+                                            key: 'all' as const,
+                                            label: 'All Records'
+                                        },
+                                        {
+                                            key: 'past' as const,
+                                            label: 'Past & Active'
+                                        },
+                                        {
+                                            key: 'future' as const,
+                                            label: 'Future'
+                                        }
+                                    ].map(filterOption => {
+                                        const isSelected = billingHistoryFilter === filterOption.key;
+                                        return (
+                                            <Button
+                                                key={filterOption.key}
+                                                variant={isSelected ? 'contained' : 'outlined'}
+                                                size='small'
+                                                onClick={() => {
+                                                    setBillingHistoryFilter(filterOption.key);
+                                                }}
+                                                sx={{
+                                                    borderRadius: 999,
+                                                    textTransform: 'none',
+                                                    fontWeight: 700,
+                                                    px: 1.8,
+                                                    py: 0.45,
+                                                    minWidth: 'auto'
+                                                }}
+                                            >
+                                                {filterOption.label}
+                                            </Button>
+                                        );
+                                    })}
+                                </Stack>
 
                                 <Card
                                     sx={{
@@ -997,7 +1099,7 @@ export const Component = () => {
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
-                                                    {!isLoadingBillingHistory && billingHistoryRows.length === 0 && (
+                                                    {!isLoadingBillingHistory && visibleBillingHistoryRows.length === 0 && (
                                                         <TableRow>
                                                             <TableCell colSpan={7}>
                                                                 <Typography sx={{ py: 2, opacity: 0.78 }}>
@@ -1006,24 +1108,71 @@ export const Component = () => {
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
-                                                    {!isLoadingBillingHistory && billingHistoryRows.map((row, index) => {
+                                                    {!isLoadingBillingHistory && visibleBillingHistoryRows.map((row, index) => {
                                                         const isActiveStatus = row.status === 'Active';
                                                         const isExpiredStatus = row.status === 'Expired';
+                                                        const isCancelledStatus = row.status === 'Cancelled';
+                                                        const isUpcomingStatus = row.status === 'Upcoming';
+                                                        const isScheduledStatus = row.status === 'Scheduled';
+                                                        const isPendingStatus = row.status === 'Pending Activation';
                                                         const badgeBackgroundColor = isActiveStatus
                                                             ? 'rgba(34, 197, 94, 0.2)'
-                                                            : (isExpiredStatus ? 'rgba(148, 163, 184, 0.22)' : 'rgba(239, 68, 68, 0.2)');
+                                                            : (isExpiredStatus
+                                                                ? 'rgba(148, 163, 184, 0.22)'
+                                                                : (isCancelledStatus
+                                                                    ? 'rgba(239, 68, 68, 0.2)'
+                                                                    : (isScheduledStatus
+                                                                        ? 'rgba(99, 102, 241, 0.22)'
+                                                                        : (isPendingStatus ? 'rgba(249, 115, 22, 0.2)' : 'rgba(14, 165, 233, 0.2)'))));
                                                         const badgeTextColor = isActiveStatus
                                                             ? '#86efac'
-                                                            : (isExpiredStatus ? '#cbd5e1' : '#fca5a5');
+                                                            : (isExpiredStatus
+                                                                ? '#cbd5e1'
+                                                                : (isCancelledStatus
+                                                                    ? '#fca5a5'
+                                                                    : (isScheduledStatus
+                                                                        ? '#c7d2fe'
+                                                                        : (isPendingStatus ? '#fdba74' : '#bae6fd'))));
                                                         const badgeBorderColor = isActiveStatus
                                                             ? 'rgba(34, 197, 94, 0.45)'
-                                                            : (isExpiredStatus ? 'rgba(148, 163, 184, 0.45)' : 'rgba(239, 68, 68, 0.45)');
+                                                            : (isExpiredStatus
+                                                                ? 'rgba(148, 163, 184, 0.45)'
+                                                                : (isCancelledStatus
+                                                                    ? 'rgba(239, 68, 68, 0.45)'
+                                                                    : (isScheduledStatus
+                                                                        ? 'rgba(129, 140, 248, 0.45)'
+                                                                        : (isPendingStatus ? 'rgba(249, 115, 22, 0.45)' : 'rgba(56, 189, 248, 0.5)'))));
 
                                                         return (
-                                                            <TableRow key={`${row.reference}-${row.redeemedDate}`}>
+                                                            <TableRow
+                                                                key={`${row.reference}-${row.redeemedDate}`}
+                                                                sx={row.isFuture
+                                                                    ? { backgroundColor: 'rgba(14, 165, 233, 0.08)' }
+                                                                    : undefined}
+                                                            >
                                                                 <TableCell>{index + 1}</TableCell>
                                                                 <TableCell sx={{ whiteSpace: 'nowrap', opacity: 0.86 }}>
-                                                                    {row.reference}
+                                                                    <Stack direction='row' spacing={0.8} alignItems='center'>
+                                                                        {row.isFuture && (
+                                                                            <Box
+                                                                                component='span'
+                                                                                sx={{
+                                                                                    px: 0.8,
+                                                                                    py: 0.2,
+                                                                                    borderRadius: 999,
+                                                                                    fontSize: 10,
+                                                                                    fontWeight: 700,
+                                                                                    letterSpacing: 0.2,
+                                                                                    color: '#bae6fd',
+                                                                                    border: '1px solid rgba(56, 189, 248, 0.5)',
+                                                                                    backgroundColor: 'rgba(14, 165, 233, 0.2)'
+                                                                                }}
+                                                                            >
+                                                                                Future
+                                                                            </Box>
+                                                                        )}
+                                                                        <span>{row.reference}</span>
+                                                                    </Stack>
                                                                 </TableCell>
                                                                 <TableCell>
                                                                     <Stack direction='row' alignItems='center' spacing={1}>
@@ -1044,9 +1193,23 @@ export const Component = () => {
                                                                     <Typography sx={{ fontSize: 13 }}>
                                                                         {row.billingPeriodLabel}
                                                                     </Typography>
-                                                                    <Typography sx={{ fontSize: 12, opacity: 0.7 }}>
-                                                                        {`${row.startDate} - ${row.endDate}`}
+                                                                    <Typography
+                                                                        sx={{
+                                                                            fontSize: 12,
+                                                                            opacity: row.isFuture ? 0.95 : 0.7,
+                                                                            color: row.isFuture ? '#38bdf8' : undefined,
+                                                                            fontWeight: row.isFuture ? 700 : 400
+                                                                        }}
+                                                                    >
+                                                                        {row.isFuture
+                                                                            ? `Starts On: ${row.startDate}`
+                                                                            : `${row.startDate} - ${row.endDate}`}
                                                                     </Typography>
+                                                                    {row.isFuture && (
+                                                                        <Typography sx={{ fontSize: 11, opacity: 0.72 }}>
+                                                                            Ends On: {row.endDate}
+                                                                        </Typography>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                                                                     {row.redeemedDate}
@@ -1072,7 +1235,7 @@ export const Component = () => {
                                                                             backgroundColor: badgeBackgroundColor
                                                                         }}
                                                                     >
-                                                                        {isActiveStatus && (
+                                                                        {isActiveStatus && !row.isFuture && (
                                                                             <Box
                                                                                 component='span'
                                                                                 sx={{
@@ -1094,19 +1257,19 @@ export const Component = () => {
                                                 <TableFooter>
                                                     <TableRow>
                                                         <TableCell colSpan={7}>
-                                                            <Stack
+                                                                <Stack
                                                                 direction={{
                                                                     xs: 'column',
                                                                     sm: 'row'
                                                                 }}
-                                                                spacing={0.8}
+                                                                spacing={1}
                                                                 justifyContent='space-between'
                                                             >
                                                                 <Typography sx={{ fontSize: 13, opacity: 0.78 }}>
-                                                                    Total records: {billingSummary.total}
+                                                                    Showing {billingSummary.visibleTotal} record{billingSummary.visibleTotal === 1 ? '' : 's'}
                                                                 </Typography>
                                                                 <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-                                                                    Total Spent: Rs {formatPrice(billingSummary.totalSpent)}
+                                                                    Future commitments: Rs {formatPrice(billingSummary.futureCommitments)} | Total spent: Rs {formatPrice(billingSummary.totalSpent)}
                                                                 </Typography>
                                                             </Stack>
                                                         </TableCell>

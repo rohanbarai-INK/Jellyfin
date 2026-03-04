@@ -487,6 +487,7 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
 
             Assert.InRange(latestRecord.RedeemedAt, beforeRedeemUtc.AddMinutes(-1), afterRedeemUtc.AddMinutes(1));
             Assert.True(latestRecord.CycleStartDate > latestRecord.RedeemedAt);
+            Assert.Equal("Scheduled", latestRecord.Status);
         }
 
         [Fact]
