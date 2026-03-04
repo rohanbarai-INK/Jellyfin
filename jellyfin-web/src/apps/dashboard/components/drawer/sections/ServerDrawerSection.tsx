@@ -7,6 +7,7 @@ import Palette from '@mui/icons-material/Palette';
 import People from '@mui/icons-material/People';
 import PlayCircle from '@mui/icons-material/PlayCircle';
 import Settings from '@mui/icons-material/Settings';
+import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
 import Collapse from '@mui/material/Collapse';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -114,6 +115,14 @@ const ServerDrawerSection = () => {
                             }}
                         />
                     )}
+                </ListItemLink>
+            </ListItem>
+            <ListItem disablePadding>
+                <ListItemLink to='/dashboard/subscription-command-center'>
+                    <ListItemIcon>
+                        <WorkspacePremium />
+                    </ListItemIcon>
+                    <ListItemText primary='Subscription Command Center' />
                 </ListItemLink>
             </ListItem>
             <ListItem disablePadding>
