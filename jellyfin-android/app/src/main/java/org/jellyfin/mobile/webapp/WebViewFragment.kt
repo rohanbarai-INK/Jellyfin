@@ -23,6 +23,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader.AssetsPathHandler
 import androidx.webkit.WebViewCompat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.BuildConfig
 import org.jellyfin.mobile.R
@@ -36,6 +39,7 @@ import org.jellyfin.mobile.data.entity.ServerEntity
 import org.jellyfin.mobile.databinding.FragmentWebviewBinding
 import org.jellyfin.mobile.events.ActivityEvent
 import org.jellyfin.mobile.events.ActivityEventHandler
+import org.jellyfin.mobile.requests.ContentRequestNotificationManager
 import org.jellyfin.mobile.setup.ConnectFragment
 import org.jellyfin.mobile.subscription.SubscriptionUrlResolver
 import org.jellyfin.mobile.utils.AndroidVersion
@@ -52,12 +56,14 @@ import org.jellyfin.mobile.utils.isOutdated
 import org.jellyfin.mobile.utils.requestNoBatteryOptimizations
 import org.jellyfin.mobile.utils.runOnUiThread
 import org.koin.android.ext.android.inject
+import org.json.JSONObject
 
 class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClient.FileChooserListener {
     val appPreferences: AppPreferences by inject()
     private val apiClientController: ApiClientController by inject()
     private val activityEventHandler: ActivityEventHandler by inject()
     private val webappFunctionChannel: WebappFunctionChannel by inject()
+    private val contentRequestNotificationManager: ContentRequestNotificationManager by inject()
     private lateinit var assetsPathHandler: AssetsPathHandler
     private lateinit var jellyfinWebViewClient: JellyfinWebViewClient
     private val nativePlayer: NativePlayer by inject()
@@ -73,6 +79,7 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     private val showLoadingContainerRunnable = Runnable {
         webViewBinding?.loadingContainer?.isVisible = true
     }
+    private var requestNotificationPollingJob: Job? = null
 
     // UI
     private var webViewBinding: FragmentWebviewBinding? = null
@@ -107,8 +114,18 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
                 runOnUiThread {
                     webViewBinding.loadingContainer.isVisible = false
                     webView.fadeIn()
+                    tryOpenPendingRequestContent()
                 }
                 requestNoBatteryOptimizations(webViewBinding.root)
+            }
+
+            override fun onUserAuthenticated() {
+                runOnUiThread {
+                    tryOpenPendingRequestContent()
+                }
+                lifecycleScope.launch {
+                    contentRequestNotificationManager.syncAndNotify()
+                }
             }
 
             override fun onErrorReceived() {
@@ -203,7 +220,20 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
 
     override fun onDestroyView() {
         super.onDestroyView()
+        requestNotificationPollingJob?.cancel()
+        requestNotificationPollingJob = null
         webViewBinding = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startRequestNotificationPolling()
+    }
+
+    override fun onPause() {
+        requestNotificationPollingJob?.cancel()
+        requestNotificationPollingJob = null
+        super.onPause()
     }
 
     private fun WebView.initialize() {
@@ -295,5 +325,51 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
     override fun onShowFileChooser(intent: Intent, filePathCallback: ValueCallback<Array<Uri>>) {
         fileChooserCallback = filePathCallback
         fileChooserActivityLauncher.launch(intent)
+    }
+
+    fun tryOpenPendingRequestContent() {
+        val itemId = appPreferences.pendingRequestContentItemId?.takeIf(String::isNotBlank) ?: return
+        val webView = webViewBinding?.webView ?: return
+        if (!connected) return
+
+        val encodedItemId = JSONObject.quote(itemId)
+        val script = """
+            (function() {
+                try {
+                    var itemId = $encodedItemId;
+                    if (!window.appRouter || typeof window.appRouter.showItem !== 'function') {
+                        return 'not_ready';
+                    }
+                    if (!window.ApiClient || typeof window.ApiClient.serverId !== 'function') {
+                        return 'not_ready';
+                    }
+                    var serverId = window.ApiClient.serverId();
+                    if (!serverId) {
+                        return 'not_ready';
+                    }
+                    window.appRouter.showItem(itemId, serverId);
+                    return 'ok';
+                } catch (error) {
+                    return 'error';
+                }
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(script) { result ->
+            if (result?.contains("ok") == true) {
+                appPreferences.pendingRequestContentItemId = null
+            }
+        }
+    }
+
+    private fun startRequestNotificationPolling() {
+        if (requestNotificationPollingJob?.isActive == true) return
+
+        requestNotificationPollingJob = lifecycleScope.launch {
+            while (isActive) {
+                contentRequestNotificationManager.syncAndNotify()
+                delay(120000)
+            }
+        }
     }
 }

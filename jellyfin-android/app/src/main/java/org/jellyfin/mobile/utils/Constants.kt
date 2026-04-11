@@ -31,6 +31,7 @@ object Constants {
     const val PREF_IGNORE_BLUETOOTH_PERMISSION = "pref_ignore_bluetooth_permission"
     const val PREF_SUBSCRIPTION_MANAGEMENT = "pref_subscription_management"
     const val PREF_SUBSCRIPTION_AUTO_RENEW_VISUAL = "pref_subscription_auto_renew_visual"
+    const val PREF_PENDING_REQUEST_CONTENT_ITEM_ID = "pref_pending_request_content_item_id"
     const val PREF_DOWNLOAD_METHOD = "pref_download_method"
     const val PREF_MUSIC_NOTIFICATION_ALWAYS_DISMISSIBLE = "pref_music_notification_always_dismissible"
     const val PREF_VIDEO_PLAYER_TYPE = "pref_video_player_type"
@@ -65,6 +66,8 @@ object Constants {
     }
     const val MEDIA_NOTIFICATION_CHANNEL_ID = "org.jellyfin.mobile.media.NOW_PLAYING"
     const val DOWNLOAD_NOTIFICATION_CHANNEL_ID = "org.jellyfin.mobile.download.DOWNLOAD_PROGRESS"
+    const val CONTENT_REQUEST_NOTIFICATION_CHANNEL_ID = "org.jellyfin.mobile.request.CONTENT_READY"
+    const val CONTENT_REQUEST_NOTIFICATION_PREFIX = "content_request_ready_"
 
     // Music player constants
     const val SUPPORTED_MUSIC_PLAYER_PLAYBACK_ACTIONS: Long = PlaybackState.ACTION_PLAY_PAUSE or
@@ -137,6 +140,7 @@ object Constants {
 
     // Video player intent extras
     const val EXTRA_MEDIA_PLAY_OPTIONS = "org.jellyfin.mobile.MEDIA_PLAY_OPTIONS"
+    const val EXTRA_REQUEST_CONTENT_ITEM_ID = "org.jellyfin.mobile.REQUEST_CONTENT_ITEM_ID"
 
     // External player result actions
     const val MPV_PLAYER_RESULT_ACTION = "is.xyz.mpv.MPVActivity.result"

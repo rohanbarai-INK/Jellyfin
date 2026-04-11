@@ -101,6 +101,13 @@
 
     <string name="music_notification_channel">Jellyfin Music Player</string>
     <string name="music_notification_channel_description">Used for music playback controls</string>
+    <string name="request_notification_channel_name">Request Availability</string>
+    <string name="request_notification_channel_description">Alerts for your completed movie and series requests</string>
+    <string name="request_notification_movie_title">[MOVIE] Request Ready</string>
+    <string name="request_notification_series_title">[SERIES] Request Ready</string>
+    <string name="request_notification_movie_body">"%1$s" is now available to stream. Tap to open.</string>
+    <string name="request_notification_series_body">"%1$s" is now available to stream. Tap to open.</string>
+    <string name="request_notification_series_body_with_season">"%1$s" is now available. Season %2$d is ready to stream. Tap to open.</string>
     <string name="notification_action_previous">Previous</string>
     <string name="notification_action_rewind">Rewind</string>
     <string name="notification_action_play">Play</string>

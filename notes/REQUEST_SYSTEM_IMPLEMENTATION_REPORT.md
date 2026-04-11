@@ -442,3 +442,79 @@ This prevents showing the same Request destination in both mobile side drawer an
 ## Status Snapshot
 
 As of this note, request-system changes are present in working tree and not yet committed.
+
+## Post-Report Addendum (2026-04-12, mobile request availability notifications)
+
+### Scope
+
+Implemented Android mobile alerts for completed content requests so users receive native notifications when requested content becomes available.
+
+Added in `jellyfin-android`:
+
+- `app/src/main/java/org/jellyfin/mobile/requests/ContentRequestNotificationManager.kt`
+- `app/src/main/res/drawable/ic_notification_request_movie.xml`
+- `app/src/main/res/drawable/ic_notification_request_series.xml`
+- Notification string resources in:
+- `app/src/main/res/values/strings.xml`
+- Wiring updates in:
+- `app/src/main/java/org/jellyfin/mobile/MainActivity.kt`
+- `app/src/main/java/org/jellyfin/mobile/webapp/WebViewFragment.kt`
+- `app/src/main/java/org/jellyfin/mobile/webapp/JellyfinWebViewClient.kt`
+- `app/src/main/java/org/jellyfin/mobile/app/AppModule.kt`
+- `app/src/main/java/org/jellyfin/mobile/app/AppPreferences.kt`
+- `app/src/main/java/org/jellyfin/mobile/utils/Constants.kt`
+
+### Behavior implemented
+
+- Poll source:
+- uses existing backend endpoint `GET Request/Notifications` (authenticated via `api_key`) from mobile app.
+- Poll cadence:
+- one immediate sync when user session is established in `JellyfinWebViewClient` (`sessions/capabilities/full` path).
+- repeating sync every `120000ms` while `WebViewFragment` is resumed.
+- Notification delivery:
+- native Android channel `org.jellyfin.mobile.request.CONTENT_READY` (high importance).
+- server rows are marked viewed after successful local notification display via `POST Request/NotificationViewedBulk`.
+- this prevents repeated alerts for the same request rows.
+
+### Notification UX differentiation (Movie vs Series)
+
+- Movie:
+- title: `[MOVIE] Request Ready`
+- body: `"Movie Name" is now available to stream. Tap to open.`
+- icon: `ic_notification_request_movie`
+- image preference: item `PRIMARY` image (poster-style).
+- Series:
+- title: `[SERIES] Request Ready`
+- body:
+- with season: `"Series Name" is now available. Season N is ready to stream. Tap to open.`
+- without season: `"Series Name" is now available to stream. Tap to open.`
+- icon: `ic_notification_request_series`
+- image preference: item `BACKDROP`, fallback to `PRIMARY`.
+
+### Tap/open flow (requested by product direction)
+
+- Notification tap includes `EXTRA_REQUEST_CONTENT_ITEM_ID`.
+- Main activity stores tapped item id in persistent app preferences (`pendingRequestContentItemId`) and attempts immediate navigation.
+- If user is logged in and web app router is ready:
+- app opens the exact content detail page via `window.appRouter.showItem(itemId, serverId)`.
+- If user is not logged in (or router/server context not ready):
+- pending item id is retained.
+- after successful authentication, `WebViewFragment` retries navigation automatically and clears pending state on success.
+- Result:
+- no generic library landing; opens the specific requested movie/series detail page when session is valid.
+
+### Permission handling
+
+- `MainActivity` now requests `POST_NOTIFICATIONS` on Android 13+ at app startup (if not already granted).
+
+### Validation
+
+- Ran:
+- `./gradlew assembleDebug` in `jellyfin-android`
+- Result:
+- build successful for both `libreDebug` and `proprietaryDebug`.
+
+### Operational note for future work
+
+- Current mobile alerts are app-side polling based and do not introduce FCM/APNs server push infrastructure.
+- Users receive these notifications when the app process is active/resumed and session is available; a future push pipeline can be layered later without changing request API contracts.

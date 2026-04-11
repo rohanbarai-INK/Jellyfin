@@ -65,6 +65,19 @@ class AppPreferences(context: Context) {
             }
         }
 
+    var pendingRequestContentItemId: String?
+        get() = sharedPreferences.getString(Constants.PREF_PENDING_REQUEST_CONTENT_ITEM_ID, null)
+            ?.takeIf(String::isNotBlank)
+        set(value) {
+            sharedPreferences.edit {
+                if (value.isNullOrBlank()) {
+                    remove(Constants.PREF_PENDING_REQUEST_CONTENT_ITEM_ID)
+                } else {
+                    putString(Constants.PREF_PENDING_REQUEST_CONTENT_ITEM_ID, value)
+                }
+            }
+        }
+
     var downloadMethod: Int?
         get() = sharedPreferences.getInt(Constants.PREF_DOWNLOAD_METHOD, -1).takeIf { it >= 0 }
         set(value) {

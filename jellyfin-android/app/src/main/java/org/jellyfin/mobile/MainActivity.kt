@@ -1,9 +1,11 @@
 package org.jellyfin.mobile
 
+import android.Manifest
 import android.app.Service
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.os.IBinder
@@ -23,6 +25,7 @@ import androidx.lifecycle.withStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.jellyfin.mobile.events.ActivityEventHandler
+import org.jellyfin.mobile.app.AppPreferences
 import org.jellyfin.mobile.player.cast.Chromecast
 import org.jellyfin.mobile.player.cast.IChromecast
 import org.jellyfin.mobile.player.ui.PlayerFragment
@@ -35,6 +38,7 @@ import org.jellyfin.mobile.utils.PermissionRequestHelper
 import org.jellyfin.mobile.utils.SmartOrientationListener
 import org.jellyfin.mobile.utils.extensions.replaceFragment
 import org.jellyfin.mobile.utils.isWebViewSupported
+import org.jellyfin.mobile.utils.requestPermission
 import org.jellyfin.mobile.webapp.RemotePlayerService
 import org.jellyfin.mobile.webapp.WebViewFragment
 import org.jellyfin.mobile.subscription.SubscriptionActivity
@@ -46,6 +50,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : AppCompatActivity() {
     private val activityEventHandler: ActivityEventHandler = get()
+    private val appPreferences: AppPreferences by inject()
     val mainViewModel: MainViewModel by viewModel()
     val bluetoothPermissionHelper: BluetoothPermissionHelper = BluetoothPermissionHelper(this, get())
     val chromecast: IChromecast = Chromecast()
@@ -105,6 +110,8 @@ class MainActivity : AppCompatActivity() {
         )
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        requestNotificationPermissionIfNeeded()
+        handleRequestContentIntent(intent)
 
         // Check WebView support
         if (!isWebViewSupported()) {
@@ -247,6 +254,12 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleRequestContentIntent(intent)
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         for (fragment in supportFragmentManager.fragments) {
@@ -265,5 +278,23 @@ class MainActivity : AppCompatActivity() {
         unbindService(serviceConnection)
         chromecast.destroy()
         super.onDestroy()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (!AndroidVersion.isAtLeastT) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+
+        requestPermission(Manifest.permission.POST_NOTIFICATIONS) { _ -> }
+    }
+
+    private fun handleRequestContentIntent(sourceIntent: Intent?) {
+        val itemId = sourceIntent
+            ?.getStringExtra(Constants.EXTRA_REQUEST_CONTENT_ITEM_ID)
+            ?.trim()
+            ?.takeIf(String::isNotBlank)
+            ?: return
+
+        appPreferences.pendingRequestContentItemId = itemId
+        (supportFragmentManager.findFragmentById(R.id.fragment_container) as? WebViewFragment)?.tryOpenPendingRequestContent()
     }
 }

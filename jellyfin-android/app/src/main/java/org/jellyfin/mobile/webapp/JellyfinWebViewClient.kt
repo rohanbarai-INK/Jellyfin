@@ -35,6 +35,8 @@ abstract class JellyfinWebViewClient(
 
     abstract fun onConnectedToWebapp()
 
+    abstract fun onUserAuthenticated()
+
     abstract fun onErrorReceived()
 
     abstract fun onUserExpired(expiryDate: String?, redirectUrl: String? = null)
@@ -91,6 +93,7 @@ abstract class JellyfinWebViewClient(
 
                     apiClientController.setupUser(server.id, user, token)
                     webView.initLocale(user)
+                    onUserAuthenticated()
                 }
                 null
             }
