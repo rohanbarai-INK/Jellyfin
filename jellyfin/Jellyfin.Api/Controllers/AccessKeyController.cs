@@ -10,6 +10,7 @@ using Jellyfin.Database.Implementations;
 using Jellyfin.Extensions;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Security;
+using MediaBrowser.Model.Querying;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -305,6 +306,173 @@ public class AccessKeyController : BaseJellyfinApiController
     }
 
     /// <summary>
+    /// Gets a paged list of unused access keys (admin-only drilldown).
+    /// </summary>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <returns>Query result of unused access keys.</returns>
+    [HttpGet("AdminUnusedKeys")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueryResult<AdminAccessKeyDetailRowResponse>>> GetAdminUnusedKeys(
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        NormalizePaging(ref startIndex, ref limit);
+
+        var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+        await using (dbContext.ConfigureAwait(false))
+        {
+            var query = dbContext.AccessKeys
+                .AsNoTracking()
+                .Where(accessKey => !accessKey.IsRedeemed);
+
+            var totalCount = await query.CountAsync().ConfigureAwait(false);
+            var items = await query
+                .OrderByDescending(accessKey => accessKey.CreatedAt)
+                .Skip(startIndex)
+                .Take(limit)
+                .Select(accessKey => new AdminAccessKeyDetailRowResponse
+                {
+                    Key = accessKey.Key,
+                    DurationMonths = accessKey.DurationMonths,
+                    CreatedAt = accessKey.CreatedAt,
+                    IsRedeemed = accessKey.IsRedeemed,
+                    RedeemedAt = accessKey.RedeemedAt,
+                    RedeemedByUserId = accessKey.RedeemedByUserId.HasValue
+                        ? accessKey.RedeemedByUserId.Value.ToString("N", CultureInfo.InvariantCulture)
+                        : null,
+                    RedeemedByUsername = accessKey.RedeemedByUser != null ? accessKey.RedeemedByUser.Username : null,
+                    RedeemedAmount = accessKey.RedeemedAmount,
+                    CycleStartDate = accessKey.CycleStartDate,
+                    CycleEndDate = accessKey.CycleEndDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return new QueryResult<AdminAccessKeyDetailRowResponse>(startIndex, totalCount, items);
+        }
+    }
+
+    /// <summary>
+    /// Gets a paged list of generated access keys (admin-only drilldown).
+    /// </summary>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <returns>Query result of generated access keys.</returns>
+    [HttpGet("AdminGeneratedKeys")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueryResult<AdminAccessKeyDetailRowResponse>>> GetAdminGeneratedKeys(
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        NormalizePaging(ref startIndex, ref limit);
+
+        var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+        await using (dbContext.ConfigureAwait(false))
+        {
+            var query = dbContext.AccessKeys.AsNoTracking();
+
+            var totalCount = await query.CountAsync().ConfigureAwait(false);
+            var items = await query
+                .OrderByDescending(accessKey => accessKey.CreatedAt)
+                .Skip(startIndex)
+                .Take(limit)
+                .Select(accessKey => new AdminAccessKeyDetailRowResponse
+                {
+                    Key = accessKey.Key,
+                    DurationMonths = accessKey.DurationMonths,
+                    CreatedAt = accessKey.CreatedAt,
+                    IsRedeemed = accessKey.IsRedeemed,
+                    RedeemedAt = accessKey.RedeemedAt,
+                    RedeemedByUserId = accessKey.RedeemedByUserId.HasValue
+                        ? accessKey.RedeemedByUserId.Value.ToString("N", CultureInfo.InvariantCulture)
+                        : null,
+                    RedeemedByUsername = accessKey.RedeemedByUser != null ? accessKey.RedeemedByUser.Username : null,
+                    RedeemedAmount = accessKey.RedeemedAmount,
+                    CycleStartDate = accessKey.CycleStartDate,
+                    CycleEndDate = accessKey.CycleEndDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return new QueryResult<AdminAccessKeyDetailRowResponse>(startIndex, totalCount, items);
+        }
+    }
+
+    /// <summary>
+    /// Gets a paged list of redeemed access keys (admin-only drilldown).
+    /// </summary>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <returns>Query result of redeemed access keys.</returns>
+    [HttpGet("AdminRedeemedKeys")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueryResult<AdminAccessKeyDetailRowResponse>>> GetAdminRedeemedKeys(
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        NormalizePaging(ref startIndex, ref limit);
+
+        var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+        await using (dbContext.ConfigureAwait(false))
+        {
+            var query = dbContext.AccessKeys
+                .AsNoTracking()
+                .Where(accessKey => accessKey.IsRedeemed);
+
+            var totalCount = await query.CountAsync().ConfigureAwait(false);
+            var items = await query
+                .OrderByDescending(accessKey => accessKey.RedeemedAt ?? accessKey.CreatedAt)
+                .ThenByDescending(accessKey => accessKey.CreatedAt)
+                .Skip(startIndex)
+                .Take(limit)
+                .Select(accessKey => new AdminAccessKeyDetailRowResponse
+                {
+                    Key = accessKey.Key,
+                    DurationMonths = accessKey.DurationMonths,
+                    CreatedAt = accessKey.CreatedAt,
+                    IsRedeemed = accessKey.IsRedeemed,
+                    RedeemedAt = accessKey.RedeemedAt,
+                    RedeemedByUserId = accessKey.RedeemedByUserId.HasValue
+                        ? accessKey.RedeemedByUserId.Value.ToString("N", CultureInfo.InvariantCulture)
+                        : null,
+                    RedeemedByUsername = accessKey.RedeemedByUser != null ? accessKey.RedeemedByUser.Username : null,
+                    RedeemedAmount = accessKey.RedeemedAmount,
+                    CycleStartDate = accessKey.CycleStartDate,
+                    CycleEndDate = accessKey.CycleEndDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return new QueryResult<AdminAccessKeyDetailRowResponse>(startIndex, totalCount, items);
+        }
+    }
+
+    /// <summary>
+    /// Gets a paged list of revenue rows (redeemed keys with amounts) (admin-only drilldown).
+    /// </summary>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <returns>Query result of revenue rows.</returns>
+    [HttpGet("AdminRevenue")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public Task<ActionResult<QueryResult<AdminAccessKeyDetailRowResponse>>> GetAdminRevenue(
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        // Revenue rows are a view over redeemed keys; keep a dedicated route for clarity.
+        return GetAdminRedeemedKeys(startIndex, limit);
+    }
+
+    /// <summary>
     /// Gets users expiring inside a future day window.
     /// </summary>
     /// <param name="days">Window size in days.</param>
@@ -400,6 +568,194 @@ public class AccessKeyController : BaseJellyfinApiController
 
             return rows;
         }
+    }
+
+    /// <summary>
+    /// Gets a paged list of users expiring inside a future day window (admin-only drilldown).
+    /// </summary>
+    /// <param name="days">Window size in days.</param>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <response code="400">Invalid day window.</response>
+    /// <returns>Query result of expiring users.</returns>
+    [HttpGet("AdminExpiringUsersPaged")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<QueryResult<AdminSubscriptionExpiringUserResponse>>> GetAdminExpiringUsersPaged(
+        [FromQuery] int days = 7,
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        if (days < 1 || days > 365)
+        {
+            return BadRequest("Days must be between 1 and 365.");
+        }
+
+        NormalizePaging(ref startIndex, ref limit);
+
+        var nowUtc = DateTime.UtcNow;
+        var upperBoundUtc = nowUtc.AddDays(days);
+
+        var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+        await using (dbContext.ConfigureAwait(false))
+        {
+            var baseQuery = dbContext.Users
+                .AsNoTracking()
+                .Where(user => user.ExpiryDate.HasValue
+                    && user.ExpiryDate.Value > nowUtc
+                    && user.ExpiryDate.Value <= upperBoundUtc);
+
+            var totalCount = await baseQuery.CountAsync().ConfigureAwait(false);
+
+            var expiringUsers = await baseQuery
+                .OrderBy(user => user.ExpiryDate)
+                .Skip(startIndex)
+                .Take(limit)
+                .Select(user => new AdminDashboardUserProjection
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    ExpiryDate = user.ExpiryDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            if (expiringUsers.Count == 0)
+            {
+                return new QueryResult<AdminSubscriptionExpiringUserResponse>(startIndex, totalCount, Array.Empty<AdminSubscriptionExpiringUserResponse>());
+            }
+
+            var userIds = expiringUsers.Select(user => user.Id).ToHashSet();
+            var redeemedKeys = await dbContext.AccessKeys
+                .AsNoTracking()
+                .Where(accessKey => accessKey.IsRedeemed
+                    && accessKey.RedeemedByUserId.HasValue
+                    && userIds.Contains(accessKey.RedeemedByUserId.Value))
+                .Select(accessKey => new AdminDashboardKeyProjection
+                {
+                    IsRedeemed = accessKey.IsRedeemed,
+                    RedeemedByUserId = accessKey.RedeemedByUserId,
+                    DurationMonths = accessKey.DurationMonths,
+                    CreatedAt = accessKey.CreatedAt,
+                    RedeemedAt = accessKey.RedeemedAt,
+                    RedeemedAmount = accessKey.RedeemedAmount,
+                    CycleStartDate = accessKey.CycleStartDate,
+                    CycleEndDate = accessKey.CycleEndDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            var latestDurationByUserId = BuildLatestDurationLookup(redeemedKeys);
+
+            var rows = expiringUsers
+                .Where(user => user.ExpiryDate.HasValue)
+                .OrderBy(user => user.ExpiryDate!.Value)
+                .Select(user =>
+                {
+                    var expiryDateUtc = user.ExpiryDate!.Value;
+                    var daysRemaining = Math.Max(0, (int)Math.Floor((expiryDateUtc - nowUtc).TotalDays));
+                    var hasDuration = latestDurationByUserId.TryGetValue(user.Id, out var durationMonths);
+
+                    return new AdminSubscriptionExpiringUserResponse
+                    {
+                        UserId = user.Id.ToString("N", CultureInfo.InvariantCulture),
+                        Username = user.Username,
+                        ExpiryDate = expiryDateUtc,
+                        DaysRemaining = daysRemaining,
+                        Plan = hasDuration ? DurationMonthsToLabel(durationMonths) : "N/A"
+                    };
+                })
+                .ToList();
+
+            return new QueryResult<AdminSubscriptionExpiringUserResponse>(startIndex, totalCount, rows);
+        }
+    }
+
+    /// <summary>
+    /// Gets a paged list of users by subscription state (admin-only drilldown).
+    /// </summary>
+    /// <param name="state">Desired state.</param>
+    /// <param name="startIndex">Start index (0-based).</param>
+    /// <param name="limit">Maximum rows to return (capped at 10).</param>
+    /// <response code="200">Rows returned.</response>
+    /// <returns>Query result of users in the requested state.</returns>
+    [HttpGet("AdminUsers")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueryResult<AdminSubscriptionUserDetailRowResponse>>> GetAdminUsers(
+        [FromQuery] AdminSubscriptionUserState state,
+        [FromQuery] int startIndex = 0,
+        [FromQuery] int limit = 10)
+    {
+        NormalizePaging(ref startIndex, ref limit);
+
+        var nowUtc = DateTime.UtcNow;
+        var users = await GetDashboardUsers().ConfigureAwait(false);
+
+        IEnumerable<AdminDashboardUserProjection> filtered = state switch
+        {
+            AdminSubscriptionUserState.Active => users.Where(user => !user.ExpiryDate.HasValue || user.ExpiryDate.Value > nowUtc),
+            AdminSubscriptionUserState.Grace => users.Where(user => _accessKeyService.IsWithinGracePeriod(user.ExpiryDate)),
+            AdminSubscriptionUserState.Expired => users.Where(user => user.ExpiryDate.HasValue
+                && user.ExpiryDate.Value <= nowUtc
+                && !_accessKeyService.IsWithinGracePeriod(user.ExpiryDate)),
+            _ => Array.Empty<AdminDashboardUserProjection>()
+        };
+
+        filtered = state switch
+        {
+            AdminSubscriptionUserState.Active => filtered
+                .OrderBy(user => user.ExpiryDate ?? DateTime.MaxValue)
+                .ThenBy(user => user.Username),
+            AdminSubscriptionUserState.Grace => filtered
+                .OrderBy(user => user.ExpiryDate ?? DateTime.MaxValue)
+                .ThenBy(user => user.Username),
+            AdminSubscriptionUserState.Expired => filtered
+                .OrderByDescending(user => user.ExpiryDate ?? DateTime.MinValue)
+                .ThenBy(user => user.Username),
+            _ => filtered
+        };
+
+        var totalCount = filtered.Count();
+        var pageUsers = filtered
+            .Skip(startIndex)
+            .Take(limit)
+            .ToList();
+
+        if (pageUsers.Count == 0)
+        {
+            return new QueryResult<AdminSubscriptionUserDetailRowResponse>(startIndex, totalCount, Array.Empty<AdminSubscriptionUserDetailRowResponse>());
+        }
+
+        var userIds = pageUsers.Select(user => user.Id).ToHashSet();
+        var latestDurationByUserId = await GetLatestRedeemedKeyDurationByUserId(userIds).ConfigureAwait(false);
+
+        var items = pageUsers.Select(user =>
+        {
+            var expiryDateUtc = user.ExpiryDate;
+            int? daysRemaining = null;
+            if (expiryDateUtc.HasValue && expiryDateUtc.Value > nowUtc)
+            {
+                daysRemaining = Math.Max(0, (int)Math.Floor((expiryDateUtc.Value - nowUtc).TotalDays));
+            }
+
+            var hasDuration = latestDurationByUserId.TryGetValue(user.Id, out var durationMonths);
+
+            return new AdminSubscriptionUserDetailRowResponse
+            {
+                UserId = user.Id.ToString("N", CultureInfo.InvariantCulture),
+                Username = user.Username,
+                ExpiryDate = expiryDateUtc,
+                DaysRemaining = daysRemaining,
+                GraceDaysRemaining = _accessKeyService.GetGraceDaysRemaining(expiryDateUtc),
+                Plan = hasDuration ? DurationMonthsToLabel(durationMonths) : "N/A",
+                State = state.ToString()
+            };
+        }).ToList();
+
+        return new QueryResult<AdminSubscriptionUserDetailRowResponse>(startIndex, totalCount, items);
     }
 
     private async Task<List<AdminDashboardUserProjection>> GetDashboardUsers()
@@ -550,6 +906,69 @@ public class AccessKeyController : BaseJellyfinApiController
             1 => "1 Month",
             _ => $"{months} Months"
         };
+
+    private static void NormalizePaging(ref int startIndex, ref int limit)
+    {
+        if (startIndex < 0)
+        {
+            startIndex = 0;
+        }
+
+        if (limit <= 0)
+        {
+            limit = 10;
+        }
+
+        if (limit > 10)
+        {
+            limit = 10;
+        }
+    }
+
+    private static Dictionary<Guid, int> BuildLatestDurationLookup(IEnumerable<AdminDashboardKeyProjection> redeemedKeys)
+        => redeemedKeys
+            .Where(accessKey => accessKey.RedeemedByUserId.HasValue)
+            .GroupBy(accessKey => accessKey.RedeemedByUserId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderByDescending(GetRedeemedAtOrCreatedAt)
+                    .ThenByDescending(accessKey => accessKey.CreatedAt)
+                    .First()
+                    .DurationMonths);
+
+    private async Task<Dictionary<Guid, int>> GetLatestRedeemedKeyDurationByUserId(HashSet<Guid> userIds)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+        await using (dbContext.ConfigureAwait(false))
+        {
+            var redeemedKeys = await dbContext.AccessKeys
+                .AsNoTracking()
+                .Where(accessKey => accessKey.IsRedeemed
+                    && accessKey.RedeemedByUserId.HasValue
+                    && userIds.Contains(accessKey.RedeemedByUserId.Value))
+                .Select(accessKey => new AdminDashboardKeyProjection
+                {
+                    IsRedeemed = accessKey.IsRedeemed,
+                    RedeemedByUserId = accessKey.RedeemedByUserId,
+                    DurationMonths = accessKey.DurationMonths,
+                    CreatedAt = accessKey.CreatedAt,
+                    RedeemedAt = accessKey.RedeemedAt,
+                    RedeemedAmount = accessKey.RedeemedAmount,
+                    CycleStartDate = accessKey.CycleStartDate,
+                    CycleEndDate = accessKey.CycleEndDate
+                })
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            return BuildLatestDurationLookup(redeemedKeys);
+        }
+    }
 
     private sealed class AdminDashboardUserProjection
     {

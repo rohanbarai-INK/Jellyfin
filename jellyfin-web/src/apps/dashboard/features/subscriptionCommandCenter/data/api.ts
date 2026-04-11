@@ -26,6 +26,37 @@ export interface ExpiringUser {
     plan: string;
 }
 
+export interface PagedResult<T> {
+    items: T[];
+    totalRecordCount: number;
+    startIndex: number;
+}
+
+export interface AdminAccessKeyDetailRow {
+    key: string;
+    durationMonths: number;
+    createdAt: string;
+    isRedeemed: boolean;
+    redeemedAt: string;
+    redeemedByUserId: string;
+    redeemedByUsername: string;
+    redeemedAmount: number;
+    cycleStartDate: string;
+    cycleEndDate: string;
+}
+
+export interface AdminSubscriptionUserDetailRow {
+    userId: string;
+    username: string;
+    expiryDate: string;
+    daysRemaining: number;
+    graceDaysRemaining: number;
+    plan: string;
+    state: string;
+}
+
+export type AdminSubscriptionUserState = 'Active' | 'Grace' | 'Expired';
+
 export interface KeyStats {
     totalGenerated: number;
     redeemed: number;
@@ -91,6 +122,22 @@ function pickValue(record: JsonRecord, pascalCase: string, camelCase: string): u
 function toNumber(value: unknown, fallback = 0): number {
     const numberValue = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function toBool(value: unknown, fallback = false): boolean {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (value === 1 || value === '1' || value === 'true') {
+        return true;
+    }
+
+    if (value === 0 || value === '0' || value === 'false') {
+        return false;
+    }
+
+    return fallback;
 }
 
 function toString(value: unknown, fallback = ''): string {
@@ -169,17 +216,64 @@ function parseExpiringUsers(payload: unknown): ExpiringUser[] {
         return [];
     }
 
-    return payload.map((item) => {
-        const record = toRecord(item);
+    return payload.map(parseExpiringUserRow);
+}
 
-        return {
-            userId: toString(pickValue(record, 'UserId', 'userId')),
-            username: toString(pickValue(record, 'Username', 'username')),
-            expiryDate: toString(pickValue(record, 'ExpiryDate', 'expiryDate')),
-            daysRemaining: toNumber(pickValue(record, 'DaysRemaining', 'daysRemaining')),
-            plan: toString(pickValue(record, 'Plan', 'plan'), 'N/A')
-        };
-    });
+function parseExpiringUserRow(item: unknown): ExpiringUser {
+    const record = toRecord(item);
+
+    return {
+        userId: toString(pickValue(record, 'UserId', 'userId')),
+        username: toString(pickValue(record, 'Username', 'username')),
+        expiryDate: toString(pickValue(record, 'ExpiryDate', 'expiryDate')),
+        daysRemaining: toNumber(pickValue(record, 'DaysRemaining', 'daysRemaining')),
+        plan: toString(pickValue(record, 'Plan', 'plan'), 'N/A')
+    };
+}
+
+function parsePagedResult<T>(payload: unknown, parseItem: (item: unknown) => T): PagedResult<T> {
+    const record = toRecord(payload);
+    const rawItems = pickValue(record, 'Items', 'items');
+
+    const items = Array.isArray(rawItems) ? rawItems.map(parseItem) : [];
+
+    return {
+        items,
+        totalRecordCount: toNumber(pickValue(record, 'TotalRecordCount', 'totalRecordCount'), items.length),
+        startIndex: toNumber(pickValue(record, 'StartIndex', 'startIndex'), 0)
+    };
+}
+
+function parseAdminAccessKeyDetailRow(payload: unknown): AdminAccessKeyDetailRow {
+    const record = toRecord(payload);
+
+    return {
+        key: toString(pickValue(record, 'Key', 'key')),
+        durationMonths: toNumber(pickValue(record, 'DurationMonths', 'durationMonths')),
+        createdAt: toString(pickValue(record, 'CreatedAt', 'createdAt')),
+        isRedeemed: toBool(pickValue(record, 'IsRedeemed', 'isRedeemed')),
+        redeemedAt: toString(pickValue(record, 'RedeemedAt', 'redeemedAt')),
+        redeemedByUserId: toString(pickValue(record, 'RedeemedByUserId', 'redeemedByUserId')),
+        redeemedByUsername: toString(pickValue(record, 'RedeemedByUsername', 'redeemedByUsername')),
+        redeemedAmount: toNumber(pickValue(record, 'RedeemedAmount', 'redeemedAmount')),
+        cycleStartDate: toString(pickValue(record, 'CycleStartDate', 'cycleStartDate')),
+        cycleEndDate: toString(pickValue(record, 'CycleEndDate', 'cycleEndDate'))
+    };
+}
+
+function parseAdminSubscriptionUserDetailRow(payload: unknown): AdminSubscriptionUserDetailRow {
+    const record = toRecord(payload);
+    const rawDaysRemaining = pickValue(record, 'DaysRemaining', 'daysRemaining');
+
+    return {
+        userId: toString(pickValue(record, 'UserId', 'userId')),
+        username: toString(pickValue(record, 'Username', 'username')),
+        expiryDate: toString(pickValue(record, 'ExpiryDate', 'expiryDate')),
+        daysRemaining: rawDaysRemaining === null || rawDaysRemaining === undefined ? -1 : toNumber(rawDaysRemaining, -1),
+        graceDaysRemaining: toNumber(pickValue(record, 'GraceDaysRemaining', 'graceDaysRemaining')),
+        plan: toString(pickValue(record, 'Plan', 'plan'), 'N/A'),
+        state: toString(pickValue(record, 'State', 'state'))
+    };
 }
 
 function getApiClient() {
@@ -308,6 +402,80 @@ export async function fetchExpiringUsers(days = 7): Promise<ExpiringUser[]> {
     });
 
     return parseExpiringUsers(response);
+}
+
+export async function fetchAdminUnusedKeys(startIndex = 0, limit = 10): Promise<PagedResult<AdminAccessKeyDetailRow>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminUnusedKeys?startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseAdminAccessKeyDetailRow);
+}
+
+export async function fetchAdminGeneratedKeys(startIndex = 0, limit = 10): Promise<PagedResult<AdminAccessKeyDetailRow>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminGeneratedKeys?startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseAdminAccessKeyDetailRow);
+}
+
+export async function fetchAdminRedeemedKeys(startIndex = 0, limit = 10): Promise<PagedResult<AdminAccessKeyDetailRow>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminRedeemedKeys?startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseAdminAccessKeyDetailRow);
+}
+
+export async function fetchAdminRevenue(startIndex = 0, limit = 10): Promise<PagedResult<AdminAccessKeyDetailRow>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminRevenue?startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseAdminAccessKeyDetailRow);
+}
+
+export async function fetchAdminUsers(
+    state: AdminSubscriptionUserState,
+    startIndex = 0,
+    limit = 10
+): Promise<PagedResult<AdminSubscriptionUserDetailRow>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminUsers?state=${encodeURIComponent(state)}&startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseAdminSubscriptionUserDetailRow);
+}
+
+export async function fetchAdminExpiringUsersPaged(
+    days = 7,
+    startIndex = 0,
+    limit = 10
+): Promise<PagedResult<ExpiringUser>> {
+    const apiClient = getApiClient();
+    const response = await apiClient.ajax({
+        type: 'GET',
+        url: apiClient.getUrl(`Keys/AdminExpiringUsersPaged?days=${days}&startIndex=${startIndex}&limit=${limit}`),
+        dataType: 'json'
+    });
+
+    return parsePagedResult(response, parseExpiringUserRow);
 }
 
 export async function bulkGenerateKeys(payload: BulkGeneratePayload): Promise<GeneratedKey[]> {

@@ -5,16 +5,27 @@ import BulkKeyGenerator from './components/BulkKeyGenerator';
 import CohortChart from './components/CohortChart';
 import ExpiryRadar from './components/ExpiryRadar';
 import KeyAnalytics from './components/KeyAnalytics';
-import OverviewCards from './components/OverviewCards';
+import MetricDrilldownModal from './components/MetricDrilldownModal';
+import OverviewCards, { type OverviewMetricId } from './components/OverviewCards';
 import SystemHealthPanel from './components/SystemHealth';
 import {
+    fetchAdminExpiringUsersPaged,
+    fetchAdminGeneratedKeys,
+    fetchAdminRedeemedKeys,
+    fetchAdminRevenue,
+    fetchAdminUnusedKeys,
+    fetchAdminUsers,
     fetchDashboardSnapshot,
     fetchExpiringUsers,
+    type AdminAccessKeyDetailRow,
+    type AdminSubscriptionUserDetailRow,
+    type AdminSubscriptionUserState,
     type CohortData,
     type ExpiringUser,
     type ExpiryRadar as ExpiryRadarType,
     type KeyStats,
     type OverviewStats,
+    type PagedResult,
     type SystemHealth as SystemHealthData
 } from './data/api';
 import { cn } from './utils/cn';
@@ -36,6 +47,20 @@ export const SubscriptionCommandCenter = () => {
     const [ refreshing, setRefreshing ] = useState(false);
     const [ refreshError, setRefreshError ] = useState('');
     const [ lastUpdated, setLastUpdated ] = useState<Date>(new Date());
+
+    const [ drilldownOpen, setDrilldownOpen ] = useState(false);
+    const [ drilldownMetric, setDrilldownMetric ] = useState<OverviewMetricId>('unusedKeys');
+    const [ drilldownLoading, setDrilldownLoading ] = useState(false);
+    const [ drilldownError, setDrilldownError ] = useState('');
+    const [ drilldownStartIndex, setDrilldownStartIndex ] = useState(0);
+    const [ drilldownTotal, setDrilldownTotal ] = useState(0);
+    const [ drilldownLimit ] = useState(10);
+    const [ drilldownResult, setDrilldownResult ] = useState<
+        | { kind: 'keys'; rows: AdminAccessKeyDetailRow[] }
+        | { kind: 'users'; rows: AdminSubscriptionUserDetailRow[] }
+        | { kind: 'expiring'; rows: ExpiringUser[] }
+        | null
+    >(null);
 
     const loadAll = useCallback(async () => {
         const snapshot = await fetchDashboardSnapshot();
@@ -67,6 +92,105 @@ export const SubscriptionCommandCenter = () => {
         setExpiringUsers(users);
         setLoadingUsers(false);
     }, []);
+
+    const fetchDrilldown = useCallback(async (metricId: OverviewMetricId, startIndex: number) => {
+        const applyPaged = <T,>(result: PagedResult<T>) => {
+            setDrilldownStartIndex(result.startIndex);
+            setDrilldownTotal(result.totalRecordCount);
+            return result.items;
+        };
+
+        switch (metricId) {
+            case 'unusedKeys': {
+                const result = await fetchAdminUnusedKeys(startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'keys', rows });
+                return;
+            }
+            case 'keysGenerated': {
+                const result = await fetchAdminGeneratedKeys(startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'keys', rows });
+                return;
+            }
+            case 'keysRedeemed': {
+                const result = await fetchAdminRedeemedKeys(startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'keys', rows });
+                return;
+            }
+            case 'totalRevenue': {
+                const result = await fetchAdminRevenue(startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'keys', rows });
+                return;
+            }
+            case 'activeUsers':
+            case 'graceUsers':
+            case 'expiredUsers': {
+                const state: AdminSubscriptionUserState =
+                    metricId === 'activeUsers' ? 'Active' : metricId === 'graceUsers' ? 'Grace' : 'Expired';
+                const result = await fetchAdminUsers(state, startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'users', rows });
+                return;
+            }
+            case 'expiringSoon': {
+                const result = await fetchAdminExpiringUsersPaged(7, startIndex, drilldownLimit);
+                const rows = applyPaged(result);
+                setDrilldownResult({ kind: 'expiring', rows });
+                return;
+            }
+            default: {
+                setDrilldownResult(null);
+            }
+        }
+    }, [ drilldownLimit ]);
+
+    const openDrilldown = useCallback((metricId: OverviewMetricId) => {
+        setDrilldownError('');
+        setDrilldownMetric(metricId);
+        setDrilldownOpen(true);
+        setDrilldownLoading(true);
+        setDrilldownResult(null);
+        setDrilldownStartIndex(0);
+        setDrilldownTotal(0);
+
+        void (async () => {
+            try {
+                await fetchDrilldown(metricId, 0);
+            } catch (errorValue: unknown) {
+                console.error('[subscription-command-center] drilldown load failed', errorValue);
+                setDrilldownError('Failed to load details.');
+            } finally {
+                setDrilldownLoading(false);
+            }
+        })();
+    }, [ fetchDrilldown ]);
+
+    const closeDrilldown = useCallback(() => {
+        setDrilldownOpen(false);
+        setDrilldownError('');
+        setDrilldownLoading(false);
+        setDrilldownResult(null);
+        setDrilldownStartIndex(0);
+        setDrilldownTotal(0);
+    }, []);
+
+    const onDrilldownPageChange = useCallback((nextStartIndex: number) => {
+        setDrilldownError('');
+        setDrilldownLoading(true);
+        void (async () => {
+            try {
+                await fetchDrilldown(drilldownMetric, nextStartIndex);
+            } catch (errorValue: unknown) {
+                console.error('[subscription-command-center] drilldown page load failed', errorValue);
+                setDrilldownError('Failed to load details.');
+            } finally {
+                setDrilldownLoading(false);
+            }
+        })();
+    }, [ drilldownMetric, fetchDrilldown ]);
 
     const onRefreshClick = useCallback(() => {
         void handleRefresh();
@@ -148,8 +272,21 @@ export const SubscriptionCommandCenter = () => {
                         ))}
                     </div>
                 ) : (
-                    <OverviewCards data={overview} />
+                    <OverviewCards data={overview} onOpenMetric={openDrilldown} />
                 )}
+
+                <MetricDrilldownModal
+                    metric={drilldownMetric}
+                    open={drilldownOpen}
+                    loading={drilldownLoading}
+                    error={drilldownError}
+                    startIndex={drilldownStartIndex}
+                    limit={drilldownLimit}
+                    totalRecordCount={drilldownTotal}
+                    result={drilldownResult}
+                    onClose={closeDrilldown}
+                    onPageChange={onDrilldownPageChange}
+                />
 
                 <div className='scc-twoColGrid'>
                     {loading ? (
