@@ -9,7 +9,8 @@ import { AppFeature } from 'constants/appFeature';
 import { LayoutMode } from 'constants/layoutMode';
 import { IS_HARDCODED_SERVER_MODE } from 'utils/hardcodedServer';
 
-const appName = 'Jellyfin Web';
+// Used as the client/app name when reporting to the server (devices/sessions).
+const appName = 'KnightFlix Web';
 
 const BrowserName = {
     tizen: 'Samsung Smart TV',
