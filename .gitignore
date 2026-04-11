@@ -3,3 +3,4 @@
 
 # Ignore local deployment artifacts
 _deploy/
+jellyfin-pi-build.tar.gz

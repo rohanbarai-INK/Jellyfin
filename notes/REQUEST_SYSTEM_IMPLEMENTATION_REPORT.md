@@ -1,0 +1,444 @@
+﻿# Request System Implementation Report
+
+Date: 2026-02-26
+
+## Scope Completed
+
+Implemented a full Request System across server, database, web user UI, web admin UI, and notification UX.
+
+Main capability delivered:
+
+- Users can submit movie/series requests with subscription-aware caps.
+- Users can view/search their own requests and remaining quota.
+- Admin can review pending requests, approve/reject them, and complete approved requests by linking a Jellyfin item.
+- Users receive completion popups and can mark notifications viewed.
+- Admin sees an unseen-pending indicator in Dashboard navigation.
+- Request UI was refactored non-breakingly into modular shared components with responsive table/card rendering and Grace/Expired UX handling.
+- Follow-up UI behavior pass completed for web/mobile alignment: robust request-id parsing, mobile card enforcement in WebView layout mode, and overflow-safe 320px rendering.
+
+## Repositories/Areas Touched
+
+- `jellyfin` (API, business logic, DB entity + migration, service registration, integration tests)
+- `jellyfin-web` (user route, admin route, API client utility, menu/nav wiring, notification popup, strings, GIF assets)
+
+No request-system changes were made in `jellyfin-android`, `jellyfin-androidtv`, or `jellyfin-desktop`.
+
+## Backend Implementation (`jellyfin`)
+
+### API Controller
+
+- Added `jellyfin/Jellyfin.Api/Controllers/RequestController.cs`
+- Base route: `Request`
+- Endpoints:
+1. `POST Request` (create request; auth required)
+2. `GET Request/My` (my requests + quota; auth required)
+3. `GET Request/Public` (public rows, paged; auth required)
+4. `GET Request/Notifications` (completed rows still eligible for popup; auth required)
+5. `POST Request/NotificationViewedBulk` (increments notification count for owned rows; auth required)
+6. `GET Request/Admin` (all admin rows + marks unseen pending as viewed; elevation required)
+7. `GET Request/Admin/UnseenPendingCount` (count pending rows where `IsAdminViewed=false`; elevation required)
+8. `POST Request/Admin/Approve` (pending -> approved; elevation required)
+9. `POST Request/Admin/Reject` (pending/approved -> rejected; elevation required)
+10. `POST Request/Admin/Complete` (approved -> completed with `JellyfinItemId`; elevation required)
+
+### Service Contract + Exceptions
+
+- Added `MediaBrowser.Controller.ContentRequests` contract namespace:
+- `IContentRequestService.cs`
+- `ContentRequestInfo.cs`
+- `ContentRequestListResult.cs`
+- `MyContentRequestsResult.cs`
+- `ContentRequestQuotaInfo.cs`
+- `ContentRequestType.cs`
+- `ContentRequestStatus.cs`
+- `ContentRequestConflictException.cs`
+- `ContentRequestInactiveSubscriptionException.cs`
+- `ContentRequestNotFoundException.cs`
+
+### Service Implementation
+
+- Added `jellyfin/Jellyfin.Server.Implementations/ContentRequests/ContentRequestService.cs`
+- Registered in DI:
+- `jellyfin/Jellyfin.Server/CoreAppHost.cs`
+- `serviceCollection.AddSingleton<IContentRequestService, ContentRequestService>();`
+
+Implemented business rules:
+
+- Request caps per active subscription cycle:
+- Movies: `5`
+- Series: `2`
+- Cap usage counting includes status:
+- `Pending`
+- `Approved`
+- `Completed` (Fulfilled in UI)
+- Rejected rows are excluded from usage counting
+- Series requests must provide `SeasonNumber > 0`
+- Duplicate blocking is global for active rows (`Pending` or `Approved`) using normalized title + type
+- Title normalization:
+- trim
+- collapse whitespace
+- lowercase invariant
+- Creation requires active subscription:
+- resolved from redeemed access-key start date + user expiry fallback
+- invalid/inactive returns forbidden conflict path via controller mapping
+- Workflow transitions allowed:
+- `Pending -> Approved`
+- `Pending -> Rejected`
+- `Approved -> Completed`
+- `Approved -> Rejected`
+- Any other transition throws conflict
+- Public list excludes rejected rows (returns Pending/Approved/Completed)
+- Notifications include only completed rows with `NotificationCount < 2`
+- Bulk notification viewed increments only matching owned completed rows
+- Admin unseen behavior:
+- count is pending rows with `IsAdminViewed=false`
+- calling `GET Request/Admin` marks those unseen pending rows as viewed
+
+## Database Implementation (`jellyfin`)
+
+- Added entity:
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Implementations/Entities/ContentRequest.cs`
+- Added DB enums:
+- `.../Enums/ContentRequestType.cs`
+- `.../Enums/ContentRequestStatus.cs`
+- Added model config:
+- `.../ModelConfiguration/ContentRequestConfiguration.cs`
+- Added `DbSet`:
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Implementations/JellyfinDbContext.cs`
+- `public DbSet<ContentRequest> ContentRequests => Set<ContentRequest>();`
+- Added migration:
+- `.../Migrations/20260226075513_AddContentRequests.cs`
+- `.../Migrations/20260226075513_AddContentRequests.Designer.cs`
+- Snapshot updated:
+- `.../Migrations/JellyfinDbModelSnapshot.cs`
+
+Table created: `ContentRequests`
+
+Columns:
+
+- `Id` (PK, GUID)
+- `UserId` (FK -> `Users.Id`, cascade delete)
+- `Title` (max 255)
+- `NormalizedTitle` (max 255)
+- `Type` (int enum)
+- `SeasonNumber` (nullable int)
+- `RequestedAt` (UTC DateTime)
+- `Status` (int enum)
+- `JellyfinItemId` (nullable GUID)
+- `NotificationCount` (default `0`)
+- `IsAdminViewed` (default `false`)
+
+Indexes:
+
+- `IX_ContentRequests_UserId`
+- `IX_ContentRequests_Status`
+- `IX_ContentRequests_IsAdminViewed`
+- `IX_ContentRequests_UserId_Type_Status`
+- `IX_ContentRequests_NormalizedTitle`
+
+## API DTO Layer (`jellyfin`)
+
+Added DTOs under:
+
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/`
+
+Files:
+
+- `CreateContentRequestRequest.cs`
+- `ContentRequestRowDto.cs`
+- `PublicContentRequestRowDto.cs`
+- `PublicContentRequestListResponse.cs`
+- `MyContentRequestsResponse.cs`
+- `ContentRequestCapSummaryDto.cs`
+- `AdminRequestActionRequest.cs`
+- `AdminCompleteContentRequestRequest.cs`
+- `AdminUnseenPendingCountResponse.cs`
+- `BulkNotificationViewedRequest.cs`
+
+## Web Implementation (`jellyfin-web`)
+
+### Request API Utility
+
+- Added `jellyfin-web/src/utils/contentRequestsApi.ts`
+- Handles all request-system endpoints and maps server enums/status values.
+- Supports both PascalCase and camelCase response keys for resilience.
+
+### UI Refactor (Non-Breaking, Modular)
+
+- Added shared component layer in `jellyfin-web/src/components/contentRequests/`:
+- `RequestPageContainer.tsx`
+- `RequestHeader.tsx`
+- `RequestStatusBadge.tsx`
+- `RequestEmptyState.tsx`
+- `RequestTable.tsx`
+- `RequestCard.tsx`
+- `RequestQuotaSummary.tsx`
+- `RequestForm.tsx`
+- `RequestList.tsx`
+- `AdminRequestActions.tsx`
+- `AdminRequestTable.tsx`
+- `AdminCompleteModal.tsx`
+- `types.ts` (`RequestSubscriptionUiState = 'active' | 'grace' | 'expired'`)
+- Added shared stylesheet:
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+- Route paths remain unchanged:
+- user `#/request`
+- admin `/dashboard/requests`
+- No backend/request API contract changes in this refactor.
+
+### User-Facing Request Page
+
+- Refactored route page (same route path):
+- `jellyfin-web/src/apps/stable/routes/request/index.tsx`
+- `jellyfin-web/src/apps/stable/routes/request/request.scss`
+
+Features:
+
+- Create request form for Movie/Series
+- Series season validation
+- Quota display (remaining movies/series)
+- UI subscription states from current user:
+- Active: submit enabled
+- Grace: submit visible but disabled, with message
+- Expired: submit hidden, renewal CTA to `#/subscription`
+- Search/filter over user rows (local only)
+- Responsive behavior:
+- desktop table on >=768px
+- card layout on <768px (no horizontal overflow)
+- card layout is also forced when `layoutManager.mobile` is active (prevents desktop table fallback in mobile WebView scale modes)
+- Status badge display mapping:
+- backend `Completed` displays as `Fulfilled` in UI
+- Header/content overlap protection via flow container (`content-primary` + request container)
+
+Latest behavior-alignment updates (2026-02-26):
+
+- Request title parsing now extracts Request ID from both:
+- newline format (`TITLE \n 123456...`)
+- same-line trailing numeric format (`TITLE 123456...`)
+- Desktop table scanability tuned:
+- Title column truncates with ellipsis (`requestCellTruncate`) for consistent row height
+- Request ID stays in dedicated column
+- Date column right-aligned, status centered
+- Mobile rendering hardened:
+- cards are used for request rows under mobile layout mode
+- quota pills keep equal-width rendering with `min-width: 0` and wrap-safe text
+- 320px view verified without horizontal overflow
+- Non-functional UI cleanup:
+- replaced corrupted banner/empty-state icon glyphs with stable ASCII-safe markers
+
+Navigation wired from:
+
+- `jellyfin-web/src/apps/stable/routes/asyncRoutes/user.ts`
+- `jellyfin-web/src/apps/experimental/routes/asyncRoutes/user.ts`
+- `jellyfin-web/src/scripts/libraryMenu.js`
+- `jellyfin-web/src/apps/stable/routes/user/settings/index.tsx`
+
+### Admin Request Management Page
+
+- Refactored route page (same route path):
+- `jellyfin-web/src/apps/dashboard/routes/requests/index.tsx`
+- `jellyfin-web/src/apps/dashboard/routes/requests/requests.scss`
+
+Dashboard wiring:
+
+- `jellyfin-web/src/apps/dashboard/routes/_asyncRoutes.ts`
+- Added drawer item in:
+- `jellyfin-web/src/apps/dashboard/components/drawer/sections/ServerDrawerSection.tsx`
+
+Features:
+
+- List all rows with username/title/type/season/date/status
+- Actions:
+- approve pending
+- reject pending/approved
+- complete approved with library search + confirm modal
+- Uses modular UI components:
+- `AdminRequestTable` (desktop table + mobile cards)
+- `AdminRequestActions` (wrapped action controls)
+- `AdminCompleteModal` (search -> select -> confirm Yes/No)
+- Status badges reuse shared mapping (`Completed` -> `Fulfilled` display)
+- Prevents column clipping/overflow in narrow viewports
+- Uses React Query hooks:
+- `src/apps/dashboard/features/contentRequests/api/queryKeys.ts`
+- `src/apps/dashboard/features/contentRequests/api/useAdminContentRequests.ts`
+- `src/apps/dashboard/features/contentRequests/api/useAdminUnseenPendingCount.ts`
+
+### Completion Notification Popup
+
+- Added component:
+- `jellyfin-web/src/components/contentRequests/RequestNotificationPopup.tsx`
+- `jellyfin-web/src/components/contentRequests/RequestNotificationPopup.scss`
+
+Mounted in:
+
+- `jellyfin-web/src/apps/stable/AppLayout.tsx`
+- `jellyfin-web/src/apps/experimental/AppLayout.tsx`
+
+Behavior:
+
+- Pulls notification rows from `GET Request/Notifications`
+- Fetches item details + poster for linked `JellyfinItemId`
+- Presents pop-up cards (mobile/tv/web responsive classes)
+- "Watch Now" opens item page and closes popup
+- Close action bulk-marks viewed via `POST Request/NotificationViewedBulk`
+- Notification logic and API behavior preserved in the refactor (no functional changes)
+
+### GIF Assets Added (Request System)
+
+Added:
+
+- `jellyfin-web/src/assets/branding/admin-request-badge.gif`
+- `jellyfin-web/src/assets/branding/request-popup-accent.gif`
+
+Usage points:
+
+- `admin-request-badge.gif` used in Dashboard drawer request nav badge:
+- `jellyfin-web/src/apps/dashboard/components/drawer/sections/ServerDrawerSection.tsx`
+- `request-popup-accent.gif` used in notification popup header:
+- `jellyfin-web/src/components/contentRequests/RequestNotificationPopup.tsx`
+
+### Web Typings + Strings
+
+- Added `.gif` module declaration:
+- `jellyfin-web/src/index.d.ts`
+- Added request-system strings:
+- `jellyfin-web/src/strings/en-us.json`
+- Added/updated string keys for refactor UX:
+- `RequestStatusFulfilled`
+- `RequestGraceMessage`
+- `RequestExpiredRenewCta`
+- `RequestExpiredMessage`
+- `RequestCompleteConfirmYes`
+- `RequestCompleteConfirmNo`
+
+## Integration Tests Added (`jellyfin`)
+
+Added test suite:
+
+- `jellyfin/tests/Jellyfin.Server.Integration.Tests/Controllers/ContentRequestControllerTests.cs`
+
+Coverage includes:
+
+1. Movie cap enforced at 5
+2. Duplicate blocking for pending/approved
+3. Previous-cycle requests ignored for current-cycle cap
+4. Public list excludes rejected rows
+5. Notifications include only completed rows with `NotificationCount < 2`
+6. Bulk notification viewed increments only owned rows
+7. Admin fetch marks unseen pending rows as viewed
+8. Unseen pending count decreases after admin fetch
+9. Completed rows count toward movie cap within the cycle
+10. Quota usage (`Used/Remaining`) counts completed rows
+
+## Validation Run (Current Workspace)
+
+Observed from logs in repo root:
+
+- `dotnet-build.log`: build succeeded, `0 Warning(s)`, `0 Error(s)`
+- `dotnet-tests-build.log`: build succeeded, `0 Error(s)`
+- `dotnet-tests-run.log`: integration tests passed `8/8`
+- `npm-build-production.log`: production build compiled with `2 warnings`
+- Re-run after UI refactor: `npm run build:production` passed (same 2 webpack size warnings, no compile errors)
+- Re-run after behavior-alignment patch: `npm run build:production` passed (same 2 webpack size warnings, no compile errors)
+- Re-run after completed-cap usage patch:
+- `dotnet test tests/Jellyfin.Server.Integration.Tests/Jellyfin.Server.Integration.Tests.csproj -c Release --filter FullyQualifiedName~ContentRequestControllerTests`
+- result: `Passed: 10, Failed: 0` (10/10)
+- Playwright validation (web + mobile viewport) executed on `#/request` with:
+- desktop `1366x768`
+- mobile `390x844`
+- mobile `320x844`
+- Overflow checks:
+- `document.documentElement.scrollWidth === window.innerWidth` at `1366` and `320` (no horizontal overflow)
+- Request page API behavior observed during verification:
+- page load calls `GET /Request/My`
+- local search/filter sends no additional request-system API calls
+- Console/runtime note during checks:
+- recurring `GET /Branding/Logo` `404` seen from existing branding config; not introduced by request-flow refactor
+- `android-assembleDebug.log`: build successful
+- `androidtv-assembleDebug.log`: build successful
+
+## Visual Verification Artifacts
+
+Captured images in repo root:
+
+- `request-user-tab.png`
+- `request-admin-tab.png`
+- `request-popup-web.png`
+- `request-popup-mobile.png`
+- `request-popup-tv.png`
+- Additional validation performed through Playwright viewport captures for the follow-up behavior patch (desktop/mobile/320px); images were generated during session for verification.
+
+## Upgrade Notes (For Future AI/Dev Work)
+
+- Keep migration `20260226075513_AddContentRequests` when rebasing/upgrading DB layer.
+- Preserve DI registration for `IContentRequestService`.
+- Preserve route wiring for:
+- user `#/request`
+- dashboard `/dashboard/requests`
+- Preserve popup mount in app layouts; otherwise completion notifications will silently disappear.
+- Keep both request GIF asset paths unchanged unless intentionally replacing assets.
+- Preserve shared request UI components under `src/components/contentRequests/` when extending user/admin request pages.
+- Keep `Completed -> Fulfilled` as display-only mapping in UI; do not rename backend enum/status.
+- Keep `layoutManager.mobile`-aware fallback in request list rendering; this is required for mobile WebView environments that do not always trip width-only CSS breakpoints.
+- Keep request title parsing tolerant to historical title formats that append numeric IDs to title text.
+- Keep cap-usage counting aligned with workflow semantics:
+- cap usage includes `Pending`, `Approved`, and `Completed` rows in the active cycle
+- `Rejected` rows do not consume cap
+- If changing caps, adjust:
+- service constants (`_movieCap`, `_seriesCap`)
+- UI text/expectations if needed
+- tests relying on cap values
+- If changing workflow states, update:
+- service transition guard
+- admin actions UI
+- status badges/styles
+- integration tests
+
+## Post-Report Addendum (2026-02-26, later updates)
+
+### Mobile Alignment Hardening (Request Tab)
+
+Additional UI-hardening adjustments were applied in `jellyfin-web` to address Android/WebView-specific alignment and overflow edge cases without changing request-system behavior:
+
+- Updated shared request styles in:
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+- Input/control sizing normalization:
+- ensured request controls use `box-sizing: border-box`
+- added shrink safety (`min-width: 0`) on key grid/flex children
+- kept controls at consistent min height for better alignment (`Title`, `Season`, `Search`, submit/toggle controls)
+- Focus-state rendering refinement:
+- replaced outside-offset focus outline treatment with in-boundary focus styling (border + inset ring) to avoid "double-box" appearance and clipping artifacts
+- Overflow/clipping safety:
+- removed request-container X-axis clipping that could cut focus visuals or control edges in narrow mobile layouts
+- Mobile layout robustness:
+- enforced single-column form layout under mobile/touch criteria
+- quota pills stack cleanly on narrow widths (`<=560px`) to prevent text clipping/overlap
+- toggle labels constrained for narrow widths (nowrap/ellipsis behavior)
+
+### Mobile Card-Mode Detection Hardening
+
+- Updated:
+- `jellyfin-web/src/components/contentRequests/useRequestIsMobileLayout.ts`
+- Added fallback checks using `visualViewport` width and touch capability (`navigator.maxTouchPoints`) in addition to existing layout mode/class/media-query checks.
+- Added listeners for orientation/viewport-size changes so card mode remains deterministic on Android/WebView scale/layout transitions.
+
+### Navigation Deduplication (Mobile Left Slide)
+
+Removed duplicate `Request` nav entry from mobile left-side drawers, while keeping Request available from the profile/user menu:
+
+- Removed from:
+- `jellyfin-web/src/scripts/libraryMenu.js`
+- `jellyfin-web/src/apps/experimental/components/drawers/MainDrawerContent.tsx`
+- Retained in:
+- `jellyfin-web/src/components/toolbar/AppUserMenu.tsx`
+
+This prevents showing the same Request destination in both mobile side drawer and profile menu.
+
+### Validation Addendum
+
+- Re-run after these updates:
+- `npm run build:production` passed (same existing 2 webpack size warnings; no compile errors).
+
+## Status Snapshot
+
+As of this note, request-system changes are present in working tree and not yet committed.

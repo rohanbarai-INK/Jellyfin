@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  KnightFlix:
+    image: knightflix:local
+    container_name: KnightFlix
+    pull_policy: never
+    entrypoint:
+      - dotnet
+      - /opt/jellyfin/jellyfin.dll
+      - --datadir
+      - /config
+      - --cachedir
+      - /cache
+    ports:
+      - "8097:8096"
+      - "8921:8920"
+    environment:
+      - TZ=Asia/Kolkata
+    volumes:
+      - /srv/dev-disk-by-uuid-7b2260f5-9928-4ef0-a7db-5802e2b023c7/dockerdata/knightflix:/config
+      - /var/cache/knightflix:/cache
+      - /srv/dev-disk-by-uuid-7b2260f5-9928-4ef0-a7db-5802e2b023c7:/media1
+      - /srv/dev-disk-by-uuid-4de857dc-2d58-4ecd-a473-02e1c265c87f/MediaServer:/media2
+    restart: unless-stopped

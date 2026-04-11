@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1.6
+# Multi-arch Jellyfin build (server + web) aimed at Raspberry Pi 5 (linux/arm64)
+# Build with: docker buildx build --platform linux/arm64 -f Dockerfile.pi -t jellyfin-pi:local .
+
+ARG DOTNET_VERSION=10.0
+ARG NODE_VERSION=24
+
+########################
+# Stage: web build
+########################
+FROM node:${NODE_VERSION}-bullseye AS webbuild
+WORKDIR /src/jellyfin-web
+
+# Only copy files needed to install deps first for better caching
+COPY jellyfin-web/package*.json ./
+COPY jellyfin-web/.npmrc jellyfin-web/.nvmrc ./
+RUN npm install
+
+# Copy the rest of the web client and build
+COPY jellyfin-web/ .
+RUN npm run build:production
+
+########################
+# Stage: server build
+########################
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS serverbuild
+WORKDIR /src
+
+# Copy full source and restore
+COPY jellyfin/ ./jellyfin/
+RUN dotnet restore jellyfin/Jellyfin.Server/Jellyfin.Server.csproj -r linux-arm64
+RUN dotnet publish jellyfin/Jellyfin.Server/Jellyfin.Server.csproj \
+    -c Release -r linux-arm64 --self-contained false \
+    -p:DebugSymbols=false -p:DebugType=None \
+    -o /out/publish
+
+########################
+# Stage: runtime image
+########################
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS runtime
+ENV \
+  JELLYFIN_DATA_DIR=/config \
+  JELLYFIN_CACHE_DIR=/cache \
+  ASPNETCORE_URLS=http://+:8096
+
+# Basic media dependencies (ffmpeg from Debian), timezone support
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg tzdata ca-certificates libva2 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/jellyfin
+
+# Server binaries
+COPY --from=serverbuild /out/publish ./
+
+# Web client (served from AppContext.BaseDirectory/jellyfin-web)
+COPY --from=webbuild /src/jellyfin-web/dist ./jellyfin-web
+
+VOLUME ["/config", "/cache", "/media"]
+EXPOSE 8096 8920
+
+ENTRYPOINT ["dotnet", "/opt/jellyfin/jellyfin.dll", "--datadir", "/config", "--cachedir", "/cache"]

@@ -1,0 +1,17 @@
+.git
+.gitignore
+.run
+_deploy
+branding-assets
+jellyfin-android
+jellyfin-androidtv
+jellyfin-desktop
+**/bin
+**/obj
+**/TestResults
+**/.vs
+**/.vscode
+**/node_modules
+**/dist
+npm-debug.log*
+yarn-error.log*

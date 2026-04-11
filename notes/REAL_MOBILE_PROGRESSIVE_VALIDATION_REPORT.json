@@ -1,0 +1,243 @@
+{
+  "timestampUtc": "2026-03-03T13:59:49.561115+00:00",
+  "baseUrl": "http://127.0.0.1:8097",
+  "mobileBaseUrl": "http://192.168.1.9:8097",
+  "results": {
+    "adminSession": {
+      "ok": true,
+      "status": 200,
+      "userName": "baraibrothers",
+      "userId": "a975c7165f3a42cb9bc8cb8ed226b391",
+      "submitted": true
+    },
+    "achievements": {
+      "pageReady": true,
+      "baseline": {
+        "level": 40,
+        "totalXp": 54700,
+        "progressPercent": 0,
+        "rankText": "RANK:\ud83d\udce1Streamer",
+        "coinsText": "560 Coins | 280 milestone",
+        "headers": [
+          "Permanent",
+          "Seasonal (2026)",
+          "Past Seasons"
+        ],
+        "hasPastSeasons": true,
+        "pastGroups": 1,
+        "hasPrepareButton": true,
+        "hasTriggerButton": true
+      },
+      "hasExpectedHistorySections": {
+        "permanent": true,
+        "seasonalCurrentYear": true,
+        "pastSeasonsShownOnlyWhenAvailable": true
+      },
+      "hasMilestoneButtons": true,
+      "rewardInjection": {
+        "clickedPrepare": true,
+        "clickedTrigger": true,
+        "overlayVisible": true,
+        "claimVisible": true,
+        "before": {
+          "level": 40,
+          "totalXp": 54700,
+          "progressPercent": 0,
+          "rankText": "RANK:\ud83d\udce1Streamer",
+          "coinsText": "560 Coins | 280 milestone",
+          "headers": [
+            "Permanent",
+            "Seasonal (2026)",
+            "Past Seasons"
+          ],
+          "hasPastSeasons": true,
+          "pastGroups": 1,
+          "hasPrepareButton": true,
+          "hasTriggerButton": true
+        },
+        "afterPrepare": {
+          "level": 49,
+          "totalXp": 85062,
+          "progressPercent": 0,
+          "rankText": "RANK:\ud83d\uddc2\ufe0fCurator",
+          "coinsText": "560 Coins | 280 milestone",
+          "headers": [
+            "Permanent",
+            "Seasonal (2026)",
+            "Past Seasons"
+          ],
+          "hasPastSeasons": true,
+          "pastGroups": 1,
+          "hasPrepareButton": true,
+          "hasTriggerButton": true
+        },
+        "after": {
+          "level": 50,
+          "totalXp": 88889,
+          "progressPercent": 0,
+          "rankText": "RANK:\ud83d\uddc2\ufe0fCurator",
+          "coinsText": "740 Coins | 460 milestone",
+          "headers": [
+            "Permanent",
+            "Seasonal (2026)",
+            "Past Seasons"
+          ],
+          "hasPastSeasons": true,
+          "pastGroups": 1,
+          "hasPrepareButton": true,
+          "hasTriggerButton": true
+        },
+        "xpUpdated": true,
+        "levelUpdated": true,
+        "progressUpdated": false,
+        "rankPresent": true
+      },
+      "milestoneOverlay": {
+        "clickedClaim": true,
+        "coinOverlayVisible": true,
+        "postClaimMetrics": {
+          "level": 50,
+          "totalXp": 88889,
+          "progressPercent": 0,
+          "rankText": "RANK:\ud83d\uddc2\ufe0fCurator",
+          "coinsText": "740 Coins | 460 milestone",
+          "headers": [
+            "Permanent",
+            "Seasonal (2026)",
+            "Past Seasons"
+          ],
+          "hasPastSeasons": true,
+          "pastGroups": 1,
+          "hasPrepareButton": true,
+          "hasTriggerButton": true
+        },
+        "milestoneTextValue": 460,
+        "expectedMilestoneValue": 460,
+        "milestoneLifetimeSumMatches": true
+      },
+      "periodicSync": {
+        "historyRequestCount": 2,
+        "requestUrls": [
+          "http://192.168.1.9:8097/Achievements/History?userId=a975c7165f3a42cb9bc8cb8ed226b391&take=400",
+          "http://192.168.1.9:8097/Achievements/History?userId=a975c7165f3a42cb9bc8cb8ed226b391&take=400"
+        ],
+        "passes": true
+      }
+    },
+    "testSession": {
+      "ok": true,
+      "status": 200,
+      "userName": "Test",
+      "userId": "44e0a003cdd44bb8bee4aaf60a407b24",
+      "submitted": true
+    },
+    "requestUi": {
+      "pageReady": true,
+      "uiBasics": {
+        "disclaimerBulletCount": 7,
+        "coinAnimationName": "requestCoinWalletCoinSpin",
+        "walletInitiallyOpen": false
+      },
+      "walletToggle": {
+        "openedAfterClick": true
+      },
+      "freeQuotaSubmission": {
+        "chosenType": "Movie",
+        "clickedSubmit": true,
+        "beforeSpent": 200,
+        "afterSpent": 200,
+        "spentUnchanged": true,
+        "remainingDecreasedByOne": true,
+        "beforeRemainingMovies": 5,
+        "afterRemainingMovies": 4,
+        "beforeRemainingSeries": 2,
+        "afterRemainingSeries": 2,
+        "formMessage": "Request submitted successfully.",
+        "formError": false
+      }
+    },
+    "apiLowCoin409": {
+      "status": 409,
+      "response": "Insufficient coin balance. Need 200 coins to redeem this movie request.",
+      "pass": true
+    },
+    "requestToggleLowCoinState": [
+      {
+        "text": "Movies",
+        "disabled": true,
+        "pressed": "false"
+      },
+      {
+        "text": "Series",
+        "disabled": false,
+        "pressed": "true"
+      }
+    ],
+    "seedCoins": {
+      "unlockAttempts": 20,
+      "newUnlocks": 19,
+      "finalAvailableCoins": 820
+    },
+    "requestToggleSeededState": [
+      {
+        "text": "Movies",
+        "disabled": false,
+        "pressed": "true"
+      },
+      {
+        "text": "Series",
+        "disabled": false,
+        "pressed": "false"
+      }
+    ],
+    "requestUiTopUpMovie": {
+      "clickedSubmit": true,
+      "beforeSpent": 200,
+      "afterSpent": 400,
+      "spentIncreasedBy200": true,
+      "beforeWalletRows": {
+        "Available Balance": "620 Coins",
+        "Lifetime Earnings": "820 Coins",
+        "Total Spent": "200 Coins",
+        "Redeem Cost (Movie)": "200 Coins",
+        "Redeem Cost (Series)": "400 Coins",
+        "Current Selection (Movie)": "200 Coins",
+        "Redeem Requirement": "Coin top-up required"
+      },
+      "afterWalletRows": {
+        "Available Balance": "420 Coins",
+        "Lifetime Earnings": "820 Coins",
+        "Total Spent": "400 Coins",
+        "Redeem Cost (Movie)": "200 Coins",
+        "Redeem Cost (Series)": "400 Coins",
+        "Current Selection (Movie)": "200 Coins",
+        "Redeem Requirement": "Coin top-up required"
+      },
+      "requestId": "8535654c8fb2436da45b9d0446101d24",
+      "coinRedeemCostInDb": 200
+    },
+    "apiTopUpSeries": {
+      "status": 200,
+      "response": {
+        "Id": "9959ddf4f63447d59fa2db8fbf10a745",
+        "UserId": "44e0a003cdd44bb8bee4aaf60a407b24",
+        "Title": "API-OVERQUOTA-SER-1772546460442",
+        "Type": "Series",
+        "SeasonNumber": 1,
+        "RequestedAt": "2026-03-03T14:01:00.4432038Z",
+        "Status": "Pending",
+        "NotificationCount": 0,
+        "IsAdminViewed": false
+      },
+      "requestId": "9959ddf4f63447d59fa2db8fbf10a745",
+      "coinRedeemCostInDb": 400,
+      "pass": true
+    },
+    "apiCoinRedeemCostValidation": {
+      "movieCostExpected200": true,
+      "seriesCostExpected400": true,
+      "movieCostActual": 200,
+      "seriesCostActual": 400
+    }
+  }
+}
