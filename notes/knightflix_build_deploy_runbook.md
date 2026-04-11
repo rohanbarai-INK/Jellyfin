@@ -11,10 +11,16 @@ Do not put real credentials in this file. Fill the placeholders at runtime.
 - `IMAGE_TAG` = `knightflix:local` (or versioned like `knightflix:2026-04-11`)
 
 Pi paths (keep same to preserve data):
-- `KNIGHTFLIX_CONFIG_DIR` = `/srv/dev-disk-by-uuid-7b2260f5-9928-4ef0-a7db-5802e2b023c7/dockerdata/knightflix`
+- `KNIGHTFLIX_CONFIG_DIR` = `__AUTO_FROM_CONTAINER__` (do not hardcode; detect from `docker inspect KnightFlix`)
 - `KNIGHTFLIX_CACHE_DIR` = `/var/cache/knightflix`
 - `MEDIA1_DIR` = `/srv/dev-disk-by-uuid-7b2260f5-9928-4ef0-a7db-5802e2b023c7`
 - `MEDIA2_DIR` = `/srv/dev-disk-by-uuid-4de857dc-2d58-4ecd-a473-02e1c265c87f/MediaServer`
+
+Live-path check (authoritative source):
+```bash
+docker inspect KnightFlix --format '{{range .Mounts}}{{println .Source "=>" .Destination}}{{end}}'
+```
+Pick the source that maps to `/config` as `KNIGHTFLIX_CONFIG_DIR`.
 
 Repo files we use:
 - `Dockerfile.pi`
@@ -126,6 +132,12 @@ docker exec KnightFlix ls -l /media2 | head
 Goal: upgrade code/image ONLY, keeping existing KnightFlix users/profiles/metadata/libraries.
 
 ### 3.1 Backup KnightFlix DB (recommended)
+First resolve config dir from running container:
+```bash
+KNIGHTFLIX_CONFIG_DIR=$(docker inspect KnightFlix --format '{{range .Mounts}}{{if eq .Destination "/config"}}{{.Source}}{{end}}{{end}}')
+echo "$KNIGHTFLIX_CONFIG_DIR"
+```
+
 Use a sqlite helper container so no host sqlite install is required:
 ```bash
 sqlimg=keinos/sqlite3:latest
