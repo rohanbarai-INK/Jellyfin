@@ -5,20 +5,12 @@
 ARG DOTNET_VERSION=10.0
 ARG NODE_VERSION=24
 
-########################
-# Stage: web build
-########################
-FROM node:${NODE_VERSION}-bullseye AS webbuild
-WORKDIR /src/jellyfin-web
-
-# Only copy files needed to install deps first for better caching
-COPY jellyfin-web/package*.json ./
-COPY jellyfin-web/.npmrc jellyfin-web/.nvmrc ./
-RUN npm install
-
-# Copy the rest of the web client and build
-COPY jellyfin-web/ .
-RUN npm run build:production
+#
+# NOTE: We intentionally do NOT build jellyfin-web inside the Pi Docker build.
+# On Raspberry Pi, the webpack TypeScript checker can get OOM-killed during CI-style
+# builds, and it also requires a git repo to populate __COMMIT_SHA__.
+# Instead, we copy a prebuilt `jellyfin-web/dist` from the build context.
+# Ensure your build-context tar includes `jellyfin-web/dist`.
 
 ########################
 # Stage: server build
@@ -54,7 +46,7 @@ WORKDIR /opt/jellyfin
 COPY --from=serverbuild /out/publish ./
 
 # Web client (served from AppContext.BaseDirectory/jellyfin-web)
-COPY --from=webbuild /src/jellyfin-web/dist ./jellyfin-web
+COPY jellyfin-web/dist/ ./jellyfin-web/
 
 VOLUME ["/config", "/cache", "/media"]
 EXPOSE 8096 8920
