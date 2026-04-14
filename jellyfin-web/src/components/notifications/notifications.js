@@ -4,6 +4,10 @@ import Events from '../../utils/events.ts';
 import globalize from '../../lib/globalize';
 import { ServerConnections } from 'lib/jellyfin-apiclient';
 import { getItems } from '../../utils/jellyfin-apiclient/getItems.ts';
+import {
+    getContentRequestWebPushPublicKey,
+    subscribeContentRequestWebPush
+} from '../../utils/contentRequestsApi';
 
 import NotificationIcon from './notificationicon.png';
 
@@ -13,7 +17,20 @@ function onOneDocumentClick() {
 
     // don't request notification permissions if they're already granted or denied
     if (window.Notification && window.Notification.permission === 'default') {
-        Notification.requestPermission();
+        const permissionResult = Notification.requestPermission();
+        if (permissionResult && typeof permissionResult.then === 'function') {
+            permissionResult
+                .then(permission => {
+                    if (permission === 'granted') {
+                        void ensureRequestWebPushSubscription();
+                    }
+                })
+                .catch(() => {
+                    // Ignore permission request failures.
+                });
+        }
+    } else if (window.Notification && window.Notification.permission === 'granted') {
+        void ensureRequestWebPushSubscription();
     }
 }
 
@@ -40,6 +57,8 @@ function initPermissionRequest() {
 initPermissionRequest();
 
 let serviceWorkerRegistration;
+let requestWebPushSyncInFlight = false;
+let requestWebPushSubscriptionFingerprint = '';
 
 function closeAfter(notification, timeoutMs) {
     setTimeout(function () {
@@ -104,6 +123,96 @@ function showNotification(options, timeoutMs, apiClient) {
     }
 
     showNonPersistentNotification(title, options, timeoutMs);
+}
+
+function isRequestWebPushSupported() {
+    return Boolean(window.Notification && window.PushManager && navigator.serviceWorker);
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const paddedBase64 = base64String + '='.repeat((4 - (base64String.length % 4)) % 4);
+    const normalizedBase64 = paddedBase64.replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(normalizedBase64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let index = 0; index < rawData.length; index++) {
+        outputArray[index] = rawData.charCodeAt(index);
+    }
+
+    return outputArray;
+}
+
+function getPushSubscriptionKeys(subscription) {
+    if (!subscription || typeof subscription.toJSON !== 'function') {
+        return null;
+    }
+
+    const json = subscription.toJSON();
+    const p256dh = json?.keys?.p256dh;
+    const auth = json?.keys?.auth;
+    if (!p256dh || !auth) {
+        return null;
+    }
+
+    return { p256dh, auth };
+}
+
+async function ensureRequestWebPushSubscription(apiClientOverride) {
+    const apiClient = apiClientOverride || ServerConnections.currentApiClient();
+    if (!apiClient || !apiClient.getCurrentUserId() || requestWebPushSyncInFlight) {
+        return;
+    }
+
+    if (!isRequestWebPushSupported() || window.Notification.permission !== 'granted') {
+        return;
+    }
+
+    requestWebPushSyncInFlight = true;
+
+    try {
+        const registration = serviceWorkerRegistration || await navigator.serviceWorker.ready;
+        if (!registration || !registration.pushManager) {
+            return;
+        }
+
+        serviceWorkerRegistration = registration;
+
+        const publicKey = await getContentRequestWebPushPublicKey(apiClient);
+        if (!publicKey) {
+            return;
+        }
+
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
+            });
+        }
+
+        const endpoint = subscription?.endpoint;
+        const keys = getPushSubscriptionKeys(subscription);
+        if (!endpoint || !keys) {
+            return;
+        }
+
+        const subscriptionFingerprint = `${apiClient.serverId()}:${apiClient.getCurrentUserId()}:${endpoint}`;
+        if (requestWebPushSubscriptionFingerprint === subscriptionFingerprint) {
+            return;
+        }
+
+        await subscribeContentRequestWebPush({
+            endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth
+        }, apiClient);
+
+        requestWebPushSubscriptionFingerprint = subscriptionFingerprint;
+    } catch (error) {
+        console.error('[notifications] failed to register request web push subscription', error);
+    } finally {
+        requestWebPushSyncInFlight = false;
+    }
 }
 
 function showNewItemNotification(item, apiClient) {
@@ -215,6 +324,27 @@ function showPackageInstallNotification(apiClient, installation, status) {
         showNotification(notification, timeout, apiClient);
     });
 }
+
+Events.on(ServerConnections, 'localusersignedin', function (_e, user) {
+    const apiClient = user?.ServerId
+        ? ServerConnections.getApiClient(user.ServerId)
+        : ServerConnections.currentApiClient();
+
+    void ensureRequestWebPushSubscription(apiClient);
+});
+
+Events.on(ServerConnections, 'localusersignedout', function () {
+    requestWebPushSubscriptionFingerprint = '';
+});
+
+(function initRequestWebPush() {
+    const apiClient = ServerConnections.currentApiClient();
+    if (!apiClient || !apiClient.getCurrentUserId()) {
+        return;
+    }
+
+    void ensureRequestWebPushSubscription(apiClient);
+})();
 
 Events.on(serverNotifications, 'LibraryChanged', function (e, apiClient, data) {
     onLibraryChanged(data, apiClient);

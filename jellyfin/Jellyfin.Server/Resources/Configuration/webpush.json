@@ -1,0 +1,9 @@
+{
+  "Notifications": {
+    "WebPush": {
+      "VapidPublicKey": "",
+      "VapidPrivateKey": "",
+      "Subject": "mailto:admin@localhost"
+    }
+  }
+}

@@ -7,16 +7,18 @@ REM Manual (non-dev-jellyfin.bat) build + deploy + run Jellyfin on port 8097.
 REM
 REM What it does:
 REM 1) Stops anything listening on 8097
-REM 2) dotnet publish -> _deploy\server-dev-8097
-REM 3) Copies jellyfin-web\dist -> _deploy\server-dev-8097\jellyfin-web\dist
-REM 4) Starts Jellyfin with --datadir/--cachedir/--configdir/--logdir/--webdir/--ffmpeg
-REM 5) Writes PID + stdout/stderr logs under .run\jf-8097
+REM 2) Rebuilds jellyfin-web production dist
+REM 3) dotnet publish -> _deploy\server-dev-8097
+REM 4) Copies jellyfin-web\dist -> _deploy\server-dev-8097\jellyfin-web\dist
+REM 5) Starts Jellyfin with --datadir/--cachedir/--configdir/--logdir/--webdir/--ffmpeg
+REM 6) Writes PID + stdout/stderr logs under .run\jf-8097
 REM
 REM Usage:
 REM   deploy-8097-manual.bat
 REM
 REM Optional env vars:
 REM   CONFIG=Debug|Release      (default Debug)
+REM   SKIP_WEB_BUILD=1         Skip npm web build (default: build every run)
 REM   SKIP_WEB_COPY=1          Skip robocopy of jellyfin-web\dist
 REM   SKIP_STOP=1              Skip stopping existing process on 8097
 REM   JELLYFIN_FFMPEG=...      Explicit ffmpeg.exe path (optional)
@@ -60,6 +62,23 @@ where dotnet >nul 2>nul
 if errorlevel 1 (
   echo dotnet not found in PATH. Install .NET SDK then re-run.
   exit /b 1
+)
+
+if defined SKIP_WEB_BUILD (
+  echo SKIP_WEB_BUILD=1 set, not building jellyfin-web.
+) else (
+  where npm >nul 2>nul
+  if errorlevel 1 (
+    echo npm not found in PATH. Install Node.js/npm then re-run.
+    exit /b 1
+  )
+
+  echo === Build jellyfin-web production dist ===
+  call npm --prefix jellyfin-web run build:production
+  if errorlevel 1 (
+    echo jellyfin-web build failed.
+    exit /b 1
+  )
 )
 
 echo === dotnet publish jellyfin server ===

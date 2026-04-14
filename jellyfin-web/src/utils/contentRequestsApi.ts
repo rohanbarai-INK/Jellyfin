@@ -50,6 +50,12 @@ export interface PublicContentRequestListResult {
     totalRecordCount: number
 }
 
+export interface ContentRequestWebPushSubscriptionPayload {
+    endpoint: string
+    p256dh: string
+    auth: string
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 const enumValueMap = {
@@ -346,6 +352,52 @@ export const bulkMarkContentRequestNotificationsViewed = async (
         url: client.getUrl('Request/NotificationViewedBulk'),
         data: JSON.stringify({
             RequestIds: requestIds
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+};
+
+export const getContentRequestWebPushPublicKey = async (apiClient?: ApiClient): Promise<string> => {
+    const client = getApiClient(apiClient);
+    const response = await client.ajax({
+        type: 'GET',
+        url: client.getUrl('Request/WebPush/PublicKey'),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return toStringValue(read(response, 'PublicKey', 'publicKey'));
+};
+
+export const subscribeContentRequestWebPush = async (
+    payload: ContentRequestWebPushSubscriptionPayload,
+    apiClient?: ApiClient
+) => {
+    const client = getApiClient(apiClient);
+    await client.ajax({
+        type: 'POST',
+        url: client.getUrl('Request/WebPush/Subscribe'),
+        data: JSON.stringify({
+            Endpoint: payload.endpoint,
+            P256dh: payload.p256dh,
+            Auth: payload.auth
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+};
+
+export const unsubscribeContentRequestWebPush = async (
+    endpoint: string,
+    apiClient?: ApiClient
+) => {
+    const client = getApiClient(apiClient);
+    await client.ajax({
+        type: 'POST',
+        url: client.getUrl('Request/WebPush/Unsubscribe'),
+        data: JSON.stringify({
+            Endpoint: endpoint
         }),
         dataType: 'json',
         contentType: 'application/json'

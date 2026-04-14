@@ -24,14 +24,17 @@ public class RequestController : BaseJellyfinApiController
     private const int _maxTake = 100;
 
     private readonly IContentRequestService _contentRequestService;
+    private readonly IContentRequestWebPushService _contentRequestWebPushService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RequestController"/> class.
     /// </summary>
     /// <param name="contentRequestService">Content request service.</param>
-    public RequestController(IContentRequestService contentRequestService)
+    /// <param name="contentRequestWebPushService">Content request web push service.</param>
+    public RequestController(IContentRequestService contentRequestService, IContentRequestWebPushService contentRequestWebPushService)
     {
         _contentRequestService = contentRequestService;
+        _contentRequestWebPushService = contentRequestWebPushService;
     }
 
     /// <summary>
@@ -73,6 +76,83 @@ public class RequestController : BaseJellyfinApiController
         {
             return Conflict(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Gets the VAPID public key used for browser push subscriptions.
+    /// </summary>
+    /// <returns>The VAPID public key payload.</returns>
+    [HttpGet("WebPush/PublicKey")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<RequestWebPushPublicKeyResponse> GetWebPushPublicKey()
+    {
+        var publicKey = _contentRequestWebPushService.GetPublicVapidKey();
+        if (string.IsNullOrWhiteSpace(publicKey))
+        {
+            return NotFound();
+        }
+
+        return new RequestWebPushPublicKeyResponse
+        {
+            PublicKey = publicKey
+        };
+    }
+
+    /// <summary>
+    /// Creates or updates a browser push subscription for the current user.
+    /// </summary>
+    /// <param name="request">Subscription payload.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("WebPush/Subscribe")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult> SubscribeWebPush([FromBody, Required] RequestWebPushSubscriptionRequest request)
+    {
+        var userId = User.GetUserId();
+        if (userId.IsEmpty())
+        {
+            return BadRequest("User is not authenticated.");
+        }
+
+        try
+        {
+            await _contentRequestWebPushService
+                .UpsertSubscription(userId, request.Endpoint, request.P256dh, request.Auth)
+                .ConfigureAwait(false);
+
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Removes a browser push subscription for the current user.
+    /// </summary>
+    /// <param name="request">Unsubscribe payload.</param>
+    /// <returns>No content.</returns>
+    [HttpPost("WebPush/Unsubscribe")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult> UnsubscribeWebPush([FromBody, Required] RequestWebPushUnsubscribeRequest request)
+    {
+        var userId = User.GetUserId();
+        if (userId.IsEmpty())
+        {
+            return BadRequest("User is not authenticated.");
+        }
+
+        await _contentRequestWebPushService
+            .RemoveSubscription(userId, request.Endpoint)
+            .ConfigureAwait(false);
+
+        return NoContent();
     }
 
     /// <summary>
@@ -289,6 +369,8 @@ public class RequestController : BaseJellyfinApiController
             var row = await _contentRequestService
                 .Complete(request.RequestId, request.JellyfinItemId)
                 .ConfigureAwait(false);
+
+            await _contentRequestWebPushService.NotifyRequestCompleted(row).ConfigureAwait(false);
 
             return ToDto(row);
         }

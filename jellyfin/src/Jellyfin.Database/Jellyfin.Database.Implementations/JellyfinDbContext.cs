@@ -49,6 +49,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<ContentRequest> ContentRequests => Set<ContentRequest>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing content request web push subscriptions.
+    /// </summary>
+    public DbSet<ContentRequestWebPushSubscription> ContentRequestWebPushSubscriptions => Set<ContentRequestWebPushSubscription>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing watch sessions.
     /// </summary>
     public DbSet<UserWatchSession> UserWatchSessions => Set<UserWatchSession>();

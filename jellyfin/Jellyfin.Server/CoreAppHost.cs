@@ -95,6 +95,7 @@ namespace Jellyfin.Server
             serviceCollection.AddSingleton<ITrickplayManager, TrickplayManager>();
             serviceCollection.AddSingleton<IAccessKeyService, AccessKeyService>();
             serviceCollection.AddSingleton<IContentRequestService, ContentRequestService>();
+            serviceCollection.AddSingleton<IContentRequestWebPushService, ContentRequestWebPushService>();
             serviceCollection.AddSingleton<IAchievementService, AchievementService>();
             serviceCollection.AddSingleton<TimeProvider>(TimeProvider.System);
             serviceCollection.AddSingleton<WatchSessionAggregationService>();
