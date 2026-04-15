@@ -1,0 +1,137 @@
+package org.knightflix.mobile.events
+
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.os.Bundle
+import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
+import org.knightflix.mobile.BuildConfig
+import org.knightflix.mobile.MainActivity
+import org.knightflix.mobile.R
+import org.knightflix.mobile.bridge.JavascriptCallback
+import org.knightflix.mobile.downloads.DownloadsFragment
+import org.knightflix.mobile.player.ui.PlayerFragment
+import org.knightflix.mobile.player.ui.PlayerFullscreenHelper
+import org.knightflix.mobile.settings.SettingsFragment
+import org.knightflix.mobile.utils.Constants
+import org.knightflix.mobile.utils.extensions.addFragment
+import org.knightflix.mobile.utils.removeDownload
+import org.knightflix.mobile.utils.requestDownload
+import org.knightflix.mobile.webapp.WebappFunctionChannel
+import timber.log.Timber
+
+class ActivityEventHandler(
+    private val webappFunctionChannel: WebappFunctionChannel,
+) {
+    private val eventsFlow = MutableSharedFlow<ActivityEvent>(
+        extraBufferCapacity = 10,
+        onBufferOverflow = BufferOverflow.SUSPEND,
+    )
+
+    fun MainActivity.subscribe() {
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                eventsFlow.collect { event ->
+                    handleEvent(event)
+                }
+            }
+        }
+    }
+
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
+    private fun MainActivity.handleEvent(event: ActivityEvent) {
+        when (event) {
+            is ActivityEvent.ChangeFullscreen -> {
+                val fullscreenHelper = PlayerFullscreenHelper(window)
+                if (event.isFullscreen) {
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    fullscreenHelper.enableFullscreen()
+                    window.setBackgroundDrawable(null)
+                } else {
+                    // Reset screen orientation
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    fullscreenHelper.disableFullscreen()
+                    // Reset window background color
+                    window.setBackgroundDrawableResource(R.color.theme_background)
+                }
+            }
+            is ActivityEvent.LaunchNativePlayer -> {
+                val args = Bundle().apply {
+                    putParcelable(Constants.EXTRA_MEDIA_PLAY_OPTIONS, event.playOptions)
+                }
+                supportFragmentManager.addFragment<PlayerFragment>(args)
+            }
+            is ActivityEvent.OpenUrl -> {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, event.uri.toUri())
+                    startActivity(intent)
+                } catch (e: ActivityNotFoundException) {
+                    Timber.e("openIntent: %s", e.message)
+                }
+            }
+            is ActivityEvent.DownloadFile -> {
+                lifecycleScope.launch {
+                    with(event) { requestDownload(uri, filename) }
+                }
+            }
+            is ActivityEvent.RemoveDownload -> {
+                lifecycleScope.launch {
+                    with(event) { removeDownload(download, force) }
+                }
+            }
+            ActivityEvent.OpenDownloads -> {
+                supportFragmentManager.addFragment<DownloadsFragment>()
+            }
+            is ActivityEvent.CastMessage -> {
+                val action = event.action
+                chromecast.execute(
+                    action,
+                    event.args,
+                    object : JavascriptCallback() {
+                        override fun callback(keep: Boolean, err: String?, result: String?) {
+                            webappFunctionChannel.call(
+                                """window.NativeShell.castCallback("$action", $keep, $err, $result);""",
+                            )
+                        }
+                    },
+                )
+            }
+            ActivityEvent.RequestBluetoothPermission -> {
+                lifecycleScope.launch {
+                    bluetoothPermissionHelper.requestBluetoothPermissionIfNecessary()
+                }
+            }
+            ActivityEvent.OpenSettings -> {
+                supportFragmentManager.addFragment<SettingsFragment>()
+            }
+            ActivityEvent.OpenSubscription -> {
+                openSubscriptionManagement()
+            }
+            ActivityEvent.SelectServer -> {
+                if (BuildConfig.HARDCODED_SERVER_URL.isBlank()) {
+                    mainViewModel.resetServer()
+                }
+            }
+            ActivityEvent.ExitApp -> {
+                if (serviceBinder?.isPlaying == true) {
+                    moveTaskToBack(false)
+                } else {
+                    finish()
+                }
+            }
+            is ActivityEvent.SubscriptionExpired -> {
+                openSubscriptionExpiredActivity(event.redirectUrl, event.expiryDate)
+            }
+        }
+    }
+
+    fun emit(event: ActivityEvent) {
+        eventsFlow.tryEmit(event)
+    }
+}
