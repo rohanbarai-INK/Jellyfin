@@ -4,8 +4,8 @@ import appIconUrl from 'assets/branding/icon-transparent.png';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 // To change the APK download link, update the APK_DOWNLOAD_URL constant below.
-export const APK_DOWNLOAD_URL = '/KnightFlix.apk';
-export const APK_FILE_NAME = 'KnightFlix.apk';
+export const APK_DOWNLOAD_URL = 'https://www.dropbox.com/scl/fi/lt80pztxgnfo28juvqfdy/KnightFlix-v0.0.1.apk?rlkey=9mizp5qaqrvr7a0tujx5wcm5i&st=6hyvbtrm&dl=1';
+export const APK_FILE_NAME = 'KnightFlix-v0.0.1.apk';
 
 interface DownloadAppTooltipProps {
     onDownloadClick: () => void;

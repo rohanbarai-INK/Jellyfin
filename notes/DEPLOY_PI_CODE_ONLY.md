@@ -15,6 +15,18 @@ This runbook assumes:
 
 ---
 
+## 0) Rebuild Web UI (Windows)
+
+```pwsh
+cd "C:\Users\Barai Brothers\Documents\Jellyfin\jellyfin-web"
+ 
+# Rebuild production bundle
+npm run build:production
+ 
+# Verify dist exists
+Test-Path .\dist\index.html
+```
+
 ## 1) Create a Pi Build Tar (Windows)
 
 Run from repo root:

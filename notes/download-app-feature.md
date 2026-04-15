@@ -17,32 +17,18 @@ Detection is in `DownloadAppButton.tsx` → `isAndroidNativeApp()` and `isTvBrow
 
 ---
 
-## How to Change the APK Download Link
+## How to Set the APK Download Link (Dropbox)
 
-Open this file:
-```
-jellyfin-web/src/components/toolbar/DownloadAppTooltip.tsx
-```
-
-Find these two constants near the top and update them:
-```ts
-export const APK_DOWNLOAD_URL = '/KnightFlix.apk';   // ← change to full URL or relative path
-export const APK_FILE_NAME    = 'KnightFlix.apk';    // ← filename the user sees when downloading
-```
-
-### Examples
-- **Relative (file served from Jellyfin web root):**
-  ```ts
-  export const APK_DOWNLOAD_URL = '/KnightFlix.apk';
-  ```
-  Place the APK at `jellyfin-web/public/KnightFlix.apk` so it gets served at `http://your-server/KnightFlix.apk`.
-
-- **External CDN or direct URL:**
-  ```ts
-  export const APK_DOWNLOAD_URL = 'https://cdn.example.com/releases/KnightFlix-v1.0.apk';
-  export const APK_FILE_NAME    = 'KnightFlix-v1.0.apk';
-  ```
-
+1. Log in to Dropbox with **steinsgate00007@gmail.com** (via Google login).
+2. Upload your APK.
+3. Click **Share** on the file and copy the URL.
+4. In the copied URL, change the ending parameter from `dl=0` to `dl=1`.
+5. Open `jellyfin-web/src/components/toolbar/DownloadAppTooltip.tsx` and set:
+   ```ts
+   export const APK_DOWNLOAD_URL = '<your_dropbox_link_with_dl=1>';
+   export const APK_FILE_NAME    = 'KnightFlix-v0.0.1.apk';
+   ```
+  keep changing the version number in the filename and the download link for each new release.
 ---
 
 ## How to Change the App Icon in the Tooltip
