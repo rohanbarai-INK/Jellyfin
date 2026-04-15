@@ -41,3 +41,17 @@ Deliverables:
 
 Example value:
 `{{NEW_DEFAULT_URL}} = https://media.example.com/`
+
+---
+
+## Current Hardcoded Server URL State
+
+As of April 15, 2026:
+
+| Project | Default URL | Purpose |
+|---|---|---|
+| jellyfin-android | `http://10.0.2.2:8097/` | Android emulator testing |
+| jellyfin-androidtv | `http://10.0.2.2:8097/` | Android TV emulator testing |
+| jellyfin-web | `""` (empty) | No default (uses discovery) |
+
+**Note:** `http://10.0.2.2:8097/` is the special loopback address for Android Studio emulator to access the host machine's localhost. For physical device testing on local network, use `http://192.168.1.9:8097/` (or your actual local IP).

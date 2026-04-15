@@ -12,6 +12,7 @@ import RemotePlayButton from './RemotePlayButton';
 import SyncPlayButton from './SyncPlayButton';
 import SearchButton from './SearchButton';
 import UserViewNav from './userViews/UserViewNav';
+import DownloadAppButton from 'components/toolbar/DownloadAppButton';
 
 interface AppToolbarProps {
     isDrawerAvailable: boolean
@@ -45,6 +46,7 @@ const ExperimentalAppToolbar: FC<AppToolbarProps> = ({
                     <SyncPlayButton />
                     <RemotePlayButton />
                     <SearchButton />
+                    <DownloadAppButton />
                 </>
             )}
             isDrawerAvailable={isDrawerAvailable}
