@@ -8,6 +8,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Controller.Achievements;
+using MediaBrowser.Controller.Leaderboard;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jellyfin.Server.Implementations.Achievements
@@ -43,14 +44,17 @@ namespace Jellyfin.Server.Implementations.Achievements
 
         private static readonly TimeZoneInfo _insightsTimeZone = ResolveInsightsTimeZone();
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
+        private readonly ILeaderboardService? _leaderboardService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AchievementService"/> class.
         /// </summary>
         /// <param name="dbProvider">Database provider.</param>
-        public AchievementService(IDbContextFactory<JellyfinDbContext> dbProvider)
+        /// <param name="leaderboardService">Leaderboard service for seasonal XP tracking.</param>
+        public AchievementService(IDbContextFactory<JellyfinDbContext> dbProvider, ILeaderboardService? leaderboardService = null)
         {
             _dbProvider = dbProvider;
+            _leaderboardService = leaderboardService;
         }
 
         /// <inheritdoc />
@@ -204,6 +208,8 @@ namespace Jellyfin.Server.Implementations.Achievements
                     };
                 }
 
+                await RecordSeasonalXpAsync(userId, unlockTimestampUtc.Year, definition.Xp, definition.Coins).ConfigureAwait(false);
+
                 return new AchievementUnlockResult
                 {
                     Unlocked = true,
@@ -292,7 +298,14 @@ namespace Jellyfin.Server.Implementations.Achievements
                 try
                 {
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                    return rows.Select(row => ToUserAchievementInfo(definitions[row.AchievementId], row.UnlockedAtUtc, row.SeasonYear)).ToList();
+                    var result = rows.Select(row => ToUserAchievementInfo(definitions[row.AchievementId], row.UnlockedAtUtc, row.SeasonYear)).ToList();
+                    foreach (var row in rows)
+                    {
+                        var def = definitions[row.AchievementId];
+                        await RecordSeasonalXpAsync(userId, row.UnlockedAtUtc.Year, def.Xp, def.Coins).ConfigureAwait(false);
+                    }
+
+                    return result;
                 }
                 catch (DbUpdateException)
                 {
@@ -1329,6 +1342,23 @@ namespace Jellyfin.Server.Implementations.Achievements
                 SeasonType = row.SeasonType,
                 SeasonYear = seasonYear
             };
+
+        private async Task RecordSeasonalXpAsync(Guid userId, int seasonYear, int xp, int coins)
+        {
+            if (_leaderboardService is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _leaderboardService.RecordAchievementXp(userId, seasonYear, xp, coins).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Non-critical: leaderboard update failure should not break achievement flow.
+            }
+        }
 
         private sealed class Metrics
         {

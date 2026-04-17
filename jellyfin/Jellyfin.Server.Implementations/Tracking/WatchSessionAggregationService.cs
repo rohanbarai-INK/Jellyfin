@@ -9,6 +9,7 @@ using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Achievements;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Leaderboard;
 using MediaBrowser.Controller.Library;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ namespace Jellyfin.Server.Implementations.Tracking
 
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
         private readonly IAchievementService? _achievementService;
+        private readonly ILeaderboardService? _leaderboardService;
         private readonly ILibraryManager _libraryManager;
         private readonly ILogger<WatchSessionAggregationService> _logger;
 
@@ -33,16 +35,19 @@ namespace Jellyfin.Server.Implementations.Tracking
         /// </summary>
         /// <param name="dbProvider">Database provider.</param>
         /// <param name="achievementService">Achievement service.</param>
+        /// <param name="leaderboardService">Leaderboard service.</param>
         /// <param name="libraryManager">Library manager.</param>
         /// <param name="logger">Logger.</param>
         public WatchSessionAggregationService(
             IDbContextFactory<JellyfinDbContext> dbProvider,
             IAchievementService? achievementService,
+            ILeaderboardService? leaderboardService,
             ILibraryManager libraryManager,
             ILogger<WatchSessionAggregationService> logger)
         {
             _dbProvider = dbProvider;
             _achievementService = achievementService;
+            _leaderboardService = leaderboardService;
             _libraryManager = libraryManager;
             _logger = logger;
         }
@@ -238,6 +243,26 @@ namespace Jellyfin.Server.Implementations.Tracking
 
                     await dbContext.SaveChangesAsync().ConfigureAwait(false);
                     await transaction.CommitAsync().ConfigureAwait(false);
+                }
+            }
+
+            if (_leaderboardService is not null)
+            {
+                try
+                {
+                    var validatedMinutes = session.ValidatedTicks / TimeSpan.TicksPerMinute;
+                    var sessionSeasonYear = DateTime.SpecifyKind(session.StartTimeUtc, DateTimeKind.Utc).Year;
+                    await _leaderboardService.RecordPlaybackStats(
+                        session.UserId,
+                        sessionSeasonYear,
+                        validatedMinutes,
+                        isMovie && isCompleted,
+                        isEpisode && isCompleted,
+                        genres).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Leaderboard playback recording failed for user {UserId}.", session.UserId);
                 }
             }
 

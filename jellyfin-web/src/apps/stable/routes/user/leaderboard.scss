@@ -1,0 +1,1080 @@
+#achievementsPage {
+    .achievementsTabStrip {
+        display: flex;
+        gap: 0;
+        margin: 0 0 1.2rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .achievementsTabButton {
+        appearance: none;
+        position: relative;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        padding: 0.62rem 1.1rem;
+        background: transparent;
+        color: rgba(186, 206, 226, 0.72);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: color 180ms ease, border-color 180ms ease;
+    }
+
+    .achievementsTabButton:hover,
+    .achievementsTabButton:focus-visible {
+        color: rgba(220, 238, 252, 0.92);
+    }
+
+    .achievementsTabButton-active {
+        color: rgba(134, 239, 255, 0.98);
+        border-bottom-color: rgba(34, 211, 238, 0.82);
+    }
+
+    .leaderboardMetricTabs {
+        display: flex;
+        gap: 0.35em;
+        overflow-x: auto;
+        padding-bottom: 0.5em;
+        margin-bottom: 1em;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    .leaderboardMetricTab {
+        display: flex;
+        align-items: center;
+        gap: 0.35em;
+        padding: 0.45em 0.85em;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.82em;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        &-active {
+            background: rgba(0, 164, 220, 0.18);
+            border-color: rgba(0, 164, 220, 0.5);
+            color: #00a4dc;
+        }
+    }
+
+    .leaderboardMetricTabIcon {
+        font-size: 1.05em;
+    }
+
+    .leaderboardMetricTabLabel {
+        font-weight: 500;
+    }
+
+    .leaderboardTop3 {
+        display: flex;
+        gap: 0.6em;
+        justify-content: center;
+        margin-bottom: 1em;
+    }
+
+    .leaderboardTop3Item {
+        flex: 1;
+        max-width: 150px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3em;
+        padding: 0.8em 0.5em;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: transform 0.2s ease;
+
+        &-1 {
+            background: rgba(255, 215, 0, 0.08);
+            border-color: rgba(255, 215, 0, 0.2);
+            order: 2;
+            transform: scale(1.05);
+        }
+
+        &-2 {
+            background: rgba(192, 192, 192, 0.06);
+            border-color: rgba(192, 192, 192, 0.15);
+            order: 1;
+        }
+
+        &-3 {
+            background: rgba(205, 127, 50, 0.06);
+            border-color: rgba(205, 127, 50, 0.15);
+            order: 3;
+        }
+
+        &-you {
+            box-shadow: 0 0 12px rgba(0, 164, 220, 0.2);
+        }
+    }
+
+    .leaderboardTop3Medal {
+        font-size: 1.8em;
+    }
+
+    .leaderboardTop3Tier {
+        font-size: 0.78em;
+        color: rgba(255, 255, 255, 0.65);
+        text-align: center;
+    }
+
+    .leaderboardTop3Value {
+        font-size: 0.9em;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .leaderboardTop3You {
+        font-size: 0.7em;
+        color: #00a4dc;
+        font-weight: 600;
+    }
+
+    .leaderboardGapInfo {
+        display: flex;
+        gap: 0.8em;
+        margin-top: 0.6em;
+        padding-top: 0.6em;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .leaderboardGapItem {
+        font-size: 0.78em;
+        color: rgba(255, 255, 255, 0.45);
+    }
+
+    .leaderboardPositionGap {
+        margin-top: 0.5em;
+        font-size: 0.8em;
+        color: rgba(255, 255, 255, 0.4);
+        text-align: center;
+    }
+
+    .leaderboardContainer {
+        animation: leaderboardFadeIn 320ms ease-out;
+    }
+
+    .leaderboardPersonalCard {
+        position: relative;
+        margin: 0 0 1.2rem;
+        padding: 1.2rem 1.15rem 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 1rem;
+        overflow: hidden;
+        background: linear-gradient(145deg, rgba(9, 12, 26, 0.92), rgba(8, 14, 24, 0.72));
+        box-shadow: 0 20px 42px -28px rgba(2, 6, 23, 0.95), 0 0 0 1px rgba(34, 211, 238, 0.06) inset;
+    }
+
+    .leaderboardPersonalGlow {
+        position: absolute;
+        top: -32%;
+        left: 50%;
+        width: 72%;
+        height: 68%;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.04) 55%, rgba(34, 211, 238, 0) 72%);
+        pointer-events: none;
+        filter: blur(14px);
+        transform: translateX(-50%);
+        opacity: 0.7;
+    }
+
+    .leaderboardPersonalHeader {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .leaderboardPersonalRankBig {
+        font-size: clamp(2.4rem, 7vw, 3rem);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        color: transparent;
+        background: linear-gradient(90deg, rgba(245, 248, 255, 0.99), rgba(152, 236, 255, 0.98), rgba(48, 217, 255, 0.94));
+        background-clip: text;
+        text-shadow: 0 0 16px rgba(34, 211, 238, 0.28);
+    }
+
+    .leaderboardPersonalRankLabel {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(163, 184, 198, 0.86);
+        margin-bottom: 0.18rem;
+    }
+
+    .leaderboardPersonalTierBadge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.32rem;
+        padding: 0.3rem 0.68rem;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        background: rgba(16, 20, 34, 0.72);
+        color: rgba(240, 248, 255, 0.96);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
+
+    .leaderboardPersonalTierEmoji {
+        font-size: 1.05rem;
+        line-height: 1;
+    }
+
+    .leaderboardStatsGrid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.55rem;
+        margin-top: 0.4rem;
+    }
+
+    .leaderboardStatItem {
+        padding: 0.6rem 0.58rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.72rem;
+        background: rgba(11, 15, 28, 0.68);
+        text-align: center;
+    }
+
+    .leaderboardStatValue {
+        color: rgba(240, 248, 255, 0.96);
+        font-size: 1rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboardStatLabel {
+        color: rgba(168, 194, 214, 0.78);
+        font-size: 0.56rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-top: 0.15rem;
+    }
+
+    .leaderboardInsightsCard {
+        position: relative;
+        margin: 0 0 1.2rem;
+        padding: 0.88rem 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.84rem;
+        background: linear-gradient(155deg, rgba(16, 20, 36, 0.78), rgba(11, 16, 28, 0.66));
+    }
+
+    .leaderboardInsightsTitle {
+        color: rgba(178, 206, 226, 0.82);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        margin-bottom: 0.55rem;
+    }
+
+    .leaderboardInsightsRow {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.3rem 0;
+    }
+
+    .leaderboardInsightsRow + .leaderboardInsightsRow {
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .leaderboardInsightsIcon {
+        flex-shrink: 0;
+        font-size: 1.15rem;
+        line-height: 1;
+        width: 1.5rem;
+        text-align: center;
+    }
+
+    .leaderboardInsightsText {
+        color: rgba(220, 238, 252, 0.92);
+        font-size: 0.74rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .leaderboardInsightsHighlight {
+        color: rgba(134, 239, 255, 0.98);
+        font-weight: 800;
+    }
+
+    .leaderboardTopSection {
+        margin: 0 0 0.6rem;
+    }
+
+    .leaderboardTopHeader {
+        color: rgba(196, 223, 242, 0.88);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin: 0 0 0.5rem;
+        padding-left: 0.15rem;
+    }
+
+    .leaderboardTopList {
+        display: flex;
+        flex-direction: column;
+        gap: 0.32rem;
+    }
+
+    .leaderboardTopEntry {
+        display: grid;
+        grid-template-columns: 2.4rem 1fr auto;
+        column-gap: 0.6rem;
+        align-items: center;
+        padding: 0.52rem 0.65rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.72rem;
+        background: rgba(11, 15, 28, 0.6);
+        transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .leaderboardTopEntry:hover {
+        background: rgba(16, 22, 38, 0.76);
+        border-color: rgba(255, 255, 255, 0.13);
+    }
+
+    .leaderboardTopEntry-current {
+        border-color: rgba(34, 211, 238, 0.3);
+        background: linear-gradient(145deg, rgba(10, 24, 38, 0.82), rgba(14, 22, 38, 0.72));
+        box-shadow: 0 0 18px -10px rgba(34, 211, 238, 0.22);
+    }
+
+    .leaderboardTopEntry-podium1 {
+        border-color: rgba(255, 215, 0, 0.32);
+        background: linear-gradient(145deg, rgba(38, 30, 8, 0.72), rgba(16, 14, 8, 0.66));
+    }
+
+    .leaderboardTopEntry-podium2 {
+        border-color: rgba(192, 192, 192, 0.24);
+        background: linear-gradient(145deg, rgba(30, 30, 34, 0.68), rgba(16, 16, 18, 0.62));
+    }
+
+    .leaderboardTopEntry-podium3 {
+        border-color: rgba(205, 127, 50, 0.24);
+        background: linear-gradient(145deg, rgba(32, 22, 12, 0.68), rgba(18, 14, 10, 0.62));
+    }
+
+    .leaderboardTopRank {
+        font-size: 1.05rem;
+        font-weight: 900;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        color: rgba(186, 206, 226, 0.88);
+    }
+
+    .leaderboardTopRank-1 {
+        color: rgba(255, 215, 0, 0.98);
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+    }
+
+    .leaderboardTopRank-2 {
+        color: rgba(210, 210, 220, 0.95);
+    }
+
+    .leaderboardTopRank-3 {
+        color: rgba(205, 154, 86, 0.95);
+    }
+
+    .leaderboardTopBody {
+        min-width: 0;
+    }
+
+    .leaderboardTopTier {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .leaderboardTopTierEmoji {
+        font-size: 0.92rem;
+        line-height: 1;
+    }
+
+    .leaderboardTopTierTitle {
+        color: rgba(230, 243, 255, 0.94);
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .leaderboardTopUserHint {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: rgba(134, 239, 255, 0.82);
+        letter-spacing: 0.06em;
+        margin-left: 0.25rem;
+    }
+
+    .leaderboardTopMeta {
+        color: rgba(168, 194, 214, 0.72);
+        font-size: 0.6rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        margin-top: 0.1rem;
+    }
+
+    .leaderboardTopXp {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboardTopXpValue {
+        color: rgba(240, 248, 255, 0.94);
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .leaderboardTopXpLabel {
+        color: rgba(168, 194, 214, 0.68);
+        font-size: 0.56rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardUserPositionCard {
+        margin: 0.55rem 0 0.4rem;
+        padding: 0.6rem 0.7rem;
+        border: 1px dashed rgba(34, 211, 238, 0.28);
+        border-radius: 0.72rem;
+        background: rgba(10, 20, 34, 0.62);
+    }
+
+    .leaderboardUserPositionLabel {
+        color: rgba(134, 239, 255, 0.82);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+    }
+
+    .leaderboardEmptyState {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: rgba(186, 206, 226, 0.66);
+        font-size: 0.82rem;
+    }
+
+    .leaderboardEmptyIcon {
+        display: block;
+        font-size: 2.4rem;
+        margin-bottom: 0.6rem;
+        opacity: 0.5;
+    }
+
+    .leaderboardLoadingState {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: rgba(186, 206, 226, 0.6);
+        font-size: 0.76rem;
+        letter-spacing: 0.06em;
+    }
+
+    .leaderboardHero {
+        margin: 0 0 1rem;
+        padding: 1.15rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        background: linear-gradient(145deg, rgba(8, 14, 24, 0.92), rgba(11, 18, 30, 0.82));
+        box-shadow: 0 24px 60px -34px rgba(0, 0, 0, 0.78);
+    }
+
+    .leaderboardHeroHeader {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.9rem;
+    }
+
+    .leaderboardHeroEyebrow {
+        color: rgba(148, 197, 255, 0.74);
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardHeroTitle {
+        margin: 0.35rem 0 0;
+        color: rgba(242, 248, 255, 0.98);
+        font-size: clamp(1.35rem, 2vw, 1.9rem);
+        font-weight: 900;
+        letter-spacing: -0.03em;
+    }
+
+    .leaderboardHeroTier {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(9, 20, 34, 0.86);
+        color: rgba(235, 244, 255, 0.96);
+        font-size: 0.74rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .leaderboardHeroTierEmoji {
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .leaderboardHeroStats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.7rem;
+        margin-top: 1rem;
+    }
+
+    .leaderboardHeroStatCard {
+        padding: 0.82rem 0.88rem;
+        border-radius: 0.9rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(9, 17, 30, 0.82);
+        min-width: 0;
+    }
+
+    .leaderboardHeroStatLabel {
+        color: rgba(159, 181, 209, 0.78);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardHeroStatValue {
+        margin-top: 0.28rem;
+        color: rgba(244, 249, 255, 0.98);
+        font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+        font-weight: 900;
+        line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboardHeroStatMeta {
+        margin-top: 0.25rem;
+        color: rgba(176, 198, 223, 0.72);
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .leaderboardHeroNarrative {
+        margin-top: 0.9rem;
+        padding: 0.82rem 0.95rem;
+        border-radius: 0.88rem;
+        background: linear-gradient(135deg, rgba(4, 47, 67, 0.45), rgba(8, 20, 38, 0.72));
+        border: 1px solid rgba(34, 211, 238, 0.14);
+        color: rgba(224, 240, 255, 0.92);
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.55;
+    }
+
+    .leaderboardBoard {
+        margin-top: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 1rem;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(9, 14, 25, 0.96), rgba(8, 12, 22, 0.92));
+        box-shadow: 0 28px 64px -38px rgba(0, 0, 0, 0.9);
+    }
+
+    .leaderboardBoardHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.95rem 1rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .leaderboardBoardTitle {
+        color: rgba(243, 248, 255, 0.98);
+        font-size: 0.98rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    .leaderboardBoardMeta {
+        color: rgba(168, 194, 214, 0.76);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .leaderboardTableHeader {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(7rem, auto) minmax(7rem, auto);
+        gap: 0.8rem;
+        align-items: center;
+        padding: 0.65rem 1rem;
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(146, 169, 197, 0.72);
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardTableHeaderMetric {
+        text-align: right;
+    }
+
+    .leaderboardTableRow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.8rem;
+        align-items: center;
+        padding: 0.85rem 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+
+    .leaderboardTableRow:hover {
+        background: rgba(255, 255, 255, 0.028);
+    }
+
+    .leaderboardTableRow-current {
+        background: linear-gradient(145deg, rgba(12, 29, 43, 0.9), rgba(12, 19, 34, 0.82));
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.16);
+    }
+
+    .leaderboardTableRow-gold {
+        background: linear-gradient(145deg, rgba(67, 47, 4, 0.72), rgba(24, 17, 5, 0.78));
+    }
+
+    .leaderboardTableRow-silver {
+        background: linear-gradient(145deg, rgba(36, 39, 48, 0.72), rgba(16, 19, 26, 0.78));
+    }
+
+    .leaderboardTableRow-bronze {
+        background: linear-gradient(145deg, rgba(57, 35, 14, 0.72), rgba(20, 14, 10, 0.78));
+    }
+
+    .leaderboardRowIdentity {
+        min-width: 0;
+    }
+
+    .leaderboardRowContextLabel {
+        display: inline-flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding: 0.22rem 0.52rem;
+        border-radius: 999px;
+        background: rgba(56, 189, 248, 0.14);
+        color: rgba(154, 226, 255, 0.94);
+        font-size: 0.56rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardRowIdentityMain {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        min-width: 0;
+    }
+
+    .leaderboardRowRank {
+        width: 2.8rem;
+        flex-shrink: 0;
+        color: rgba(192, 210, 230, 0.88);
+        font-size: 1rem;
+        font-weight: 900;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboardRowRank-gold {
+        color: rgba(255, 219, 92, 0.98);
+    }
+
+    .leaderboardRowRank-silver {
+        color: rgba(227, 232, 247, 0.96);
+    }
+
+    .leaderboardRowRank-bronze {
+        color: rgba(227, 172, 111, 0.96);
+    }
+
+    .leaderboardRowAvatar {
+        position: relative;
+        width: 3.2rem;
+        height: 3.2rem;
+        flex-shrink: 0;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.36), rgba(15, 23, 42, 0.95));
+        overflow: visible;
+        display: grid;
+        place-items: center;
+    }
+
+    .leaderboardRowAvatar-gold {
+        box-shadow: 0 0 0 2px rgba(255, 214, 10, 0.28), 0 0 24px rgba(255, 214, 10, 0.2);
+    }
+
+    .leaderboardRowAvatar-silver {
+        box-shadow: 0 0 0 2px rgba(221, 228, 239, 0.24), 0 0 20px rgba(221, 228, 239, 0.16);
+    }
+
+    .leaderboardRowAvatar-bronze {
+        box-shadow: 0 0 0 2px rgba(205, 140, 84, 0.24), 0 0 20px rgba(205, 140, 84, 0.14);
+    }
+
+    .leaderboardRowAvatar-top10 {
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16);
+    }
+
+    .leaderboardRowAvatarImage {
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        object-fit: cover;
+        display: block;
+    }
+
+    .leaderboardRowAvatarFallback {
+        color: rgba(244, 249, 255, 0.98);
+        font-size: 0.92rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+    }
+
+    .leaderboardRowAvatarBadge {
+        position: absolute;
+        right: -0.2rem;
+        bottom: -0.15rem;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        color: #08111d;
+        font-size: 0.52rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+    }
+
+    .leaderboardRowAvatarBadge-gold {
+        background: linear-gradient(135deg, #fde68a, #facc15);
+    }
+
+    .leaderboardRowAvatarBadge-silver {
+        background: linear-gradient(135deg, #f8fafc, #cbd5e1);
+    }
+
+    .leaderboardRowAvatarBadge-bronze {
+        background: linear-gradient(135deg, #fdba74, #d97706);
+    }
+
+    .leaderboardRowAvatarBadge-top10 {
+        background: linear-gradient(135deg, #a5f3fc, #38bdf8);
+    }
+
+    .leaderboardRowNameBlock {
+        min-width: 0;
+    }
+
+    .leaderboardRowNameLine {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+
+    .leaderboardRowName {
+        color: rgba(244, 249, 255, 0.98);
+        font-size: 0.92rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .leaderboardRowYouPill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(34, 211, 238, 0.16);
+        color: rgba(165, 243, 252, 0.98);
+        font-size: 0.54rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardRowSubtitle {
+        margin-top: 0.16rem;
+        color: rgba(179, 199, 221, 0.74);
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .leaderboardRowContextMessage {
+        margin-top: 0.2rem;
+        color: rgba(168, 225, 255, 0.86);
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+    .leaderboardRowMetrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(7rem, auto));
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .leaderboardRowMetric {
+        text-align: right;
+    }
+
+    .leaderboardRowMetricLabel {
+        display: block;
+        color: rgba(142, 166, 194, 0.68);
+        font-size: 0.52rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardRowMetricValue {
+        display: block;
+        margin-top: 0.22rem;
+        color: rgba(244, 249, 255, 0.98);
+        font-size: 0.82rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .leaderboardTableActionRow {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        padding: 0.95rem 1rem;
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.025);
+        color: rgba(174, 228, 255, 0.92);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 180ms ease, color 180ms ease;
+    }
+
+    .leaderboardTableActionRow:hover,
+    .leaderboardTableActionRow:focus-visible {
+        background: rgba(34, 211, 238, 0.08);
+        color: rgba(216, 242, 255, 0.98);
+    }
+
+    .leaderboardTableActionRow:disabled {
+        cursor: wait;
+        opacity: 0.72;
+    }
+
+    .leaderboardTableActionDots {
+        font-size: 1rem;
+        letter-spacing: 0.4em;
+    }
+
+    .leaderboardTableSectionDivider {
+        padding: 0.85rem 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(146, 169, 197, 0.84);
+        font-size: 0.6rem;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardInlineCompetition {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem;
+        padding: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        background: linear-gradient(180deg, rgba(6, 12, 21, 0.72), rgba(8, 16, 28, 0.36));
+    }
+
+    .leaderboardInlineCompetitionCard {
+        min-width: 0;
+        padding: 0.9rem 0.95rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 0.9rem;
+        background: rgba(255, 255, 255, 0.035);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .leaderboardInlineCompetitionCard-current {
+        border-color: rgba(34, 211, 238, 0.2);
+        background: linear-gradient(145deg, rgba(14, 36, 54, 0.92), rgba(9, 19, 33, 0.76));
+    }
+
+    .leaderboardInlineCompetitionCard-leader {
+        border-color: rgba(250, 204, 21, 0.18);
+        background: linear-gradient(145deg, rgba(59, 43, 6, 0.78), rgba(19, 14, 5, 0.78));
+    }
+
+    .leaderboardInlineCompetitionCard-empty {
+        border-style: dashed;
+        border-color: rgba(148, 163, 184, 0.22);
+        background: rgba(15, 23, 42, 0.44);
+    }
+
+    .leaderboardInlineCompetitionLabel {
+        color: rgba(145, 177, 208, 0.82);
+        font-size: 0.54rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .leaderboardInlineCompetitionTitle {
+        margin-top: 0.42rem;
+        color: rgba(243, 248, 255, 0.98);
+        font-size: 0.9rem;
+        font-weight: 800;
+        line-height: 1.3;
+    }
+
+    .leaderboardInlineCompetitionMessage {
+        margin-top: 0.28rem;
+        color: rgba(171, 223, 248, 0.86);
+        font-size: 0.7rem;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+}
+
+@keyframes leaderboardFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 640px) {
+    #achievementsPage {
+        .leaderboardHeroHeader,
+        .leaderboardBoardHeader {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .leaderboardHeroStats {
+            grid-template-columns: 1fr;
+        }
+
+        .leaderboardTableHeader {
+            display: none;
+        }
+
+        .leaderboardTableRow {
+            grid-template-columns: 1fr;
+            gap: 0.7rem;
+        }
+
+        .leaderboardRowIdentityMain {
+            gap: 0.65rem;
+        }
+
+        .leaderboardRowRank {
+            width: 2.3rem;
+            font-size: 0.92rem;
+        }
+
+        .leaderboardRowAvatar {
+            width: 2.8rem;
+            height: 2.8rem;
+        }
+
+        .leaderboardRowMetrics {
+            width: 100%;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .leaderboardRowMetric {
+            text-align: left;
+        }
+
+        .leaderboardInlineCompetition {
+            grid-template-columns: 1fr;
+        }
+
+        .leaderboardHero,
+        .leaderboardBoard {
+            border-radius: 0.9rem;
+        }
+
+        .leaderboardStatsGrid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .leaderboardStatsGrid .leaderboardStatItem:last-child {
+            grid-column: 1 / -1;
+        }
+
+        .leaderboardTopEntry {
+            grid-template-columns: 2rem 1fr auto;
+            column-gap: 0.45rem;
+            padding: 0.44rem 0.5rem;
+        }
+
+        .leaderboardPersonalCard {
+            padding: 1rem 0.9rem 0.9rem;
+        }
+
+        .leaderboardPersonalHeader {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.4rem;
+        }
+    }
+}

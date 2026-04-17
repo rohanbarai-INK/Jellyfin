@@ -64,6 +64,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing user season stats for leaderboard.
+    /// </summary>
+    public DbSet<UserSeasonStats> UserSeasonStats => Set<UserSeasonStats>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing user period stats.
     /// </summary>
     public DbSet<UserPeriodStats> UserPeriodStats => Set<UserPeriodStats>();

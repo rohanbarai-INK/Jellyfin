@@ -8,6 +8,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Extensions;
 using MediaBrowser.Controller.Achievements;
 using MediaBrowser.Controller.ContentRequests;
+using MediaBrowser.Controller.Leaderboard;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jellyfin.Server.Implementations.ContentRequests
@@ -24,16 +25,19 @@ namespace Jellyfin.Server.Implementations.ContentRequests
 
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
         private readonly IAchievementService? _achievementService;
+        private readonly ILeaderboardService? _leaderboardService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContentRequestService"/> class.
         /// </summary>
         /// <param name="dbProvider">Database provider.</param>
         /// <param name="achievementService">Achievement service.</param>
-        public ContentRequestService(IDbContextFactory<JellyfinDbContext> dbProvider, IAchievementService? achievementService = null)
+        /// <param name="leaderboardService">Leaderboard service.</param>
+        public ContentRequestService(IDbContextFactory<JellyfinDbContext> dbProvider, IAchievementService? achievementService = null, ILeaderboardService? leaderboardService = null)
         {
             _dbProvider = dbProvider;
             _achievementService = achievementService;
+            _leaderboardService = leaderboardService;
         }
 
         /// <inheritdoc />
@@ -274,6 +278,7 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 row.Status = Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Approved;
                 await dbContext.SaveChangesAsync().ConfigureAwait(false);
                 await TrySyncAchievementsAsync(row.UserId).ConfigureAwait(false);
+                await TryRecordApprovedRequestAsync(row.UserId).ConfigureAwait(false);
                 return ToContractModel(row);
             }
         }
@@ -347,6 +352,23 @@ namespace Jellyfin.Server.Implementations.ContentRequests
             catch
             {
                 // Do not block request flows on milestone sync failures.
+            }
+        }
+
+        private async Task TryRecordApprovedRequestAsync(Guid userId)
+        {
+            if (_leaderboardService is null || userId.IsEmpty())
+            {
+                return;
+            }
+
+            try
+            {
+                await _leaderboardService.RecordApprovedRequest(userId, DateTime.UtcNow.Year).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Do not block request flows on leaderboard failures.
             }
         }
 

@@ -6,6 +6,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import AppBody from 'components/AppBody';
+import FeatureAnnouncementsRoot from 'components/featureAnnouncements/FeatureAnnouncementsRoot';
 import RequestNotificationPopup from 'components/contentRequests/RequestNotificationPopup';
 import CustomCss from 'components/CustomCss';
 import ElevationScroll from 'components/ElevationScroll';
@@ -76,6 +77,7 @@ export const Component = () => {
                 </Box>
             </Box>
             <RequestNotificationPopup />
+            <FeatureAnnouncementsRoot />
             <ThemeCss />
             <CustomCss />
         </>
