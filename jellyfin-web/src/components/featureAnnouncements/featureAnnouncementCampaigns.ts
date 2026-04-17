@@ -29,9 +29,11 @@ export const FEATURE_ANNOUNCEMENT_CAMPAIGNS: FeatureAnnouncementCampaign[] = [
         ],
         ctaLabel: 'Check It Out',
         ctaRoute: '/achievements',
+        ctaTargetType: 'internal',
         closeLabel: 'Close',
-        startsAt: '2026-04-15T00:00:00.000Z',
-        endsAt: '2026-12-31T23:59:59.000Z',
+        startsAt: '2026-04-17T00:00:00.000Z',
+        endsAt: '2026-04-30T23:59:59.000Z',
+        maxImpressionsPerDay: 2,
         maxImpressionsPerUser: 10,
         priority: 100
     }

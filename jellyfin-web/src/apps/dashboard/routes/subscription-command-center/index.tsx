@@ -10,7 +10,9 @@ export const Component = () => {
             className='mainAnimatedPage type-interior'
             title='Subscription Command Center'
         >
-            <SubscriptionCommandCenter />
+            <div className='content-primary'>
+                <SubscriptionCommandCenter />
+            </div>
         </Page>
     );
 };

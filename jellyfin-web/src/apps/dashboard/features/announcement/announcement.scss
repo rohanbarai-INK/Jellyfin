@@ -1,0 +1,239 @@
+.announcementAdminRoot {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.announcementAdminHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.announcementAdminHeader h1 {
+    margin: 0;
+    font-size: 1.6rem;
+}
+
+.announcementAdminHeader p {
+    margin: 0.35rem 0 0;
+    color: var(--jf-palette-text-secondary);
+}
+
+.announcementAdminHeaderActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.announcementAdminHeaderActions button {
+    border-radius: 0.56rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.72);
+    color: var(--jf-palette-text-primary);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.55rem 0.85rem;
+    cursor: pointer;
+}
+
+.announcementAdminLayout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.announcementAdminListPanel,
+.announcementAdminFormPanel {
+    border-radius: 0.8rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-paperChannel) / 0.72);
+    padding: 0.9rem;
+}
+
+.announcementAdminListPanel h2 {
+    margin: 0 0 0.8rem;
+    font-size: 1rem;
+}
+
+.announcementAdminMuted {
+    margin: 0;
+    color: var(--jf-palette-text-secondary);
+}
+
+.announcementAdminList {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.announcementAdminListItem {
+    width: 100%;
+    text-align: left;
+    border-radius: 0.62rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.58);
+    color: inherit;
+    padding: 0.62rem;
+    cursor: pointer;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.announcementAdminListItem.selected {
+    border-color: var(--jf-palette-primary-main);
+    background: rgba(var(--jf-palette-primary-mainChannel) / 0.1);
+}
+
+.announcementAdminListItemTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.announcementAdminListItemTop strong {
+    font-size: 0.88rem;
+    line-height: 1.2;
+}
+
+.announcementAdminListItem p {
+    margin: 0;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.78rem;
+}
+
+.announcementAdminListMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.75rem;
+}
+
+.announcementAdminStatusBadge {
+    border-radius: 999px;
+    border: 1px solid var(--jf-palette-divider);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.2rem 0.46rem;
+}
+
+.announcementAdminStatusBadge.published {
+    border-color: rgba(var(--jf-palette-success-mainChannel) / 0.5);
+    color: var(--jf-palette-success-main);
+}
+
+.announcementAdminStatusBadge.draft {
+    border-color: rgba(var(--jf-palette-warning-mainChannel) / 0.5);
+    color: var(--jf-palette-warning-main);
+}
+
+.announcementAdminFormGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.72rem;
+}
+
+.announcementAdminFormGrid label {
+    display: grid;
+    gap: 0.32rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--jf-palette-text-secondary);
+}
+
+.announcementAdminFormGrid input,
+.announcementAdminFormGrid select,
+.announcementAdminFormGrid textarea {
+    width: 100%;
+    border-radius: 0.56rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.75);
+    color: var(--jf-palette-text-primary);
+    font-size: 0.84rem;
+    line-height: 1.3;
+    padding: 0.5rem 0.58rem;
+    box-sizing: border-box;
+}
+
+.announcementAdminFormGrid textarea {
+    resize: vertical;
+}
+
+.announcementAdminFormGrid .span-two {
+    grid-column: span 2;
+}
+
+.announcementAdminToggleLabel {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.announcementAdminToggleLabel input {
+    width: auto;
+    margin: 0;
+}
+
+.announcementAdminAudit {
+    margin-top: 1rem;
+    border-top: 1px solid var(--jf-palette-divider);
+    padding-top: 0.75rem;
+}
+
+.announcementAdminAudit h3 {
+    margin: 0 0 0.4rem;
+    font-size: 0.9rem;
+}
+
+.announcementAdminAudit p {
+    margin: 0.2rem 0;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.8rem;
+}
+
+.announcementAdminMessage {
+    margin: 0;
+    border-radius: 0.56rem;
+    border: 1px solid rgba(var(--jf-palette-success-mainChannel) / 0.45);
+    background: rgba(var(--jf-palette-success-mainChannel) / 0.12);
+    color: var(--jf-palette-text-primary);
+    font-size: 0.85rem;
+    padding: 0.6rem 0.7rem;
+}
+
+.announcementAdminMessage.error {
+    border-color: rgba(var(--jf-palette-error-mainChannel) / 0.45);
+    background: rgba(var(--jf-palette-error-mainChannel) / 0.13);
+}
+
+@media (max-width: 1080px) {
+    .announcementAdminLayout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .announcementAdminHeader {
+        flex-direction: column;
+    }
+
+    .announcementAdminHeaderActions {
+        width: 100%;
+    }
+
+    .announcementAdminHeaderActions button {
+        flex: 1;
+    }
+
+    .announcementAdminFormGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .announcementAdminFormGrid .span-two {
+        grid-column: auto;
+    }
+}

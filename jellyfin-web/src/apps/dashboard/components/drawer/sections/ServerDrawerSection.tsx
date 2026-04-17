@@ -8,6 +8,7 @@ import People from '@mui/icons-material/People';
 import PlayCircle from '@mui/icons-material/PlayCircle';
 import Settings from '@mui/icons-material/Settings';
 import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
+import Campaign from '@mui/icons-material/Campaign';
 import Collapse from '@mui/material/Collapse';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -123,6 +124,14 @@ const ServerDrawerSection = () => {
                         <WorkspacePremium />
                     </ListItemIcon>
                     <ListItemText primary='Subscription Command Center' />
+                </ListItemLink>
+            </ListItem>
+            <ListItem disablePadding>
+                <ListItemLink to='/dashboard/announcement'>
+                    <ListItemIcon>
+                        <Campaign />
+                    </ListItemIcon>
+                    <ListItemText primary='Announcement' />
                 </ListItemLink>
             </ListItem>
             <ListItem disablePadding>

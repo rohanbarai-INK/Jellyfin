@@ -530,7 +530,7 @@ const AchievementHistoryPage: FC = () => {
             title='Achievements'
             shouldAutoFocus
         >
-            <div className='padded-left padded-right padded-bottom-page padded-top'>
+            <div className='padded-left padded-right padded-bottom-page padded-top achievementsPageContent'>
                 <div
                     className='readOnlyContent'
                     style={{

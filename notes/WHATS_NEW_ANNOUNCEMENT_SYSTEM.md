@@ -1,193 +1,170 @@
-# What's New / Feature Announcement System
+# Announcement System (Admin-Controlled)
 
 ## Purpose
 
-This system provides a reusable post-login announcement framework for product updates (new features, improvements, seasonal campaigns, and onboarding reminders).
+This implementation upgrades the reusable post-login announcement popup from hardcoded campaign config to an admin-managed system.
 
-It is designed to avoid one-off hardcoded popups by using:
-- a reusable campaign data model,
-- a reusable popup UI component,
-- reusable eligibility + impression tracking logic.
+Admin users can now manage announcement content, media, schedule, limits, status, and CTA behavior directly from Dashboard.
 
----
+## Dashboard management
 
-## What was implemented
+- New admin page: `Dashboard -> Announcement`
+- New drawer item added alongside existing Request and Subscription Command Center entries.
+- Admin-only access via existing dashboard elevation policy.
 
-### Web implementation files
+## What can be controlled
+
+From the Announcement admin page:
+
+- Enable/disable per announcement
+- Draft vs Published status
+- Preview modal before publish
+- Priority and sort order for overlapping campaigns
+- Full text control:
+  - heading, title, subtitle, description, highlights, help text
+  - media caption and alt text
+  - CTA label and close label
+- Media control:
+  - Hero GIF source (builtin token, URL, or uploaded data URL)
+  - Main preview image source (builtin token, URL, or uploaded data URL)
+- Campaign timing:
+  - start date/time
+  - end date/time
+- Impression limits:
+  - per day
+  - total per user
+- CTA target behavior:
+  - internal app route
+  - external URL
+- Audit fields:
+  - created by / created at
+  - updated by / updated at
+
+## Popup behavior
+
+- Existing popup visual layout remains unchanged.
+- Campaigns are loaded from server (`Announcement/Active`) after sign-in.
+- If multiple campaigns are active and eligible, popup supports slide navigation within the same modal.
+- Internal CTA uses app routing.
+- External CTA redirects to provided URL.
+
+## Eligibility and impression tracking
+
+Client-side eligibility still runs in `FeatureAnnouncementsRoot`.
+
+A campaign is eligible only if:
+
+- enabled
+- within start/end window
+- under total impression limit (`maxImpressionsPerUser`)
+- under per-day impression limit (`maxImpressionsPerDay`)
+- not already shown during current session
+
+Storage model:
+
+- `localStorage` key: `jellyfin.featureAnnouncements.v1:<serverId>:<userId>`
+  - tracks total impressions + daily impression map per campaign
+- `sessionStorage` key: `jellyfin.featureAnnouncements.session.v1:<serverId>:<userId>`
+  - tracks campaign ids shown in current session
+
+## Backend API and persistence
+
+### New API controller
+
+- `GET /Announcement/Active` (authorized users)
+- `GET /Announcement/Admin` (admin only)
+- `POST /Announcement/Admin/Upsert` (admin only)
+
+### New backend service
+
+- `IFeatureAnnouncementService` + `FeatureAnnouncementService`
+- Server-side validation includes:
+  - invalid date windows
+  - invalid CTA targets (internal route or http/https external URL)
+  - per-day/total limits > 0
+  - campaign id uniqueness
+  - media fallback defaults if missing
+
+### DB entity/table
+
+- Entity: `FeatureAnnouncement`
+- Table: `FeatureAnnouncements`
+- Includes:
+  - campaign identity and status
+  - all display text/media fields
+  - CTA type and target
+  - scheduling and impression limits
+  - priority/sort
+  - audit metadata
+
+## Seeded default campaign
+
+Initial seed preserves original Leaderboard announcement content and media context.
+
+- Campaign id: `leaderboard-launch-2026`
+- Status: `Published`
+- Enabled: `true`
+- Start: `2026-04-17T00:00:00Z`
+- End: `2026-04-30T23:59:59Z`
+- Limits:
+  - 2 impressions per day per user
+  - 10 total impressions per user
+- CTA:
+  - label: `Check It Out`
+  - type: internal route
+  - target: `/achievements`
+
+Default seeded media sources use builtin tokens:
+
+- `builtin:request-popup-accent`
+- `builtin:leaderboard-announcement-preview`
+
+The web layer resolves builtin tokens to bundled assets.
+
+## Frontend files added/updated
+
+### New
+
+- `jellyfin-web/src/utils/featureAnnouncementsApi.ts`
+- `jellyfin-web/src/apps/dashboard/features/announcement/index.tsx`
+- `jellyfin-web/src/apps/dashboard/features/announcement/announcement.scss`
+- `jellyfin-web/src/apps/dashboard/routes/announcement/index.tsx`
+
+### Updated
 
 - `jellyfin-web/src/components/featureAnnouncements/featureAnnouncementTypes.ts`
-- `jellyfin-web/src/components/featureAnnouncements/featureAnnouncementCampaigns.ts`
 - `jellyfin-web/src/components/featureAnnouncements/featureAnnouncementImpressionStore.ts`
+- `jellyfin-web/src/components/featureAnnouncements/FeatureAnnouncementsRoot.tsx`
 - `jellyfin-web/src/components/featureAnnouncements/FeatureAnnouncementPopup.tsx`
 - `jellyfin-web/src/components/featureAnnouncements/FeatureAnnouncementPopup.scss`
-- `jellyfin-web/src/components/featureAnnouncements/FeatureAnnouncementsRoot.tsx`
+- `jellyfin-web/src/components/featureAnnouncements/featureAnnouncementCampaigns.ts`
+- `jellyfin-web/src/apps/dashboard/routes/_asyncRoutes.ts`
+- `jellyfin-web/src/apps/dashboard/components/drawer/sections/ServerDrawerSection.tsx`
 
-### App wiring
+## Backend files added/updated
 
-Mounted globally in both app layouts:
-- `jellyfin-web/src/apps/stable/AppLayout.tsx`
-- `jellyfin-web/src/apps/experimental/AppLayout.tsx`
+### New
 
-This ensures eligible signed-in users can see active campaigns in normal post-login app flows.
+- `MediaBrowser.Controller/FeatureAnnouncements/*`
+- `Jellyfin.Api/Controllers/FeatureAnnouncementController.cs`
+- `Jellyfin.Api/Models/FeatureAnnouncementDtos/*`
+- `Jellyfin.Server.Implementations/FeatureAnnouncements/FeatureAnnouncementService.cs`
+- `src/Jellyfin.Database/Jellyfin.Database.Implementations/Entities/FeatureAnnouncement.cs`
+- `src/Jellyfin.Database/Jellyfin.Database.Implementations/Enums/FeatureAnnouncementStatus.cs`
+- `src/Jellyfin.Database/Jellyfin.Database.Implementations/Enums/FeatureAnnouncementCtaTargetType.cs`
+- `src/Jellyfin.Database/Jellyfin.Database.Implementations/ModelConfiguration/FeatureAnnouncementConfiguration.cs`
 
----
+### Updated
 
-## How it works
+- `Jellyfin.Server/CoreAppHost.cs`
+- `src/Jellyfin.Database/Jellyfin.Database.Implementations/JellyfinDbContext.cs`
 
-1. User signs in.
-2. `FeatureAnnouncementsRoot` checks configured campaigns.
-3. It finds the next eligible campaign based on:
-   - `enabled`
-   - active date window (`startsAt`, `endsAt`)
-   - per-user impression count vs `maxImpressionsPerUser`
-   - whether already shown in current sign-in session
-4. When shown, an impression is recorded.
-5. User can either:
-   - click `Check It Out` (navigates to campaign route), or
-   - click `Close`
-6. Campaign continues to show on future sign-ins until impression cap is reached.
+## Quick validation checklist
 
----
-
-## Impression tracking model
-
-### Persistent count (per user + campaign)
-
-- Stored in `localStorage`
-- Key format:
-  - `jellyfin.featureAnnouncements.v1:<serverId>:<userId>`
-- Value:
-  - campaign map with `impressions`, `firstShownAt`, `lastShownAt`
-
-### Session gate (per sign-in session)
-
-- Stored in `sessionStorage`
-- Key format:
-  - `jellyfin.featureAnnouncements.session.v1:<serverId>:<userId>`
-- Purpose:
-  - prevent repeated popups for the same campaign within the same active session
-
-### Current behavior notes
-
-- Impression is counted when popup is opened.
-- Therefore, both `Close` and `Check It Out` count for that display occurrence.
-- For the same campaign, user sees at most once per session, and no more than configured max overall.
-
----
-
-## Campaign configuration fields
-
-Each campaign in `featureAnnouncementCampaigns.ts` supports:
-
-- `id` (unique campaign/feature/update id)
-- `enabled` (toggle campaign on/off)
-- `startsAt`, `endsAt` (active window)
-- `maxImpressionsPerUser` (display cap)
-- `priority` (higher wins when multiple campaigns are eligible)
-- `heading` (e.g., `What's New?`)
-- `title`
-- `subtitle`
-- `description`
-- `highlights` (2–4+ short bullets)
-- `helpText` (quick instruction)
-- `heroGifPath` (primary media/GIF)
-- `mediaAssets` (optional additional screenshots/media)
-- `ctaLabel`
-- `ctaRoute`
-- `closeLabel`
-
----
-
-## Leaderboard campaign example (first use case)
-
-Configured campaign id:
-- `leaderboard-launch-2026`
-
-Includes:
-- `What's New?` heading
-- Leaderboard-focused title/subtitle/description
-- Highlights explaining ranking/progress comparison
-- GIF hero + media asset using:
-  - `jellyfin-web/src/assets/branding/request-popup-accent.gif`
-- Primary CTA:
-  - label: `Check It Out`
-  - route: `/achievements`
-- secondary action: `Close`
-- max impressions:
-  - `10` per user
-
----
-
-## How to add a future update popup
-
-1. Open `jellyfin-web/src/components/featureAnnouncements/featureAnnouncementCampaigns.ts`.
-2. Add a new campaign object with a unique `id`.
-3. Set `enabled`, `startsAt`, `endsAt`, and `maxImpressionsPerUser`.
-4. Fill content fields (`title`, `description`, `highlights`, `helpText`).
-5. Set media fields:
-   - `heroGifPath`
-   - optional `mediaAssets` screenshots
-6. Set CTA:
-   - `ctaLabel`
-   - `ctaRoute`
-7. Optional: raise/lower `priority` vs other campaigns.
-
-No additional component wiring is needed.
-
----
-
-## Enable / disable strategy
-
-- To disable a campaign quickly: set `enabled: false`.
-- To stop campaign naturally: set `endsAt` to a past date.
-- To relaunch with fresh impression history:
-  - create a new `id` (recommended), or
-  - clear storage keys manually for testing environments.
-
----
-
-## Technical assumptions and caveats
-
-1. Persistence scope
-   - Impression tracking currently uses browser storage (client-side).
-   - It is per browser profile/device, not server-global across devices.
-
-2. Why this fallback
-   - No server persistence layer for announcement impressions was added in this iteration.
-   - This is the cleanest low-friction reusable implementation with current architecture.
-
-3. Future server-side option
-   - If needed later, replace impression store functions with backend APIs while keeping:
-     - campaign model,
-     - popup UI,
-     - root orchestration logic.
-
-4. Route timing
-   - Popup is intentionally not shown on auth/public flow paths such as `/login`, `/selectserver`, `/wizard`, etc.
-
----
-
-## UX structure in popup
-
-The reusable popup supports:
-- Heading (`What's New?`)
-- Feature title/subtitle
-- GIF hero media area
-- Additional screenshot/media gallery
-- Short summary paragraph
-- Bullet highlights
-- Instruction/help text
-- Primary CTA + secondary close action
-- Responsive desktop/mobile layout
-
----
-
-## Quick test checklist
-
-1. Sign in as a user.
-2. Verify popup appears for active eligible campaign.
-3. Click `Close` and verify it does not reopen in same session.
-4. Sign in again and verify impression increments.
-5. Repeat until max impressions reached and verify popup stops auto-showing.
-6. Click `Check It Out` and verify route opens `/achievements`.
-7. Verify layout on desktop + narrow mobile viewport.
+1. Open Dashboard and verify `Announcement` tab is visible for admins.
+2. Open Announcement page and confirm seeded Leaderboard campaign is listed.
+3. Use Preview and verify popup styling remains consistent.
+4. Update text/media/CTA and Save.
+5. Sign in with a regular user and verify active campaign uses updated values.
+6. Verify per-session, per-day, and total impression limits behave correctly.
+7. Create multiple published active campaigns and verify slide navigation appears.

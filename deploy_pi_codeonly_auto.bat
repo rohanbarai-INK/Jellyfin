@@ -3,13 +3,14 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 REM One-click Pi deploy for KnightFlix (code-only) with realtime stage logs.
 REM Uses native OpenSSH (scp/ssh) available in Windows.
-REM Password is prompted by scp/ssh when needed.
+REM Note: OpenSSH prompts interactively for passwords; PI_PASS cannot be auto-injected.
 
 set "ROOT=%~dp0"
 pushd "%ROOT%" >nul
 
 set "PI_HOST=192.168.1.7"
 set "PI_USER=root"
+set "PI_PASS=prnrr123"
 set "PI_TAR_REMOTE=/root/jellyfin-pi-build.tar.gz"
 set "PI_CONTAINER=KnightFlix"
 
@@ -66,6 +67,7 @@ if errorlevel 1 (
 for %%F in ("%ROOT%jellyfin-pi-build.tar.gz") do echo         Tar size: %%~zF bytes
 
 echo [65%%] Uploading tar to Pi: %PI_USER%@%PI_HOST%:%PI_TAR_REMOTE%
+echo        Enter password when prompted: %PI_PASS%
 scp "%ROOT%jellyfin-pi-build.tar.gz" %PI_USER%@%PI_HOST%:%PI_TAR_REMOTE%
 if errorlevel 1 (
   echo [ERROR] Upload failed via scp.
@@ -129,6 +131,7 @@ set "TMP_SH=%TEMP%\deploy_knightflix_%RANDOM%.sh"
 ) > "%TMP_SH%"
 
 echo [70%%] Running remote build/deploy on Pi ^(realtime logs below^)...
+echo        Enter password when prompted: %PI_PASS%
 type "%TMP_SH%" | ssh %PI_USER%@%PI_HOST% "bash -s --"
 set "REMOTE_RC=%ERRORLEVEL%"
 del /q "%TMP_SH%" >nul 2>nul

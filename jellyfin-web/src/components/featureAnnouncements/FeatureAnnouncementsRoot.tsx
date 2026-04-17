@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom';
 
 import { appRouter } from 'components/router/appRouter';
 import { useApi } from 'hooks/useApi';
+import { fetchActiveFeatureAnnouncementCampaigns } from 'utils/featureAnnouncementsApi';
 
 import { FEATURE_ANNOUNCEMENT_CAMPAIGNS } from './featureAnnouncementCampaigns';
 import {
-    getNextEligibleCampaign,
+    getEligibleCampaigns,
     recordCampaignImpression
 } from './featureAnnouncementImpressionStore';
 import type { FeatureAnnouncementCampaign } from './featureAnnouncementTypes';
@@ -85,39 +86,99 @@ const FeatureAnnouncementsRoot = () => {
     const location = useLocation();
     const { user, __legacyApiClient__: apiClient } = useApi();
 
-    const [ activeCampaign, setActiveCampaign ] = useState<FeatureAnnouncementCampaign | null>(null);
+    const [ availableCampaigns, setAvailableCampaigns ] = useState<FeatureAnnouncementCampaign[]>([]);
+    const [ campaignsReady, setCampaignsReady ] = useState(false);
+    const [ activeCampaigns, setActiveCampaigns ] = useState<FeatureAnnouncementCampaign[]>([]);
+    const [ activeCampaignIndex, setActiveCampaignIndex ] = useState(0);
+
+    const activeCampaign = activeCampaigns[activeCampaignIndex] || null;
+
     const shownThisSessionRef = useRef<Set<string>>(new Set());
     const activeUserScopeRef = useRef<string>('');
+    const activeServerIdRef = useRef<string>('default');
+    const activeUserIdRef = useRef<string>('');
 
-    const tryOpenCampaign = useCallback(() => {
-        const userId = user?.Id || '';
-        if (!userId || activeCampaign || !canDisplayOnPath(location.pathname)) {
+    const openCampaignSlide = useCallback((nextIndex: number) => {
+        if (nextIndex < 0 || nextIndex >= activeCampaigns.length) {
             return;
         }
 
-        const serverIdFromUser = user?.ServerId || null;
-        const serverIdFromClient = typeof apiClient?.serverId === 'function' ?
-            (apiClient.serverId() || null) :
-            null;
+        const nextCampaign = activeCampaigns[nextIndex];
+        const userId = activeUserIdRef.current;
+        const serverId = activeServerIdRef.current;
 
-        const serverId = getServerScopeId(serverIdFromUser, serverIdFromClient);
-        const nextCampaign = getNextEligibleCampaign({
-            campaigns: FEATURE_ANNOUNCEMENT_CAMPAIGNS,
+        if (userId && serverId && !shownThisSessionRef.current.has(nextCampaign.id)) {
+            recordCampaignImpression(userId, serverId, nextCampaign.id, new Date().toISOString());
+            shownThisSessionRef.current.add(nextCampaign.id);
+            saveSessionShownCampaignIds(activeUserScopeRef.current, shownThisSessionRef.current);
+        }
+
+        setActiveCampaignIndex(nextIndex);
+    }, [ activeCampaigns ]);
+
+    const tryOpenCampaign = useCallback(() => {
+        const userId = user?.Id || '';
+        if (!userId || activeCampaign || !campaignsReady || !canDisplayOnPath(location.pathname)) {
+            return;
+        }
+
+        const serverId = activeServerIdRef.current;
+        const eligibleCampaigns = getEligibleCampaigns({
+            campaigns: availableCampaigns,
             userId,
             serverId,
             now: new Date(),
             sessionShownCampaignIds: shownThisSessionRef.current
         });
 
-        if (!nextCampaign) {
+        if (!eligibleCampaigns.length) {
             return;
         }
 
-        recordCampaignImpression(userId, serverId, nextCampaign.id, new Date().toISOString());
-        shownThisSessionRef.current.add(nextCampaign.id);
+        const firstCampaign = eligibleCampaigns[0];
+        recordCampaignImpression(userId, serverId, firstCampaign.id, new Date().toISOString());
+        shownThisSessionRef.current.add(firstCampaign.id);
         saveSessionShownCampaignIds(activeUserScopeRef.current, shownThisSessionRef.current);
-        setActiveCampaign(nextCampaign);
-    }, [ activeCampaign, apiClient, location.pathname, user?.Id, user?.ServerId ]);
+        setActiveCampaigns(eligibleCampaigns);
+        setActiveCampaignIndex(0);
+    }, [ activeCampaign, availableCampaigns, campaignsReady, location.pathname, user?.Id ]);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        if (!user?.Id) {
+            setAvailableCampaigns(FEATURE_ANNOUNCEMENT_CAMPAIGNS);
+            setCampaignsReady(true);
+            return () => {
+                isCancelled = true;
+            };
+        }
+
+        setCampaignsReady(false);
+        void (async () => {
+            try {
+                const campaignsFromApi = await fetchActiveFeatureAnnouncementCampaigns(apiClient || undefined);
+                if (isCancelled) {
+                    return;
+                }
+
+                setAvailableCampaigns(campaignsFromApi);
+            } catch (error) {
+                console.warn('[FeatureAnnouncements] Failed to load campaigns from API, using local fallback.', error);
+                if (!isCancelled) {
+                    setAvailableCampaigns(FEATURE_ANNOUNCEMENT_CAMPAIGNS);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setCampaignsReady(true);
+                }
+            }
+        })();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [ apiClient, user?.Id ]);
 
     useEffect(() => {
         const userId = user?.Id || '';
@@ -133,13 +194,17 @@ const FeatureAnnouncementsRoot = () => {
         }
 
         activeUserScopeRef.current = scopeKey;
+        activeUserIdRef.current = userId;
+        activeServerIdRef.current = resolvedServerId;
         shownThisSessionRef.current = loadSessionShownCampaignIds(scopeKey);
-        setActiveCampaign(null);
+        setActiveCampaigns([]);
+        setActiveCampaignIndex(0);
     }, [ apiClient, user?.Id, user?.ServerId ]);
 
     useEffect(() => {
         if (!user?.Id) {
-            setActiveCampaign(null);
+            setActiveCampaigns([]);
+            setActiveCampaignIndex(0);
             return;
         }
 
@@ -150,10 +215,11 @@ const FeatureAnnouncementsRoot = () => {
         return () => {
             window.clearTimeout(timer);
         };
-    }, [ location.pathname, tryOpenCampaign, user?.Id ]);
+    }, [ campaignsReady, location.pathname, tryOpenCampaign, user?.Id ]);
 
     const onClose = useCallback(() => {
-        setActiveCampaign(null);
+        setActiveCampaigns([]);
+        setActiveCampaignIndex(0);
     }, []);
 
     const onCheckItOut = useCallback(() => {
@@ -161,9 +227,31 @@ const FeatureAnnouncementsRoot = () => {
             return;
         }
 
+        if (activeCampaign.ctaTargetType === 'external') {
+            try {
+                const targetUrl = new URL(activeCampaign.ctaRoute);
+                window.location.assign(targetUrl.toString());
+            } catch (error) {
+                console.warn('[FeatureAnnouncements] Invalid external CTA target', error);
+            }
+
+            setActiveCampaigns([]);
+            setActiveCampaignIndex(0);
+            return;
+        }
+
         void appRouter.show(activeCampaign.ctaRoute);
-        setActiveCampaign(null);
+        setActiveCampaigns([]);
+        setActiveCampaignIndex(0);
     }, [ activeCampaign ]);
+
+    const onPreviousSlide = useCallback(() => {
+        openCampaignSlide(activeCampaignIndex - 1);
+    }, [ activeCampaignIndex, openCampaignSlide ]);
+
+    const onNextSlide = useCallback(() => {
+        openCampaignSlide(activeCampaignIndex + 1);
+    }, [ activeCampaignIndex, openCampaignSlide ]);
 
     if (!activeCampaign) {
         return null;
@@ -174,6 +262,10 @@ const FeatureAnnouncementsRoot = () => {
             campaign={activeCampaign}
             onCheckItOut={onCheckItOut}
             onClose={onClose}
+            slideIndex={activeCampaignIndex}
+            slideCount={activeCampaigns.length}
+            onPreviousSlide={onPreviousSlide}
+            onNextSlide={onNextSlide}
         />
     );
 };

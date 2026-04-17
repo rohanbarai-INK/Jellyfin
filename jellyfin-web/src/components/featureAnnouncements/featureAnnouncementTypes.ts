@@ -1,4 +1,5 @@
 export type FeatureAnnouncementMediaKind = 'image' | 'gif';
+export type FeatureAnnouncementCtaTargetType = 'internal' | 'external';
 
 export interface FeatureAnnouncementMediaAsset {
     src: string
@@ -20,9 +21,12 @@ export interface FeatureAnnouncementCampaign {
     mediaAssets?: FeatureAnnouncementMediaAsset[]
     ctaLabel: string
     ctaRoute: string
+    ctaTargetType?: FeatureAnnouncementCtaTargetType
     closeLabel?: string
     startsAt?: string
     endsAt?: string
+    maxImpressionsPerDay?: number
     maxImpressionsPerUser: number
     priority?: number
+    sortOrder?: number
 }

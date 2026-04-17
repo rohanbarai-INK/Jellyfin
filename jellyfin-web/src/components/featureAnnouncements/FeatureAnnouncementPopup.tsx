@@ -11,12 +11,20 @@ interface FeatureAnnouncementPopupProps {
     campaign: FeatureAnnouncementCampaign
     onCheckItOut: () => void
     onClose: () => void
+    slideIndex?: number
+    slideCount?: number
+    onPreviousSlide?: () => void
+    onNextSlide?: () => void
 }
 
 const FeatureAnnouncementPopup: FC<FeatureAnnouncementPopupProps> = ({
     campaign,
     onCheckItOut,
-    onClose
+    onClose,
+    slideIndex = 0,
+    slideCount = 1,
+    onPreviousSlide,
+    onNextSlide
 }) => {
     const popupClassName = useMemo(() => {
         if (layoutManager.tv) {
@@ -32,6 +40,7 @@ const FeatureAnnouncementPopup: FC<FeatureAnnouncementPopupProps> = ({
 
     const heading = campaign.heading || "What's New?";
     const closeLabel = campaign.closeLabel || 'Close';
+    const hasSlideNavigation = slideCount > 1;
 
     return (
         <Dialog
@@ -117,6 +126,30 @@ const FeatureAnnouncementPopup: FC<FeatureAnnouncementPopupProps> = ({
                         <p className='featureAnnouncementHelpText'>
                             {campaign.helpText}
                         </p>
+                    )}
+
+                    {hasSlideNavigation && (
+                        <div className='featureAnnouncementSlideControls'>
+                            <button
+                                type='button'
+                                className='featureAnnouncementSlideButton'
+                                onClick={onPreviousSlide}
+                                disabled={slideIndex <= 0}
+                            >
+                                Previous
+                            </button>
+                            <span className='featureAnnouncementSlideCount'>
+                                {slideIndex + 1} / {slideCount}
+                            </span>
+                            <button
+                                type='button'
+                                className='featureAnnouncementSlideButton'
+                                onClick={onNextSlide}
+                                disabled={slideIndex >= slideCount - 1}
+                            >
+                                Next
+                            </button>
+                        </div>
                     )}
 
                     <div className='featureAnnouncementActions'>

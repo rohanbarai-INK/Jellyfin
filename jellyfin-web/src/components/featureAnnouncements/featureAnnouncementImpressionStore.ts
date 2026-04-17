@@ -4,6 +4,7 @@ interface CampaignImpressionRecord {
     impressions: number
     firstShownAt: string
     lastShownAt: string
+    dailyImpressions?: Record<string, number>
 }
 
 type CampaignImpressionMap = Record<string, CampaignImpressionRecord>;
@@ -57,6 +58,16 @@ const saveImpressionMap = (userId: string, serverId: string, map: CampaignImpres
     safeSetLocalStorageItem(storageKey, JSON.stringify(map));
 };
 
+const toUtcDayKey = (isoValue: string) => {
+    const date = new Date(isoValue);
+    if (Number.isNaN(date.getTime())) {
+        const fallback = new Date();
+        return fallback.toISOString().slice(0, 10);
+    }
+
+    return date.toISOString().slice(0, 10);
+};
+
 export const getCampaignImpressionCount = (
     userId: string,
     serverId: string,
@@ -64,6 +75,16 @@ export const getCampaignImpressionCount = (
 ) => {
     const map = loadImpressionMap(userId, serverId);
     return map[campaignId]?.impressions || 0;
+};
+
+export const getCampaignDailyImpressionCount = (
+    userId: string,
+    serverId: string,
+    campaignId: string,
+    dayKey: string
+) => {
+    const map = loadImpressionMap(userId, serverId);
+    return map[campaignId]?.dailyImpressions?.[dayKey] || 0;
 };
 
 export const recordCampaignImpression = (
@@ -74,11 +95,17 @@ export const recordCampaignImpression = (
 ) => {
     const map = loadImpressionMap(userId, serverId);
     const existing = map[campaignId];
+    const dayKey = toUtcDayKey(shownAtIso);
+    const existingDaily = existing?.dailyImpressions || {};
 
     map[campaignId] = {
         impressions: (existing?.impressions || 0) + 1,
         firstShownAt: existing?.firstShownAt || shownAtIso,
-        lastShownAt: shownAtIso
+        lastShownAt: shownAtIso,
+        dailyImpressions: {
+            ...existingDaily,
+            [dayKey]: (existingDaily[dayKey] || 0) + 1
+        }
     };
 
     saveImpressionMap(userId, serverId, map);
@@ -110,15 +137,25 @@ interface NextCampaignParams {
     sessionShownCampaignIds: Set<string>
 }
 
-export const getNextEligibleCampaign = ({
+export const getEligibleCampaigns = ({
     campaigns,
     userId,
     serverId,
     now,
     sessionShownCampaignIds
-}: NextCampaignParams): FeatureAnnouncementCampaign | null => {
+}: NextCampaignParams): FeatureAnnouncementCampaign[] => {
+    const nowDayKey = now.toISOString().slice(0, 10);
     const sortedCampaigns = [ ...campaigns ]
-        .sort((left, right) => (right.priority || 0) - (left.priority || 0));
+        .sort((left, right) => {
+            const priorityDiff = (right.priority || 0) - (left.priority || 0);
+            if (priorityDiff !== 0) {
+                return priorityDiff;
+            }
+
+            return (right.sortOrder || 0) - (left.sortOrder || 0);
+        });
+
+    const eligibleCampaigns: FeatureAnnouncementCampaign[] = [];
 
     for (const campaign of sortedCampaigns) {
         if (!campaign.enabled || campaign.maxImpressionsPerUser <= 0) {
@@ -138,8 +175,21 @@ export const getNextEligibleCampaign = ({
             continue;
         }
 
-        return campaign;
+        const dailyLimit = campaign.maxImpressionsPerDay || 0;
+        if (dailyLimit > 0) {
+            const dailyImpressions = getCampaignDailyImpressionCount(userId, serverId, campaign.id, nowDayKey);
+            if (dailyImpressions >= dailyLimit) {
+                continue;
+            }
+        }
+
+        eligibleCampaigns.push(campaign);
     }
 
-    return null;
+    return eligibleCampaigns;
+};
+
+export const getNextEligibleCampaign = (params: NextCampaignParams): FeatureAnnouncementCampaign | null => {
+    const campaigns = getEligibleCampaigns(params);
+    return campaigns[0] || null;
 };

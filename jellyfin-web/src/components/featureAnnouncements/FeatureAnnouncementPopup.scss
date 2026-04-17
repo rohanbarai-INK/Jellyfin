@@ -145,6 +145,37 @@
     line-height: 1.38;
 }
 
+.featureAnnouncementSlideControls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.featureAnnouncementSlideButton {
+    border-radius: 0.5rem;
+    border: 1px solid var(--jf-palette-divider);
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.72);
+    color: var(--jf-palette-text-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.38rem 0.62rem;
+    cursor: pointer;
+}
+
+.featureAnnouncementSlideButton:disabled {
+    cursor: default;
+    opacity: 0.45;
+}
+
+.featureAnnouncementSlideCount {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 3.2rem;
+    text-align: center;
+}
+
 .featureAnnouncementActions {
     margin-top: 0.2rem;
     display: flex;
