@@ -3,6 +3,7 @@ import { AppType } from 'constants/appType';
 
 export const ASYNC_USER_ROUTES: AsyncRoute[] = [
     { path: 'achievements', page: 'user/achievements' },
+    { path: 'leaderboard', page: 'user/leaderboard', type: AppType.Stable },
     { path: 'home', type: AppType.Experimental },
     { path: 'homevideos', type: AppType.Experimental },
     { path: 'livetv', type: AppType.Experimental },

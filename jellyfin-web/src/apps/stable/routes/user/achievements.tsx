@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState, type FC } from 'react';
+import React, { useEffect, useMemo, useState, type FC } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import Loading from 'components/loading/LoadingComponent';
@@ -34,9 +34,6 @@ import {
 import RankBadge from 'components/rewardSystem/RankBadge';
 
 import './achievements.scss';
-import './leaderboard.scss';
-
-const LeaderboardTab = lazy(() => import('./LeaderboardTab'));
 
 const DEFAULT_TOTAL_ACHIEVEMENTS = 100;
 const DEMO_USER_NAME = 'baraibrothers';
@@ -198,7 +195,6 @@ const AchievementHistoryPage: FC = () => {
         return users?.find(user => user.Id === requestedUserId)?.Name || '';
     }, [ currentUser?.Id, currentUser?.Name, requestedUserId, users ]);
 
-    const [ activeTab, setActiveTab ] = useState<'achievements' | 'leaderboard'>('achievements');
     const [ history, setHistory ] = useState<AchievementHistoryEntry[]>(() => getLocalAchievementHistory(requestedUserId));
     const [ totalAchievements, setTotalAchievements ] = useState<number>(DEFAULT_TOTAL_ACHIEVEMENTS);
     const [ activityTotals, setActivityTotals ] = useState(() => getActivityRewardTotals(requestedUserId));
@@ -550,36 +546,6 @@ const AchievementHistoryPage: FC = () => {
                             </h2>
                             <RankBadge level={level} />
                         </div>
-
-                        <nav className='achievementsTabStrip' role='tablist'>
-                            <button
-                                type='button'
-                                role='tab'
-                                aria-selected={activeTab === 'achievements'}
-                                className={`achievementsTabButton${activeTab === 'achievements' ? ' achievementsTabButton-active' : ''}`}
-                                onClick={() => setActiveTab('achievements')}
-                            >
-                                Achievements
-                            </button>
-                            <button
-                                type='button'
-                                role='tab'
-                                aria-selected={activeTab === 'leaderboard'}
-                                className={`achievementsTabButton${activeTab === 'leaderboard' ? ' achievementsTabButton-active' : ''}`}
-                                onClick={() => setActiveTab('leaderboard')}
-                            >
-                                Leaderboard
-                            </button>
-                        </nav>
-
-                        {activeTab === 'leaderboard' && (
-                            <Suspense fallback={<Loading />}>
-                                <LeaderboardTab />
-                            </Suspense>
-                        )}
-
-                        {activeTab === 'achievements' && (
-                        <>
                         <section className='achievementsHudCard'>
                             <div className='achievementsHudGlow' />
 
@@ -733,8 +699,6 @@ const AchievementHistoryPage: FC = () => {
                                     </details>
                                 ))}
                             </div>
-                        )}
-                        </>
                         )}
                     </div>
                 </div>

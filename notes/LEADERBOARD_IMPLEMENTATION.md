@@ -1,13 +1,13 @@
 # Seasonal Leaderboard System Implementation
 
 **Date**: April 2026  
-**Context**: Integrated a seasonal leaderboard into the Jellyfin Achievements page to track user XP, levels, and rankings per season.
+**Context**: Integrated a seasonal leaderboard as a dedicated user page to track user XP, levels, and rankings per season.
 
 ---
 
 ## Overview
 
-The leaderboard is now a metric-aware seasonal competition system integrated in the Achievements page.
+The leaderboard is now a metric-aware seasonal competition system available as a dedicated page (`#/leaderboard`) with direct navigation links from profile menus.
 
 Current behavior includes:
 - Multi-metric ranking tabs: `xp`, `watchtime`, `movies`, `series`, `genres`, `streak`, `achievements`
@@ -165,11 +165,11 @@ Typed API calls with PascalCase → camelCase normalization:
 - `getLeaderboardTop(seasonYear, limit, metricType, apiClient, offset)` → `/Leaderboard/Top?type=...&offset=...`
 - DTO parsing for rich rows, competition neighbors, and pagination metadata
 
-### 2. Leaderboard Tab Component
+### 2. Leaderboard Component
 
 **File**: `jellyfin-web/src/apps/stable/routes/user/LeaderboardTab.tsx`
 
-The tab was redesigned into one continuous leaderboard experience:
+The leaderboard UI is implemented as one continuous leaderboard experience:
 - Metric tab strip for all supported leaderboard metrics
 - Unified leaderboard board/table with rich rows
 - Inline continuation row (`...`) and paginated load more behavior
@@ -194,21 +194,33 @@ Edge handling:
 - Rank 10: still shows rank 11 as “behind you” when available via backend-provided neighbor data
 - Metric-aware gap text remains driven by backend `GapLabel` / `MetricLabel` values
 
-### 3. Tab Strip Integration
+### 3. Dedicated Leaderboard Route
 
-**File**: `jellyfin-web/src/apps/stable/routes/user/achievements.tsx`
+**Files**:
+- `jellyfin-web/src/apps/stable/routes/user/leaderboard.tsx`
+- `jellyfin-web/src/apps/stable/routes/asyncRoutes/user.ts`
+- `jellyfin-web/src/apps/experimental/routes/asyncRoutes/user.ts`
 
-Added tab strip with two tabs:
-- **Achievements** (default) — original achievements view
-- **Leaderboard** — new seasonal leaderboard view
+Leaderboard is now its own page at:
+- `#/leaderboard?userId=<id>`
 
-Uses `activeTab` state to conditionally render content.
+`LeaderboardTab.tsx` is reused inside this dedicated route to keep the same leaderboard UI and behavior.
 
-### 4. Styles
+Achievements remains a separate page (`#/achievements`) focused only on achievement history/progression.
+
+### 4. Profile Navigation Entry
+
+**Files**:
+- `jellyfin-web/src/components/toolbar/AppUserMenu.tsx`
+- `jellyfin-web/src/apps/stable/routes/user/settings/index.tsx`
+
+Added a direct **Leaderboard** option in profile-related menus, alongside existing Request/Achievements-style quick links, so users can open leaderboard directly without entering Achievements first.
+
+### 5. Styles
 
 **File**: `jellyfin-web/src/apps/stable/routes/user/leaderboard.scss`
 
-Dark-theme, responsive styles (mobile breakpoint at 640px). Uses same `#achievementsPage` scope as existing achievements SCSS for consistency.
+Dark-theme, responsive styles (mobile breakpoint at 640px). Leaderboard styles are scoped for both `#achievementsPage` and `#leaderboardPage` to support shared leaderboard UI rendering.
 
 Recent additions:
 - Inline Top 10 competition strip card styling
@@ -372,8 +384,13 @@ To deploy to the Pi (KnightFlix container), follow `DEPLOY_PI_CODE_ONLY.md`:
 ### Frontend (React/TypeScript)
 - `jellyfin-web/src/utils/leaderboardApi.ts` (new)
 - `jellyfin-web/src/apps/stable/routes/user/LeaderboardTab.tsx` (new)
+- `jellyfin-web/src/apps/stable/routes/user/leaderboard.tsx` (new)
 - `jellyfin-web/src/apps/stable/routes/user/leaderboard.scss` (new)
 - `jellyfin-web/src/apps/stable/routes/user/achievements.tsx` (modified)
+- `jellyfin-web/src/apps/stable/routes/asyncRoutes/user.ts` (modified)
+- `jellyfin-web/src/apps/experimental/routes/asyncRoutes/user.ts` (modified)
+- `jellyfin-web/src/components/toolbar/AppUserMenu.tsx` (modified)
+- `jellyfin-web/src/apps/stable/routes/user/settings/index.tsx` (modified)
 
 ---
 

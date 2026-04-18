@@ -198,6 +198,18 @@ const AppUserMenu: FC<AppUserMenuProps> = ({
             </MenuItem>
             <MenuItem
                 component={Link}
+                to={`/leaderboard?userId=${user?.Id}`}
+                onClick={onMenuClose}
+            >
+                <ListItemIcon>
+                    <EmojiEvents />
+                </ListItemIcon>
+                <ListItemText>
+                    Leaderboard
+                </ListItemText>
+            </MenuItem>
+            <MenuItem
+                component={Link}
                 to={`/personalinsights?period=month&userId=${user?.Id}`}
                 onClick={onMenuClose}
             >

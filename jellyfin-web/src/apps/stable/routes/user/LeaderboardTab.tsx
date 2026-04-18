@@ -173,7 +173,7 @@ const LeaderboardRow: FC<{
                     <div className={`leaderboardRowRank leaderboardRowRank-${badgeKind}`}>#{entry.rank}</div>
                     <div className={`leaderboardRowAvatar leaderboardRowAvatar-${badgeKind}`}>
                         {avatarUrl ? (
-                            <img src={avatarUrl} alt='' className='leaderboardRowAvatarImage' />
+                            <img src={avatarUrl} alt='' className='MuiAvatar-root MuiAvatar-circular css-1dx9e6p' />
                         ) : (
                             <span className='leaderboardRowAvatarFallback'>{getInitials(entry.userName)}</span>
                         )}

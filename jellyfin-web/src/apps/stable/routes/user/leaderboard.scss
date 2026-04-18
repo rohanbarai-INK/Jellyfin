@@ -1,4 +1,5 @@
-#achievementsPage {
+#achievementsPage,
+#leaderboardPage {
     .achievementsTabStrip {
         display: flex;
         gap: 0;
@@ -762,7 +763,9 @@
         box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16);
     }
 
-    .leaderboardRowAvatarImage {
+    .leaderboardRowAvatar .MuiAvatar-root,
+    .leaderboardRowAvatar .MuiAvatar-circular,
+    .leaderboardRowAvatar .css-1dx9e6p {
         width: 100%;
         height: 100%;
         border-radius: inherit;
@@ -1001,7 +1004,8 @@
 }
 
 @media (max-width: 640px) {
-    #achievementsPage {
+    #achievementsPage,
+    #leaderboardPage {
         .leaderboardHeroHeader,
         .leaderboardBoardHeader {
             flex-direction: column;

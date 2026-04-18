@@ -366,6 +366,25 @@ const UserSettingsPage: FC = () => {
                             </div>
                         </LinkButton>
 
+                        <LinkButton
+                            href={`#/leaderboard?userId=${userId}`}
+                            className='lnkLeaderboard listItem-border'
+                            style={{
+                                display: 'block',
+                                margin: 0,
+                                padding: 0
+                            }}
+                        >
+                            <div className='listItem'>
+                                <span className='material-icons listItemIcon listItemIcon-transparent emoji_events' aria-hidden='true' />
+                                <div className='listItemBody'>
+                                    <div className='listItemBodyText'>
+                                        Leaderboard
+                                    </div>
+                                </div>
+                            </div>
+                        </LinkButton>
+
                         {appHost.supports(AppFeature.DownloadManagement) && (
                             <LinkButton
                                 onClick={shell.openDownloadManager}
