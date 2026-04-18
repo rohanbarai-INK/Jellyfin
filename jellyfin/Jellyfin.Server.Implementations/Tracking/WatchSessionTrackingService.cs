@@ -118,7 +118,7 @@ namespace Jellyfin.Server.Implementations.Tracking
                 state.ExecuteLocked(() =>
                 {
                     UpdateSessionMetadata(state.Session, persistedSessionId);
-                    ApplyProgressDelta(state, currentPositionTicks, eventArgs.IsPaused, nowUtc);
+                    ApplyProgressDelta(state, currentPositionTicks, eventArgs.IsPaused, nowUtc, isFinalProgress: false);
                 });
             }
 
@@ -158,7 +158,7 @@ namespace Jellyfin.Server.Implementations.Tracking
                 state.ExecuteLocked(() =>
                 {
                     UpdateSessionMetadata(state.Session, persistedSessionId);
-                    ApplyProgressDelta(state, finalPositionTicks, isPaused: false, nowUtc);
+                    ApplyProgressDelta(state, finalPositionTicks, isPaused: false, nowUtc, isFinalProgress: true);
                     FinalizeSession(state.Session, nowUtc);
                 });
 
@@ -278,7 +278,8 @@ namespace Jellyfin.Server.Implementations.Tracking
             ActiveWatchState state,
             long currentPositionTicks,
             bool isPaused,
-            DateTime nowUtc)
+            DateTime nowUtc,
+            bool isFinalProgress)
         {
             var deltaTicks = currentPositionTicks - state.LastPositionTicks;
             if (isPaused)
@@ -339,6 +340,20 @@ namespace Jellyfin.Server.Implementations.Tracking
             }
             else
             {
+                if (isFinalProgress)
+                {
+                    // Some clients report a coarse final position only at stop.
+                    // Recover plausible validated time based on total session wall-clock.
+                    var sessionElapsedTicks = Math.Max(_minimumExpectedIntervalTicks, (nowUtc - state.Session.StartTimeUtc).Ticks);
+                    var maxSessionValidatedTicks = CapTicks((long)Math.Floor(sessionElapsedTicks * _highPlaybackSpeedThreshold));
+                    var remainingValidatedBudget = Math.Max(0, maxSessionValidatedTicks - state.Session.ValidatedTicks);
+                    var fallbackValidatedTicks = Math.Min(deltaTicks, remainingValidatedBudget);
+                    if (fallbackValidatedTicks > 0)
+                    {
+                        state.Session.ValidatedTicks = CapTicks(state.Session.ValidatedTicks + fallbackValidatedTicks);
+                    }
+                }
+
                 var suspiciousDeltaThreshold = Math.Max(
                     maxAllowedDeltaTicks * _extremeForwardJumpMultiplier,
                     _suspiciousSeekJumpTicks);

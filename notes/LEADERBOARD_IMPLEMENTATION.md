@@ -269,6 +269,74 @@ Added calls to `EnsureTableExistsAsync()` in:
 
 ---
 
+## Bug Fix: Missing Users in Leaderboard
+
+### Problem
+Leaderboard showed only users who had logged in after feature implementation. Existing users who never triggered leaderboard-related activity (playback, achievements, requests) were missing from `UserSeasonStats` table and thus excluded from rankings.
+
+Example: local environment had 6 users but leaderboard showed only 3 (Test, baraibrothers, Rohan).
+
+### Root Cause
+`UserSeasonStats` rows were created lazily per user only when:
+- User triggered playback (`RecordPlaybackStats`)
+- User unlocked achievements (`RecordAchievementXp`)
+- User had approved requests (`RecordApprovedRequest`)
+
+Leaderboard read operations (`GetTopLeaderboard`, `GetPersonalStats`) only queried `UserSeasonStats`, so users without rows never appeared.
+
+### Solution
+Added backfill logic in `LeaderboardService.cs` to ensure all current users have a season row before leaderboard reads:
+
+```csharp
+private async Task EnsureSeasonRowsForAllUsersAsync(JellyfinDbContext dbContext, int seasonYear)
+{
+    var allUserIds = _userManager.Users
+        .Select(user => user.Id)
+        .ToArray();
+
+    if (allUserIds.Length == 0)
+    {
+        return;
+    }
+
+    var existingUserIds = await dbContext.UserSeasonStats
+        .AsNoTracking()
+        .Where(stats => stats.SeasonYear == seasonYear)
+        .Select(stats => stats.UserId)
+        .ToListAsync()
+        .ConfigureAwait(false);
+
+    var existingSet = new HashSet<Guid>(existingUserIds);
+    foreach (var userId in allUserIds)
+    {
+        if (existingSet.Contains(userId))
+        {
+            continue;
+        }
+
+        _ = await GetOrCreateSeasonStats(dbContext, userId, seasonYear).ConfigureAwait(false);
+    }
+}
+```
+
+Called from `GetSeasonRowsAsync` before querying leaderboard rows:
+```csharp
+await EnsureTableExistsAsync(dbContext).ConfigureAwait(false);
+await EnsureSeasonRowsForAllUsersAsync(dbContext, seasonYear).ConfigureAwait(false);
+```
+
+### Behavior After Fix
+- All existing users are backfilled with a `UserSeasonStats` row for the current season on first leaderboard read
+- Users with no activity appear with zero metrics (0 XP, 0 watch time, etc.)
+- Total users count in leaderboard reflects actual user count in system
+- Backfill runs once per season year; subsequent reads use cached rows
+
+### Verification
+- Rebuilt backend: `dotnet build Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj`
+- Build succeeded (existing package vulnerability warning unrelated to this change)
+
+---
+
 ## Deployment Notes
 
 ### Local Dev Server

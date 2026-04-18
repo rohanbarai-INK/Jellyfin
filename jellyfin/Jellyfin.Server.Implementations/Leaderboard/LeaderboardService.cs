@@ -489,6 +489,7 @@ namespace Jellyfin.Server.Implementations.Leaderboard
             await using (dbContext.ConfigureAwait(false))
             {
                 await EnsureTableExistsAsync(dbContext).ConfigureAwait(false);
+                await EnsureSeasonRowsForAllUsersAsync(dbContext, seasonYear).ConfigureAwait(false);
 
                 var query = dbContext.UserSeasonStats
                     .AsNoTracking()
@@ -516,6 +517,36 @@ namespace Jellyfin.Server.Implementations.Leaderboard
 
                 _seasonCache[cacheKey] = (DateTime.UtcNow.AddSeconds(CacheTtlSeconds), rows);
                 return rows;
+            }
+        }
+
+        private async Task EnsureSeasonRowsForAllUsersAsync(JellyfinDbContext dbContext, int seasonYear)
+        {
+            var allUserIds = _userManager.Users
+                .Select(user => user.Id)
+                .ToArray();
+
+            if (allUserIds.Length == 0)
+            {
+                return;
+            }
+
+            var existingUserIds = await dbContext.UserSeasonStats
+                .AsNoTracking()
+                .Where(stats => stats.SeasonYear == seasonYear)
+                .Select(stats => stats.UserId)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            var existingSet = new HashSet<Guid>(existingUserIds);
+            foreach (var userId in allUserIds)
+            {
+                if (existingSet.Contains(userId))
+                {
+                    continue;
+                }
+
+                _ = await GetOrCreateSeasonStats(dbContext, userId, seasonYear).ConfigureAwait(false);
             }
         }
 

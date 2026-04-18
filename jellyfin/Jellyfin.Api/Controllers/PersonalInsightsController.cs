@@ -114,7 +114,8 @@ public class PersonalInsightsController : BaseJellyfinApiController
                     Minutes = hour.Minutes
                 }).ToList(),
                 PeakHour = result.PeakViewing.PeakHour,
-                Label = result.PeakViewing.Label
+                Label = result.PeakViewing.Label,
+                HasViewingActivity = result.PeakViewing.HasViewingActivity
             },
             ContinueWatching = result.ContinueWatching.Select(item => new PersonalInsightsContinueWatchingDto
             {

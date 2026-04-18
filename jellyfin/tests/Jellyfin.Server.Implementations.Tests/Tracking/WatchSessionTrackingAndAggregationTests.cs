@@ -286,6 +286,117 @@ public class WatchSessionTrackingAndAggregationTests
     }
 
     [Fact]
+    public async Task BingeDetection_SupportsFullyQualifiedEpisodeType()
+    {
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var episode1Id = Guid.NewGuid();
+        var episode2Id = Guid.NewGuid();
+        var episode3Id = Guid.NewGuid();
+
+        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero));
+        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Episode
+        {
+            Id = episode1Id,
+            Name = "Episode 1",
+            SeriesId = seriesId,
+            ParentIndexNumber = 1,
+            IndexNumber = 1,
+            RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
+        });
+        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Episode
+        {
+            Id = episode2Id,
+            Name = "Episode 2",
+            SeriesId = seriesId,
+            ParentIndexNumber = 1,
+            IndexNumber = 2,
+            RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
+        });
+        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Episode
+        {
+            Id = episode3Id,
+            Name = "Episode 3",
+            SeriesId = seriesId,
+            ParentIndexNumber = 1,
+            IndexNumber = 3,
+            RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
+        });
+
+        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
+        {
+            var item1 = await dbContext.BaseItems.SingleAsync(item => item.Id.Equals(episode1Id));
+            var item2 = await dbContext.BaseItems.SingleAsync(item => item.Id.Equals(episode2Id));
+            var item3 = await dbContext.BaseItems.SingleAsync(item => item.Id.Equals(episode3Id));
+            item1.Type = typeof(MediaBrowser.Controller.Entities.TV.Episode).FullName!;
+            item2.Type = typeof(MediaBrowser.Controller.Entities.TV.Episode).FullName!;
+            item3.Type = typeof(MediaBrowser.Controller.Entities.TV.Episode).FullName!;
+            await dbContext.SaveChangesAsync();
+        }
+
+        var start = new DateTime(2026, 4, 10, 9, 0, 0, DateTimeKind.Utc);
+        var ticks = TimeSpan.FromMinutes(24).Ticks;
+        await context.PersistAndAggregateAsync(CreateValidSession(userId, episode1Id, "ep-1", start, ticks));
+        await context.PersistAndAggregateAsync(CreateValidSession(userId, episode2Id, "ep-2", start.AddHours(1), ticks));
+        await context.PersistAndAggregateAsync(CreateValidSession(userId, episode3Id, "ep-3", start.AddHours(2), ticks));
+
+        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
+        {
+            var binge = await dbContext.UserBingeSessions.SingleAsync(row => row.UserId.Equals(userId));
+            Assert.Equal(seriesId, binge.SeriesId);
+            Assert.Equal(3, binge.EpisodeCount);
+
+            var monthStats = await dbContext.UserPeriodStats
+                .SingleAsync(stats => stats.UserId.Equals(userId)
+                    && stats.PeriodType == PeriodType.Month
+                    && stats.PeriodKey == "2026-04");
+            Assert.Equal(1, monthStats.BingeSessions);
+        }
+    }
+
+    [Fact]
+    public async Task GenreAggregation_UsesSeriesGenresWhenEpisodeGenresMissing()
+    {
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+
+        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 4, 10, 9, 0, 0, TimeSpan.Zero));
+        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Series
+        {
+            Id = seriesId,
+            Name = "Series With Genre",
+            Genres = ["Drama"]
+        });
+        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Episode
+        {
+            Id = episodeId,
+            Name = "Episode Without Genres",
+            SeriesId = seriesId,
+            ParentIndexNumber = 1,
+            IndexNumber = 1,
+            RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
+        });
+
+        var validatedTicks = TimeSpan.FromMinutes(24).Ticks;
+        await context.PersistAndAggregateAsync(CreateValidSession(
+            userId,
+            episodeId,
+            "genre-fallback-ep",
+            new DateTime(2026, 4, 10, 9, 0, 0, DateTimeKind.Utc),
+            validatedTicks));
+
+        await using var dbContext = await context.DbFactory.CreateDbContextAsync();
+        var genreRow = await dbContext.UserGenrePeriodStats.SingleAsync(row =>
+            row.UserId.Equals(userId)
+            && row.PeriodType == PeriodType.Month
+            && row.PeriodKey == "2026-04"
+            && row.GenreId == "Drama");
+
+        Assert.Equal(validatedTicks, genreRow.TotalValidatedTicks);
+    }
+
+    [Fact]
     public async Task MultiDeviceConcurrentSessions_AreTrackedIndependently()
     {
         var userId = Guid.NewGuid();
@@ -422,6 +533,43 @@ public class WatchSessionTrackingAndAggregationTests
         Assert.True(session.IsValidSession);
         Assert.Equal(0, session.SuspicionScore);
         Assert.Equal(TimeSpan.FromSeconds(20).Ticks, session.ValidatedTicks);
+    }
+
+    [Fact]
+    public async Task SparseFinalStopPosition_RecoversPlausibleValidatedTicks()
+    {
+        var userId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var user = CreateUser(userId);
+        var movie = new Movie
+        {
+            Id = itemId,
+            Name = "Sparse Stop Movie",
+            RunTimeTicks = TimeSpan.FromHours(2).Ticks
+        };
+
+        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 3, 18, 12, 0, 0, TimeSpan.Zero));
+        await context.RegisterItemAsync(movie);
+
+        await context.TrackingService.HandlePlaybackStart(CreateStartEvent(user, movie, "play-sparse-stop", 0));
+        context.TimeProvider.Advance(TimeSpan.FromMinutes(10));
+        await context.TrackingService.HandlePlaybackProgress(CreateProgressEvent(
+            user,
+            movie,
+            "play-sparse-stop",
+            TimeSpan.FromSeconds(5).Ticks));
+        context.TimeProvider.Advance(TimeSpan.FromSeconds(5));
+        await context.TrackingService.HandlePlaybackStop(CreateStopEvent(
+            user,
+            movie,
+            "play-sparse-stop",
+            TimeSpan.FromMinutes(10).Ticks + TimeSpan.FromSeconds(5).Ticks));
+
+        await using var dbContext = await context.DbFactory.CreateDbContextAsync();
+        var session = await dbContext.UserWatchSessions.SingleAsync();
+        Assert.True(session.IsValidSession);
+        Assert.True(session.SuspicionScore >= 1);
+        Assert.True(session.ValidatedTicks >= TimeSpan.FromMinutes(10).Ticks);
     }
 
     [Fact]
@@ -594,14 +742,14 @@ public class WatchSessionTrackingAndAggregationTests
     }
 
     [Fact]
-    public async Task PersonalInsights_CompletionCounts_UsePlayedStateWithPeriodFiltering()
+    public async Task PersonalInsights_CompletionCounts_AreSourcedFromAggregatedStats()
     {
         var userId = Guid.NewGuid();
         var monthMovieId = Guid.NewGuid();
         var previousMovieId = Guid.NewGuid();
         var monthEpisodeId = Guid.NewGuid();
         var previousEpisodeId = Guid.NewGuid();
-        var monthUnplayedEpisodeId = Guid.NewGuid();
+        var userDataOnlyMovieId = Guid.NewGuid();
 
         await using var context = await CreateContextAsync(new DateTimeOffset(2026, 3, 19, 10, 0, 0, TimeSpan.Zero));
         await context.RegisterItemAsync(new Movie
@@ -632,27 +780,38 @@ public class WatchSessionTrackingAndAggregationTests
             IndexNumber = 2,
             RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
         });
-        await context.RegisterItemAsync(new MediaBrowser.Controller.Entities.TV.Episode
+        await context.RegisterItemAsync(new Movie
         {
-            Id = monthUnplayedEpisodeId,
-            Name = "Month Unplayed Episode",
-            ParentIndexNumber = 1,
-            IndexNumber = 3,
-            RunTimeTicks = TimeSpan.FromMinutes(24).Ticks
+            Id = userDataOnlyMovieId,
+            Name = "UserData Only Movie",
+            RunTimeTicks = TimeSpan.FromMinutes(95).Ticks
         });
 
-        // Production stores BaseItems.Type as fully-qualified names.
-        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
-        {
-            var monthMovieEntity = await dbContext.BaseItems.SingleAsync(item => item.Id.Equals(monthMovieId));
-            monthMovieEntity.Type = typeof(Movie).FullName!;
-            var monthEpisodeEntity = await dbContext.BaseItems.SingleAsync(item => item.Id.Equals(monthEpisodeId));
-            monthEpisodeEntity.Type = typeof(MediaBrowser.Controller.Entities.TV.Episode).FullName!;
-            await dbContext.SaveChangesAsync();
-        }
+        await context.PersistAndAggregateAsync(CreateValidSession(
+            userId,
+            previousMovieId,
+            "prev-movie",
+            new DateTime(2026, 2, 10, 8, 0, 0, DateTimeKind.Utc),
+            TimeSpan.FromMinutes(110).Ticks));
+        await context.PersistAndAggregateAsync(CreateValidSession(
+            userId,
+            previousEpisodeId,
+            "prev-episode",
+            new DateTime(2026, 2, 10, 10, 0, 0, DateTimeKind.Utc),
+            TimeSpan.FromMinutes(24).Ticks));
+        await context.PersistAndAggregateAsync(CreateValidSession(
+            userId,
+            monthMovieId,
+            "month-movie",
+            new DateTime(2026, 3, 12, 9, 0, 0, DateTimeKind.Utc),
+            TimeSpan.FromMinutes(100).Ticks));
+        await context.PersistAndAggregateAsync(CreateValidSession(
+            userId,
+            monthEpisodeId,
+            "month-episode",
+            new DateTime(2026, 3, 12, 11, 0, 0, DateTimeKind.Utc),
+            TimeSpan.FromMinutes(24).Ticks));
 
-        var monthPlayedDate = new DateTime(2026, 3, 12, 9, 0, 0, DateTimeKind.Utc);
-        var previousPlayedDate = new DateTime(2026, 2, 10, 8, 0, 0, DateTimeKind.Utc);
         await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
         {
             dbContext.Users.Add(new Jellyfin.Database.Implementations.Entities.User("completed-user", "default", "default")
@@ -663,67 +822,12 @@ public class WatchSessionTrackingAndAggregationTests
             dbContext.UserData.AddRange(
                 new UserData
                 {
-                    ItemId = monthMovieId,
+                    ItemId = userDataOnlyMovieId,
                     UserId = userId,
-                    CustomDataKey = monthMovieId.ToString("D"),
+                    CustomDataKey = userDataOnlyMovieId.ToString("D"),
                     PlaybackPositionTicks = 0,
                     Played = true,
-                    LastPlayedDate = monthPlayedDate,
-                    Item = null!,
-                    User = null!
-                },
-                new UserData
-                {
-                    ItemId = monthMovieId,
-                    UserId = userId,
-                    CustomDataKey = "external-complete-key",
-                    PlaybackPositionTicks = 0,
-                    Played = true,
-                    LastPlayedDate = monthPlayedDate,
-                    Item = null!,
-                    User = null!
-                },
-                new UserData
-                {
-                    ItemId = previousMovieId,
-                    UserId = userId,
-                    CustomDataKey = previousMovieId.ToString("D"),
-                    PlaybackPositionTicks = 0,
-                    Played = true,
-                    LastPlayedDate = previousPlayedDate,
-                    Item = null!,
-                    User = null!
-                },
-                new UserData
-                {
-                    ItemId = monthEpisodeId,
-                    UserId = userId,
-                    CustomDataKey = monthEpisodeId.ToString("D"),
-                    PlaybackPositionTicks = 0,
-                    Played = true,
-                    LastPlayedDate = monthPlayedDate.AddMinutes(10),
-                    Item = null!,
-                    User = null!
-                },
-                new UserData
-                {
-                    ItemId = previousEpisodeId,
-                    UserId = userId,
-                    CustomDataKey = previousEpisodeId.ToString("D"),
-                    PlaybackPositionTicks = 0,
-                    Played = true,
-                    LastPlayedDate = previousPlayedDate.AddMinutes(10),
-                    Item = null!,
-                    User = null!
-                },
-                new UserData
-                {
-                    ItemId = monthUnplayedEpisodeId,
-                    UserId = userId,
-                    CustomDataKey = monthUnplayedEpisodeId.ToString("D"),
-                    PlaybackPositionTicks = TimeSpan.FromMinutes(5).Ticks,
-                    Played = false,
-                    LastPlayedDate = monthPlayedDate.AddMinutes(20),
+                    LastPlayedDate = new DateTime(2026, 3, 12, 14, 0, 0, DateTimeKind.Utc),
                     Item = null!,
                     User = null!
                 });
@@ -738,50 +842,22 @@ public class WatchSessionTrackingAndAggregationTests
         Assert.Equal(0, result.Summary.MoviesDelta);
         Assert.Equal(1, result.Summary.EpisodesWatched);
         Assert.Equal(0, result.Summary.EpisodesDelta);
+        Assert.True(result.Summary.TotalWatchHours > 2D);
     }
 
     [Fact]
-    public async Task PersonalInsights_AllTimeCompletionCounts_IncludePlayedItemsWithoutLastPlayedDate()
+    public async Task PersonalInsights_NoActivityPeriod_DoesNotReportPeakViewingActivity()
     {
         var userId = Guid.NewGuid();
-        var movieId = Guid.NewGuid();
-
-        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 3, 19, 10, 0, 0, TimeSpan.Zero));
-        await context.RegisterItemAsync(new Movie
-        {
-            Id = movieId,
-            Name = "Undated Played Movie",
-            RunTimeTicks = TimeSpan.FromMinutes(90).Ticks
-        });
-
-        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
-        {
-            dbContext.Users.Add(new Jellyfin.Database.Implementations.Entities.User("played-user", "default", "default")
-            {
-                Id = userId
-            });
-
-            dbContext.UserData.Add(new UserData
-            {
-                ItemId = movieId,
-                UserId = userId,
-                CustomDataKey = movieId.ToString("D"),
-                PlaybackPositionTicks = 0,
-                Played = true,
-                LastPlayedDate = null,
-                Item = null!,
-                User = null!
-            });
-
-            await dbContext.SaveChangesAsync();
-        }
+        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 4, 19, 10, 0, 0, TimeSpan.Zero));
 
         var personalInsightsService = new PersonalInsightsService(context.DbFactory, context.TimeProvider);
         var monthResult = await personalInsightsService.GetInsights(userId, PersonalInsightsPeriodType.Month);
-        var allTimeResult = await personalInsightsService.GetInsights(userId, PersonalInsightsPeriodType.AllTime);
 
-        Assert.Equal(0, monthResult.Summary.MoviesWatched);
-        Assert.Equal(1, allTimeResult.Summary.MoviesWatched);
+        Assert.Equal(0, monthResult.Summary.TotalWatchHours);
+        Assert.False(monthResult.PeakViewing.HasViewingActivity);
+        Assert.Equal("No activity yet", monthResult.PeakViewing.Label);
+        Assert.All(monthResult.PeakViewing.HourlyDistribution, hour => Assert.Equal(0, hour.Minutes));
     }
 
     private static User CreateUser(Guid userId)
@@ -899,7 +975,7 @@ public class WatchSessionTrackingAndAggregationTests
             LibraryManager
                 .Setup(manager => manager.GetItemById(It.IsAny<Guid>()))
                 .Returns<Guid>(id => _items.TryGetValue(id, out var item) ? item : null);
-            AggregationService = new WatchSessionAggregationService(DbFactory, null, LibraryManager.Object, NullLogger<WatchSessionAggregationService>.Instance);
+            AggregationService = new WatchSessionAggregationService(DbFactory, null, null, LibraryManager.Object, NullLogger<WatchSessionAggregationService>.Instance);
             TrackingService = new WatchSessionTrackingService(DbFactory, AggregationService, TimeProvider, NullLogger<WatchSessionTrackingService>.Instance);
         }
 

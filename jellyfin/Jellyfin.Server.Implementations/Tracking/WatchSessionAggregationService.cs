@@ -7,6 +7,7 @@ using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Achievements;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Leaderboard;
@@ -79,11 +80,7 @@ namespace Jellyfin.Server.Implementations.Tracking
             var isCompleted = runtimeTicks > 0 && session.ValidatedTicks >= (long)Math.Floor(runtimeTicks * 0.9D);
             var hourlyTickDistribution = BuildHourlyTickDistribution(session);
             var hourBuckets = hourlyTickDistribution.Keys.ToArray();
-            var genres = item.Genres
-                .Where(genre => !string.IsNullOrWhiteSpace(genre))
-                .Select(static genre => genre.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var genres = ResolveGenresForAggregation(item);
             var periodDescriptors = BuildPeriods(session.StartTimeUtc).ToArray();
             var periodTypes = periodDescriptors.Select(period => period.PeriodType).ToArray();
             var periodKeys = periodDescriptors.Select(period => period.PeriodKey).ToArray();
@@ -384,6 +381,33 @@ namespace Jellyfin.Server.Implementations.Tracking
             return TimeZoneInfo.Utc;
         }
 
+        private string[] ResolveGenresForAggregation(BaseItem item)
+        {
+            var directGenres = NormalizeGenres(item.Genres);
+            if (directGenres.Length > 0)
+            {
+                return directGenres;
+            }
+
+            if (item is Episode episode && !episode.SeriesId.Equals(Guid.Empty))
+            {
+                var series = _libraryManager.GetItemById(episode.SeriesId);
+                if (series is not null)
+                {
+                    return NormalizeGenres(series.Genres);
+                }
+            }
+
+            return [];
+        }
+
+        private static string[] NormalizeGenres(string[] genres)
+            => genres
+                .Where(genre => !string.IsNullOrWhiteSpace(genre))
+                .Select(static genre => genre.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
         private static List<HourSegment> SliceIntoHourlySegments(DateTime startUtc, DateTime endUtc)
         {
             var segments = new List<HourSegment>();
@@ -420,13 +444,14 @@ namespace Jellyfin.Server.Implementations.Tracking
                 return null;
             }
 
+            var episodeTypeAliases = ResolveItemTypeAliases(nameof(Episode));
             var previousEpisodes = await (
                     from watchSession in dbContext.UserWatchSessions.AsNoTracking()
                     join item in dbContext.BaseItems.AsNoTracking() on watchSession.ItemId equals item.Id
                     where watchSession.UserId.Equals(session.UserId)
                           && watchSession.IsValidSession
                           && watchSession.StartTimeUtc < session.StartTimeUtc
-                          && item.Type == nameof(Episode)
+                          && episodeTypeAliases.Contains(item.Type)
                           && item.SeriesId.HasValue
                           && item.SeriesId.Value.Equals(currentEpisode.SeriesId)
                           && item.ParentIndexNumber.HasValue
@@ -467,6 +492,13 @@ namespace Jellyfin.Server.Implementations.Tracking
 
             return new BingeInfo(currentEpisode.SeriesId, streakCount, streakTicks);
         }
+
+        private static string[] ResolveItemTypeAliases(string itemType)
+            => itemType switch
+            {
+                nameof(Episode) => [nameof(Episode), typeof(Episode).FullName ?? nameof(Episode)],
+                _ => [itemType]
+            };
 
         private sealed record PeriodDescriptor(
             PeriodType PeriodType,

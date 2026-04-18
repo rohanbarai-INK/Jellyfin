@@ -30,6 +30,7 @@ interface PersonalInsightsPeakViewing {
     hourlyDistribution: HourlyDistributionPoint[];
     peakHour: number;
     label: string;
+    hasViewingActivity: boolean;
 }
 
 interface ContinueWatchingItem {
@@ -101,6 +102,14 @@ const normalizeInsightsResponse = (payload: unknown): PersonalInsightsResponse =
     const genreSource = ((root.genres || root.Genres) || []) as Array<Record<string, unknown>>;
     const hourlySource = ((peakSource.hourlyDistribution || peakSource.HourlyDistribution) || []) as Array<Record<string, unknown>>;
     const recentBingesSource = ((bingeSource.recentBinges || bingeSource.RecentBinges) || []) as Array<Record<string, unknown>>;
+    const normalizedHourlyDistribution = hourlySource.map(point => ({
+        hour: Math.max(0, Math.min(23, Math.round(toNumber(point.hour ?? point.Hour)))),
+        minutes: toNumber(point.minutes ?? point.Minutes)
+    }));
+    const hasViewingActivitySource = peakSource.hasViewingActivity ?? peakSource.HasViewingActivity;
+    const hasViewingActivity = typeof hasViewingActivitySource === 'boolean'
+        ? hasViewingActivitySource
+        : normalizedHourlyDistribution.some(point => point.minutes > 0);
 
     return {
         summary: {
@@ -114,12 +123,10 @@ const normalizeInsightsResponse = (payload: unknown): PersonalInsightsResponse =
             engagementPercentile: Math.round(toNumber(summarySource.engagementPercentile ?? summarySource.EngagementPercentile))
         },
         peakViewing: {
-            hourlyDistribution: hourlySource.map(point => ({
-                hour: Math.max(0, Math.min(23, Math.round(toNumber(point.hour ?? point.Hour)))),
-                minutes: toNumber(point.minutes ?? point.Minutes)
-            })),
+            hourlyDistribution: normalizedHourlyDistribution,
             peakHour: Math.max(0, Math.min(23, Math.round(toNumber(peakSource.peakHour ?? peakSource.PeakHour)))),
-            label: toStringValue(peakSource.label ?? peakSource.Label, 'Night Owl')
+            label: toStringValue(peakSource.label ?? peakSource.Label, hasViewingActivity ? 'Night Owl' : 'No activity yet'),
+            hasViewingActivity
         },
         continueWatching: continueSource.map(item => ({
             itemId: toStringValue(item.itemId ?? item.ItemId),
@@ -442,13 +449,15 @@ const PersonalInsightsPage: FunctionComponent = () => {
                             <div className='personalInsightsCard'>
                                 <div className='personalInsightsSectionTitle'>Peak Viewing Hours</div>
                                 <p className='personalInsightsSectionText'>
-                                    You are most active around {formatHour(insights.peakViewing.peakHour)}. Looks like you&apos;re a {insights.peakViewing.label}!
+                                    {insights.peakViewing.hasViewingActivity
+                                        ? `You are most active around ${formatHour(insights.peakViewing.peakHour)}. Looks like you're a ${insights.peakViewing.label}!`
+                                        : `No viewing activity recorded for ${subtitleLabel} yet. Start watching to unlock peak-hour insights.`}
                                 </p>
                                 <div className='personalInsightsHistogram'>
                                     {hourlyDistribution.map((point) => (
                                         <div
                                             key={`hour-${point.hour}`}
-                                            className={`personalInsightsBarColumn${point.hour === insights.peakViewing.peakHour ? ' isPeak' : ''}`}
+                                            className={`personalInsightsBarColumn${insights.peakViewing.hasViewingActivity && point.hour === insights.peakViewing.peakHour ? ' isPeak' : ''}`}
                                             title={`${formatHourRange(point.hour)}: ${formatMinutesText(point.minutes)}`}
                                             tabIndex={0}
                                             role='button'

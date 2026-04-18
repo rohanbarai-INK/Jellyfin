@@ -169,19 +169,18 @@ Open UI:
 
 ## 5) Cleanup (Optional)
 
-Remove the tar to free space:
-```bash
+## Remove the tar to free space:
+
 rm -f /root/jellyfin-pi-build.tar.gz
-```
 
-Remove temp build folders:
-```bash
+
+## Remove temp build folders:
 rm -rf /root/knightflix-build-*
-```
 
-Prune Docker caches (safe for `/config` bind mount):
-```bash
+
+## Prune Docker caches (safe for `/config` bind mount):
+
 docker builder prune -af
 docker image prune -af
-```
+
 

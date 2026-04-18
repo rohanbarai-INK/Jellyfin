@@ -4,8 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Enums;
-using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.PersonalInsights;
 using Microsoft.EntityFrameworkCore;
 
@@ -144,13 +142,13 @@ namespace Jellyfin.Server.Implementations.Tracking
                 var previousTicks = hasPreviousPeriod
                     ? previousStats?.TotalValidatedTicks ?? 0
                     : currentTicks;
-                var currentMovies = await CountCompletedItemsAsync(dbContext, userId, currentPeriod, nameof(Movie)).ConfigureAwait(false);
+                var currentMovies = currentStats?.CompletedMovies ?? 0;
                 var previousMovies = hasPreviousPeriod
-                    ? await CountCompletedItemsAsync(dbContext, userId, previousPeriod!.Value, nameof(Movie)).ConfigureAwait(false)
+                    ? previousStats?.CompletedMovies ?? 0
                     : currentMovies;
-                var currentEpisodes = await CountCompletedItemsAsync(dbContext, userId, currentPeriod, nameof(Episode)).ConfigureAwait(false);
+                var currentEpisodes = currentStats?.CompletedEpisodes ?? 0;
                 var previousEpisodes = hasPreviousPeriod
-                    ? await CountCompletedItemsAsync(dbContext, userId, previousPeriod!.Value, nameof(Episode)).ConfigureAwait(false)
+                    ? previousStats?.CompletedEpisodes ?? 0
                     : currentEpisodes;
                 var watchChangePercent = hasPreviousPeriod ? CalculateChangePercent(currentTicks, previousTicks) : 0D;
                 var engagementPercentile = hasPreviousPeriod ? ComputeEngagementPercentile(currentTicks, previousTicks) : currentTicks > 0 ? 50 : 0;
@@ -180,11 +178,15 @@ namespace Jellyfin.Server.Implementations.Tracking
                         };
                     })
                     .ToList();
-                var peakHour = hourlyDistribution
-                    .OrderByDescending(distribution => distribution.Minutes)
-                    .ThenBy(distribution => distribution.Hour)
-                    .First()
-                    .Hour;
+                var hasViewingActivity = hourlyDistribution.Any(distribution => distribution.Minutes > 0D);
+                var peakHour = hasViewingActivity
+                    ? hourlyDistribution
+                        .OrderByDescending(distribution => distribution.Minutes)
+                        .ThenBy(distribution => distribution.Hour)
+                        .First()
+                        .Hour
+                    : 0;
+                var peakLabel = hasViewingActivity ? ResolvePeakLabel(peakHour) : "No activity yet";
 
                 var genreResults = topGenres
                     .Select(genre => new PersonalInsightsGenreResult
@@ -202,7 +204,8 @@ namespace Jellyfin.Server.Implementations.Tracking
                     {
                         HourlyDistribution = hourlyDistribution,
                         PeakHour = peakHour,
-                        Label = ResolvePeakLabel(peakHour)
+                        Label = peakLabel,
+                        HasViewingActivity = hasViewingActivity
                     },
                     ContinueWatching = continueWatchingRows.Select(row => new PersonalInsightsContinueWatchingResult
                     {
@@ -230,46 +233,6 @@ namespace Jellyfin.Server.Implementations.Tracking
                 return result;
             }
         }
-
-        private static Task<int> CountCompletedItemsAsync(
-            JellyfinDbContext dbContext,
-            Guid userId,
-            PeriodDescriptor period,
-            string itemType)
-        {
-            var itemTypes = ResolveItemTypeAliases(itemType);
-            var completedQuery = from userData in dbContext.UserData.AsNoTracking()
-                                 join item in dbContext.BaseItems.AsNoTracking() on userData.ItemId equals item.Id
-                                 where userData.UserId.Equals(userId)
-                                       && userData.Played
-                                       && itemTypes.Contains(item.Type)
-                                 select new
-                                 {
-                                     userData.ItemId,
-                                     userData.LastPlayedDate
-                                 };
-
-            if (period.PeriodType != PeriodType.AllTime)
-            {
-                completedQuery = completedQuery.Where(row =>
-                    row.LastPlayedDate.HasValue
-                    && row.LastPlayedDate.Value >= period.PeriodStartUtc
-                    && row.LastPlayedDate.Value < period.PeriodEndUtc);
-            }
-
-            return completedQuery
-                .Select(row => row.ItemId)
-                .Distinct()
-                .CountAsync();
-        }
-
-        private static string[] ResolveItemTypeAliases(string itemType)
-            => itemType switch
-            {
-                nameof(Movie) => [nameof(Movie), typeof(Movie).FullName ?? nameof(Movie)],
-                nameof(Episode) => [nameof(Episode), typeof(Episode).FullName ?? nameof(Episode)],
-                _ => [itemType]
-            };
 
         private static double CalculateChangePercent(long currentValue, long previousValue)
         {
@@ -326,6 +289,11 @@ namespace Jellyfin.Server.Implementations.Tracking
             if (topGenre is null || topGenre.Percentage <= 0)
             {
                 return "Keep watching to unlock personalized insights.";
+            }
+
+            if (topGenre.Percentage < 1D)
+            {
+                return $"You're exploring multiple genres {periodLabel}. Keep watching to strengthen your profile.";
             }
 
             var percentage = (int)Math.Round(topGenre.Percentage, MidpointRounding.AwayFromZero);

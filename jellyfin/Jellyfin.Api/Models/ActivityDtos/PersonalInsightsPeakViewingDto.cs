@@ -21,5 +21,10 @@ namespace Jellyfin.Api.Models.ActivityDtos
         /// Gets or sets descriptive label.
         /// </summary>
         public string Label { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the selected period has viewing activity.
+        /// </summary>
+        public bool HasViewingActivity { get; set; }
     }
 }
