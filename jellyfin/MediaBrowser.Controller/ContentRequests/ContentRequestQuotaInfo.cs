@@ -46,5 +46,15 @@ namespace MediaBrowser.Controller.ContentRequests
         /// Gets or sets remaining series slots.
         /// </summary>
         public int RemainingSeries { get; set; }
+
+        /// <summary>
+        /// Gets or sets currently available rewarded movie slots.
+        /// </summary>
+        public int RewardMovies { get; set; }
+
+        /// <summary>
+        /// Gets or sets currently available rewarded series slots.
+        /// </summary>
+        public int RewardSeries { get; set; }
     }
 }

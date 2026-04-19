@@ -694,6 +694,79 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequestRewardBalance", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MovieCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("SeriesCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("ContentRequestRewardBalances");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequestWebPushSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastNotifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ContentRequestWebPushSubscriptions");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.CustomItemDisplayPreferences", b =>
                 {
                     b.Property<int>("Id")
@@ -783,6 +856,164 @@ namespace Jellyfin.Server.Implementations.Migrations
                         .IsUnique();
 
                     b.ToTable("DisplayPreferences");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.FeatureAnnouncement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CampaignId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CloseLabel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Close");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CtaLabel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Check It Out");
+
+                    b.Property<string>("CtaTarget")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("/achievements");
+
+                    b.Property<int>("CtaTargetType")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndsAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HelpText")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HeroGifSource")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HighlightsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[]");
+
+                    b.Property<int>("MaxImpressionsPerDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(2);
+
+                    b.Property<int>("MaxImpressionsTotal")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(10);
+
+                    b.Property<string>("MediaImageAlt")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MediaImageCaption")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MediaImageSource")
+                        .IsRequired()
+                        .HasMaxLength(5242880)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartsAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Subtitle")
+                        .IsRequired()
+                        .HasMaxLength(350)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_FeatureAnnouncements_CampaignId");
+
+                    b.HasIndex("Priority", "SortOrder")
+                        .HasDatabaseName("IX_FeatureAnnouncements_PrioritySort");
+
+                    b.HasIndex("Enabled", "Status", "StartsAtUtc", "EndsAtUtc")
+                        .HasDatabaseName("IX_FeatureAnnouncements_ActiveWindow");
+
+                    b.ToTable("FeatureAnnouncements");
 
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
@@ -1563,47 +1794,6 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
-            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserSeasonStats", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("AchievementCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("AchievementXp")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("LastUpdatedUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Level")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("SeasonYear")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("TotalXp")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "SeasonYear")
-                        .IsUnique()
-                        .HasDatabaseName("IX_UserSeasonStats_UserId_SeasonYear");
-
-                    b.HasIndex("SeasonYear", "TotalXp")
-                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_TotalXp");
-
-                    b.ToTable("UserSeasonStats");
-
-                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
-                });
-
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserBingeSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1808,6 +1998,95 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserSeasonStats", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("AchievementCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AchievementXp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AchievementsUnlocked")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ApprovedRequests")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BestStreakDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CurrentStreakDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastActiveUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastUpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MoviesCompleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SeasonYear")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SeriesCompleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalWatchMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalXp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UniqueGenresWatched")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeasonYear", "AchievementsUnlocked")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Achievements");
+
+                    b.HasIndex("SeasonYear", "ApprovedRequests")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Requests");
+
+                    b.HasIndex("SeasonYear", "CurrentStreakDays")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Streak");
+
+                    b.HasIndex("SeasonYear", "MoviesCompleted")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Movies");
+
+                    b.HasIndex("SeasonYear", "SeriesCompleted")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Series");
+
+                    b.HasIndex("SeasonYear", "TotalWatchMinutes")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_WatchMinutes");
+
+                    b.HasIndex("SeasonYear", "TotalXp")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_TotalXp");
+
+                    b.HasIndex("SeasonYear", "UniqueGenresWatched")
+                        .HasDatabaseName("IX_UserSeasonStats_SeasonYear_Genres");
+
+                    b.HasIndex("UserId", "SeasonYear")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserSeasonStats_UserId_SeasonYear");
+
+                    b.ToTable("UserSeasonStats");
+
+                    b.HasAnnotation("Sqlite:UseSqlReturningClause", false);
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserWatchSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1988,6 +2267,28 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequestRewardBalance", b =>
+                {
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.ContentRequestWebPushSubscription", b =>
+                {
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.DisplayPreferences", b =>
                 {
                     b.HasOne("Jellyfin.Database.Implementations.Entities.User", null)
@@ -2129,17 +2430,6 @@ namespace Jellyfin.Server.Implementations.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserSeasonStats", b =>
-                {
-                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserData", b =>
                 {
                     b.HasOne("Jellyfin.Database.Implementations.Entities.BaseItemEntity", "Item")
@@ -2155,6 +2445,17 @@ namespace Jellyfin.Server.Implementations.Migrations
                         .IsRequired();
 
                     b.Navigation("Item");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Jellyfin.Database.Implementations.Entities.UserSeasonStats", b =>
+                {
+                    b.HasOne("Jellyfin.Database.Implementations.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

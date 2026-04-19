@@ -27,6 +27,15 @@ namespace MediaBrowser.Controller.ContentRequests
         Task<MyContentRequestsResult> GetMyRequests(Guid userId);
 
         /// <summary>
+        /// Gets paged request rows for the current user.
+        /// </summary>
+        /// <param name="userId">The user id.</param>
+        /// <param name="skip">Rows to skip.</param>
+        /// <param name="take">Rows to take.</param>
+        /// <returns>Paged request rows.</returns>
+        Task<ContentRequestListResult> GetMyRequestsPaged(Guid userId, int skip, int take);
+
+        /// <summary>
         /// Gets public requests.
         /// </summary>
         /// <param name="skip">Rows to skip.</param>
@@ -35,10 +44,42 @@ namespace MediaBrowser.Controller.ContentRequests
         Task<ContentRequestListResult> GetPublicRequests(int skip, int take);
 
         /// <summary>
+        /// Searches users for admin reward assignment suggestions.
+        /// </summary>
+        /// <param name="query">Search text.</param>
+        /// <param name="take">Maximum rows.</param>
+        /// <returns>User suggestions.</returns>
+        Task<IReadOnlyList<ContentRequestUserSuggestion>> SearchUsersForAdmin(string query, int take);
+
+        /// <summary>
+        /// Gets request quota details for an arbitrary user as admin.
+        /// </summary>
+        /// <param name="userId">The target user id.</param>
+        /// <returns>User quota details.</returns>
+        Task<ContentRequestAdminUserQuotaResult> GetAdminUserQuota(Guid userId);
+
+        /// <summary>
+        /// Grants additional rewarded request slots to a user.
+        /// </summary>
+        /// <param name="userId">The target user id.</param>
+        /// <param name="movieCount">Movie slots to add.</param>
+        /// <param name="seriesCount">Series slots to add.</param>
+        /// <returns>Updated user quota details.</returns>
+        Task<ContentRequestAdminUserQuotaResult> GrantAdminRewardQuota(Guid userId, int movieCount, int seriesCount);
+
+        /// <summary>
         /// Gets admin requests and marks unseen pending rows as viewed.
         /// </summary>
         /// <returns>Admin request list.</returns>
         Task<IReadOnlyList<ContentRequestInfo>> GetAdminRequests();
+
+        /// <summary>
+        /// Gets paged admin requests and marks unseen pending rows as viewed.
+        /// </summary>
+        /// <param name="skip">Rows to skip.</param>
+        /// <param name="take">Rows to take.</param>
+        /// <returns>Paged admin request rows.</returns>
+        Task<ContentRequestListResult> GetAdminRequestsPaged(int skip, int take);
 
         /// <summary>
         /// Gets count of pending requests not yet viewed by admin.

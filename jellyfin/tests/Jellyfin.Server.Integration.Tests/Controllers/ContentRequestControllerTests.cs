@@ -304,9 +304,32 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
         }
 
         [Fact]
+        public async Task MyRequestsPaged_ReturnsRequestedSliceAndTotalCount()
+        {
+            var (user, userClient) = await CreateActiveUserClient();
+            for (var index = 0; index < 13; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"My Paged Row {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    DateTime.UtcNow.AddMinutes(-index));
+            }
+
+            using var response = await userClient.GetAsync("Request/My/Paged?skip=0&take=10");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var payload = await response.Content.ReadFromJsonAsync<MyContentRequestsPagedResponse>(JsonDefaults.Options);
+            Assert.NotNull(payload);
+            Assert.Equal(10, payload.Items.Count);
+            Assert.True(payload.TotalRecordCount >= 13);
+            Assert.NotNull(payload.Quota);
+        }
+
+        [Fact]
         public async Task PublicRequests_ExcludeRejectedRows()
         {
-            var (_, userClient) = await CreateActiveUserClient();
+            var (user, userClient) = await CreateActiveUserClient();
             var adminClient = await CreateAdminClient();
 
             using var pendingCreateResponse = await userClient.PostAsJsonAsync(
@@ -347,8 +370,96 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var publicRows = await publicResponse.Content.ReadFromJsonAsync<PublicContentRequestListResponse>(JsonDefaults.Options);
             Assert.NotNull(publicRows);
 
-            Assert.Contains(publicRows.Items, row => row.Id.Equals(pendingRow.Id));
+            var publicPendingRow = publicRows.Items.First(row => row.Id.Equals(pendingRow.Id));
+            Assert.Equal(user.Id, publicPendingRow.UserId);
+            Assert.Equal(user.Name, publicPendingRow.Username);
             Assert.DoesNotContain(publicRows.Items, row => row.Id.Equals(rejectedRow.Id));
+        }
+
+        [Fact]
+        public async Task AdminUserSuggestions_ReturnsPartialUsernameMatches()
+        {
+            var adminClient = await CreateAdminClient();
+            var usernamePrefix = $"request-suggest-{Guid.NewGuid():N}".Substring(0, 20);
+            var targetUsername = $"{usernamePrefix}-target";
+            var password = $"StrongPass-{Guid.NewGuid():N}!";
+            var createdUser = await CreateUser(adminClient, targetUsername, password);
+
+            using var response = await adminClient.GetAsync($"Request/Admin/UserSuggestions?query={usernamePrefix}&take=10");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var payload = await response.Content.ReadFromJsonAsync<List<AdminContentRequestUserSuggestionDto>>(JsonDefaults.Options);
+            Assert.NotNull(payload);
+            Assert.Contains(payload, row => row.UserId.Equals(createdUser.Id) && row.Username == createdUser.Name);
+        }
+
+        [Fact]
+        public async Task AdminRewardQuota_AddsExtraSlotsAndSkipsCoinChargeForGrantedSlot()
+        {
+            var (user, userClient) = await CreateActiveUserClient();
+            var adminClient = await CreateAdminClient();
+
+            for (var index = 0; index < 5; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"Reward Cap Movie {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    DateTime.UtcNow.AddMinutes(-index));
+            }
+
+            using var blockedBeforeReward = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Reward Before Grant {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+            Assert.Equal(HttpStatusCode.Conflict, blockedBeforeReward.StatusCode);
+
+            using var rewardResponse = await adminClient.PostAsJsonAsync(
+                "Request/Admin/RewardQuota",
+                new AdminRewardContentRequestQuotaRequest
+                {
+                    UserId = user.Id,
+                    MovieCount = 2,
+                    SeriesCount = 0
+                },
+                JsonDefaults.Options);
+            Assert.Equal(HttpStatusCode.OK, rewardResponse.StatusCode);
+            var rewardPayload = await rewardResponse.Content.ReadFromJsonAsync<AdminContentRequestUserQuotaResponse>(JsonDefaults.Options);
+            Assert.NotNull(rewardPayload);
+            Assert.Equal(user.Id, rewardPayload.UserId);
+            Assert.Equal(2, rewardPayload.Quota.RewardMovies);
+            Assert.Equal(2, rewardPayload.Quota.RemainingMovies);
+
+            using var createdWithReward = await userClient.PostAsJsonAsync(
+                "Request",
+                new CreateContentRequestRequest
+                {
+                    Title = $"Reward After Grant {Guid.NewGuid():N}",
+                    Type = MediaBrowser.Controller.ContentRequests.ContentRequestType.Movie
+                },
+                JsonDefaults.Options);
+            Assert.Equal(HttpStatusCode.OK, createdWithReward.StatusCode);
+            var createdRow = await createdWithReward.Content.ReadFromJsonAsync<ContentRequestRowDto>(JsonDefaults.Options);
+            Assert.NotNull(createdRow);
+
+            var dbContextFactory = _factory.Services.GetRequiredService<IDbContextFactory<JellyfinDbContext>>();
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+            var createdEntity = await dbContext.ContentRequests.FirstAsync(row => row.Id.Equals(createdRow.Id));
+            Assert.Equal(0, createdEntity.CoinRedeemCost);
+            var rewardBalance = await dbContext.ContentRequestRewardBalances.FirstAsync(row => row.UserId.Equals(user.Id));
+            Assert.Equal(1, rewardBalance.MovieCount);
+
+            using var myResponse = await userClient.GetAsync("Request/My");
+            Assert.Equal(HttpStatusCode.OK, myResponse.StatusCode);
+            var myPayload = await myResponse.Content.ReadFromJsonAsync<MyContentRequestsResponse>(JsonDefaults.Options);
+            Assert.NotNull(myPayload);
+            Assert.NotNull(myPayload.Quota);
+            Assert.Equal(1, myPayload.Quota.RewardMovies);
+            Assert.Equal(1, myPayload.Quota.RemainingMovies);
         }
 
         [Fact]
@@ -515,6 +626,31 @@ namespace Jellyfin.Server.Integration.Tests.Controllers
             var afterPayload = await afterResponse.Content.ReadFromJsonAsync<AdminUnseenPendingCountResponse>(JsonDefaults.Options);
             Assert.NotNull(afterPayload);
             Assert.True(afterPayload.Count < beforePayload.Count);
+        }
+
+        [Fact]
+        public async Task AdminRequestsPaged_ReturnsRequestedSliceAndTotalCount()
+        {
+            var (user, _) = await CreateActiveUserClient();
+            var adminClient = await CreateAdminClient();
+
+            for (var index = 0; index < 12; index++)
+            {
+                await InsertRequest(
+                    user.Id,
+                    $"Admin Paged Row {index} {Guid.NewGuid():N}",
+                    ContentRequestType.Movie,
+                    ContentRequestStatus.Pending,
+                    DateTime.UtcNow.AddMinutes(-index),
+                    isAdminViewed: false);
+            }
+
+            using var response = await adminClient.GetAsync("Request/Admin/Paged?skip=0&take=10");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var payload = await response.Content.ReadFromJsonAsync<AdminContentRequestListResponse>(JsonDefaults.Options);
+            Assert.NotNull(payload);
+            Assert.Equal(10, payload.Items.Count);
+            Assert.True(payload.TotalRecordCount >= 12);
         }
 
         private async Task<(UserDto User, HttpClient Client)> CreateActiveUserClient()

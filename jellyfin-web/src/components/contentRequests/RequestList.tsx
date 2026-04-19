@@ -6,12 +6,18 @@ import { type ContentRequestRow } from 'utils/contentRequestsApi';
 import RequestCard, { type RequestCardMetaRow } from './RequestCard';
 import RequestEmptyState from './RequestEmptyState';
 import RequestHeader from './RequestHeader';
+import RequestPagination from './RequestPagination';
 import RequestStatusBadge from './RequestStatusBadge';
 import RequestTable, { type RequestTableColumn } from './RequestTable';
 import useRequestIsMobileLayout from './useRequestIsMobileLayout';
 
 interface RequestListProps {
     rows: ContentRequestRow[]
+    pageIndex: number
+    pageSize: number
+    totalRecordCount: number
+    isBusy?: boolean
+    onPageChange: (nextPageIndex: number) => void
 }
 
 interface ParsedRequestTitle {
@@ -65,7 +71,14 @@ const parseRequestTitle = (value: string): ParsedRequestTitle => {
     };
 };
 
-const RequestList: FC<RequestListProps> = ({ rows }) => {
+const RequestList: FC<RequestListProps> = ({
+    rows,
+    pageIndex,
+    pageSize,
+    totalRecordCount,
+    isBusy = false,
+    onPageChange
+}) => {
     const [ search, setSearch ] = useState('');
     const preferCardsLayout = useRequestIsMobileLayout();
 
@@ -87,21 +100,11 @@ const RequestList: FC<RequestListProps> = ({ rows }) => {
             key: 'title',
             label: globalize.translate('LabelTitle'),
             className: 'requestColTitle',
-            render: row => {
-                const parsedTitle = parseRequestTitle(row.title).primaryTitle;
-
-                return (
-                    <span className='requestCellTruncate' title={parsedTitle}>
-                        {parsedTitle}
-                    </span>
-                );
-            }
-        },
-        {
-            key: 'requestReference',
-            label: globalize.translate('RequestIdLabel'),
-            className: 'requestColRequestId',
-            render: row => parseRequestTitle(row.title).requestReference || '-'
+            render: row => (
+                <span className='requestCellWrap' title={parseRequestTitle(row.title).primaryTitle}>
+                    {parseRequestTitle(row.title).primaryTitle}
+                </span>
+            )
         },
         {
             key: 'type',
@@ -132,7 +135,7 @@ const RequestList: FC<RequestListProps> = ({ rows }) => {
     ]), []);
 
     return (
-        <section className='requestSection'>
+        <section className='requestSection requestMyRequestsColumn'>
             <RequestHeader title={globalize.translate('RequestMyRequestsTitle')} />
             <div className='requestTableTools'>
                 <label className='requestSearchField' aria-label={globalize.translate('Search')}>
@@ -167,10 +170,6 @@ const RequestList: FC<RequestListProps> = ({ rows }) => {
                     const parsedTitle = parseRequestTitle(row.title);
                     const metaRows: RequestCardMetaRow[] = [
                         {
-                            label: globalize.translate('RequestIdLabel'),
-                            value: parsedTitle.requestReference || '-'
-                        },
-                        {
                             label: globalize.translate('LabelType'),
                             value: row.type
                         },
@@ -203,6 +202,13 @@ const RequestList: FC<RequestListProps> = ({ rows }) => {
                     />
                 )}
             </div>
+            <RequestPagination
+                pageIndex={pageIndex}
+                pageSize={pageSize}
+                totalRecordCount={totalRecordCount}
+                isBusy={isBusy}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 };

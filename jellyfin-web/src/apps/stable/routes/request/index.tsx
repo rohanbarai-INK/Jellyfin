@@ -2,6 +2,7 @@ import React, { type FormEvent, useCallback, useMemo, useState } from 'react';
 
 import RequestForm from 'components/contentRequests/RequestForm';
 import RequestHeader from 'components/contentRequests/RequestHeader';
+import PublicRequestPool from 'components/contentRequests/PublicRequestPool';
 import RequestList from 'components/contentRequests/RequestList';
 import RequestPageContainer from 'components/contentRequests/RequestPageContainer';
 import RequestQuotaSummary from 'components/contentRequests/RequestQuotaSummary';
@@ -26,8 +27,10 @@ import {
     type ContentRequestQuotaSummary,
     type ContentRequestRow,
     type ContentRequestType,
+    type PublicContentRequestRow,
     createContentRequest,
-    getMyContentRequests
+    getMyContentRequestsPaged,
+    getPublicContentRequests,
 } from 'utils/contentRequestsApi';
 import { isExpiredSubscriptionUser, isInGraceSubscriptionUser } from 'utils/subscription';
 
@@ -41,11 +44,14 @@ const defaultQuota: ContentRequestQuotaSummary = {
     usedMovies: 0,
     usedSeries: 0,
     remainingMovies: 0,
-    remainingSeries: 0
+    remainingSeries: 0,
+    rewardMovies: 0,
+    rewardSeries: 0
 };
 
 const MOVIE_REDEEM_COINS = 200;
 const SERIES_REDEEM_COINS = 400;
+const MY_REQUESTS_PAGE_SIZE = 10;
 const INSUFFICIENT_BALANCE_TEXT = 'Insufficient balance for quota top-up. Earn more coins from activities and achievements.';
 
 const getErrorMessage = async (error: unknown) => {
@@ -97,8 +103,12 @@ export const Component = () => {
     const [ title, setTitle ] = useState('');
     const [ seasonNumber, setSeasonNumber ] = useState('');
     const [ rows, setRows ] = useState<ContentRequestRow[]>([]);
+    const [ myTotalRecordCount, setMyTotalRecordCount ] = useState(0);
+    const [ myPageIndex, setMyPageIndex ] = useState(0);
+    const [ publicRows, setPublicRows ] = useState<PublicContentRequestRow[]>([]);
     const [ quota, setQuota ] = useState<ContentRequestQuotaSummary>(defaultQuota);
     const [ isLoading, setIsLoading ] = useState(true);
+    const [ isPageLoading, setIsPageLoading ] = useState(false);
     const [ isSubmitting, setIsSubmitting ] = useState(false);
     const [ formMessage, setFormMessage ] = useState('');
     const [ formError, setFormError ] = useState(false);
@@ -170,23 +180,42 @@ export const Component = () => {
         }
     ];
 
-    const loadData = useCallback(async () => {
-        setIsLoading(true);
+    const loadData = useCallback(async (pageIndex = myPageIndex) => {
+        if (isLoading) {
+            setIsLoading(true);
+        } else {
+            setIsPageLoading(true);
+        }
         try {
-            const response = await getMyContentRequests();
-            setRows(response.requests);
-            setQuota(response.quota);
+            const [ myResponse, publicResponse ] = await Promise.all([
+                getMyContentRequestsPaged(pageIndex * MY_REQUESTS_PAGE_SIZE, MY_REQUESTS_PAGE_SIZE),
+                getPublicContentRequests(0, 100)
+            ]);
+
+            setRows(myResponse.items);
+            setMyTotalRecordCount(myResponse.totalRecordCount);
+            setQuota(myResponse.quota);
+            setPublicRows(publicResponse.items);
         } catch (error) {
             setFormError(true);
             setFormMessage(await getErrorMessage(error));
         } finally {
             setIsLoading(false);
+            setIsPageLoading(false);
         }
+    }, [ myPageIndex ]);
+
+    const onMyPageChange = useCallback((nextPageIndex: number) => {
+        if (nextPageIndex < 0) {
+            return;
+        }
+
+        setMyPageIndex(nextPageIndex);
     }, []);
 
     React.useEffect(() => {
-        void loadData();
-    }, [ loadData ]);
+        void loadData(myPageIndex);
+    }, [ loadData, myPageIndex ]);
 
     React.useEffect(() => {
         if (!userId) {
@@ -284,7 +313,8 @@ export const Component = () => {
             setSeasonNumber('');
             setFormError(false);
             setFormMessage(globalize.translate('RequestCreatedMessage'));
-            await loadData();
+            setMyPageIndex(0);
+            await loadData(0);
         } catch (error) {
             setFormError(true);
             setFormMessage(await getErrorMessage(error));
@@ -342,7 +372,7 @@ export const Component = () => {
                 </section>
 
                 <div className='requestMainGrid'>
-                    <section id='requestCreateSection' className='requestSection'>
+                    <section id='requestCreateSection' className='requestSection requestCreateColumn'>
                         <RequestHeader title={globalize.translate('RequestFormTitle')} />
                         <RequestQuotaSummary
                             quota={quota}
@@ -416,8 +446,16 @@ export const Component = () => {
                         />
                     </section>
 
-                    <RequestList rows={rows} />
+                    <RequestList
+                        rows={rows}
+                        pageIndex={myPageIndex}
+                        pageSize={MY_REQUESTS_PAGE_SIZE}
+                        totalRecordCount={myTotalRecordCount}
+                        isBusy={isPageLoading || isSubmitting}
+                        onPageChange={onMyPageChange}
+                    />
                 </div>
+                <PublicRequestPool rows={publicRows} currentUserId={userId} />
             </RequestPageContainer>
         </Page>
     );

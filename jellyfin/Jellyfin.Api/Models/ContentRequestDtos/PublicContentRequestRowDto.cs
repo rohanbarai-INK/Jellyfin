@@ -4,7 +4,7 @@ using MediaBrowser.Controller.ContentRequests;
 namespace Jellyfin.Api.Models.ContentRequestDtos;
 
 /// <summary>
-/// Public content request row DTO with requester identity removed.
+/// Public content request row DTO.
 /// </summary>
 public class PublicContentRequestRowDto
 {
@@ -12,6 +12,16 @@ public class PublicContentRequestRowDto
     /// Gets or sets request id.
     /// </summary>
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// Gets or sets request owner user id.
+    /// </summary>
+    public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets request owner username.
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets title.

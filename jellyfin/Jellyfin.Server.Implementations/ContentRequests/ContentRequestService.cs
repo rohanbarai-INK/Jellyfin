@@ -20,6 +20,8 @@ namespace Jellyfin.Server.Implementations.ContentRequests
         private const int _seriesCap = 2;
         private const int _movieRedeemCoinCost = 200;
         private const int _seriesRedeemCoinCost = 400;
+        private const int _defaultAdminSuggestionTake = 8;
+        private const int _maxAdminSuggestionTake = 20;
 
         private static readonly Regex _whitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
@@ -90,15 +92,30 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                     }
 
                     var usage = await GetCycleUsageAsync(dbContext, userId, cycleInfo.CycleStartDate).ConfigureAwait(false);
-                    var coinRedeemCost = GetCoinRedeemCost(type, usage);
-                    if (coinRedeemCost > 0)
+                    var rewardBalanceRow = await dbContext.ContentRequestRewardBalances
+                        .FirstOrDefaultAsync(balance => balance.UserId.Equals(userId))
+                        .ConfigureAwait(false);
+
+                    var hasBaseQuota = HasBaseQuota(type, usage);
+                    var coinRedeemCost = 0;
+                    if (!hasBaseQuota)
                     {
-                        var (earnedCoins, spentCoins) = await GetCoinTotalsAsync(dbContext, userId).ConfigureAwait(false);
-                        var availableCoins = Math.Max(0, earnedCoins - spentCoins);
-                        if (availableCoins < coinRedeemCost)
+                        var availableRewardSlots = GetRewardBalanceForType(rewardBalanceRow, type);
+                        if (availableRewardSlots > 0)
                         {
-                            throw new ContentRequestConflictException(
-                                $"Insufficient coin balance. Need {coinRedeemCost} coins to redeem this {type.ToString().ToLowerInvariant()} request.");
+                            ConsumeRewardBalanceForType(rewardBalanceRow!, type);
+                            rewardBalanceRow!.UpdatedAtUtc = nowUtc;
+                        }
+                        else
+                        {
+                            coinRedeemCost = type == ContentRequestType.Movie ? _movieRedeemCoinCost : _seriesRedeemCoinCost;
+                            var (earnedCoins, spentCoins) = await GetCoinTotalsAsync(dbContext, userId).ConfigureAwait(false);
+                            var availableCoins = Math.Max(0, earnedCoins - spentCoins);
+                            if (availableCoins < coinRedeemCost)
+                            {
+                                throw new ContentRequestConflictException(
+                                    $"Insufficient coin balance. Need {coinRedeemCost} coins to redeem this {type.ToString().ToLowerInvariant()} request.");
+                            }
                         }
                     }
 
@@ -140,11 +157,6 @@ namespace Jellyfin.Server.Implementations.ContentRequests
             var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
             await using (dbContext.ConfigureAwait(false))
             {
-                var cycleInfo = await ResolveSubscriptionCycleAsync(dbContext, userId, nowUtc).ConfigureAwait(false);
-                var usage = cycleInfo.IsSubscriptionActive
-                    ? await GetCycleUsageAsync(dbContext, userId, cycleInfo.CycleStartDate).ConfigureAwait(false)
-                    : (UsedMovies: 0, UsedSeries: 0);
-
                 var rows = await dbContext.ContentRequests
                     .AsNoTracking()
                     .Where(request => request.UserId.Equals(userId))
@@ -152,20 +164,46 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                     .ToListAsync()
                     .ConfigureAwait(false);
 
+                var quota = await BuildQuotaInfoAsync(dbContext, userId, nowUtc).ConfigureAwait(false);
+
                 return new MyContentRequestsResult
                 {
                     Requests = rows.Select(row => ToContractModel(row)).ToList(),
-                    Quota = new ContentRequestQuotaInfo
-                    {
-                        CycleStartDate = cycleInfo.CycleStartDate,
-                        IsSubscriptionActive = cycleInfo.IsSubscriptionActive,
-                        MovieCap = _movieCap,
-                        SeriesCap = _seriesCap,
-                        UsedMovies = usage.UsedMovies,
-                        UsedSeries = usage.UsedSeries,
-                        RemainingMovies = cycleInfo.IsSubscriptionActive ? Math.Max(0, _movieCap - usage.UsedMovies) : 0,
-                        RemainingSeries = cycleInfo.IsSubscriptionActive ? Math.Max(0, _seriesCap - usage.UsedSeries) : 0
-                    }
+                    Quota = quota
+                };
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<ContentRequestListResult> GetMyRequestsPaged(Guid userId, int skip, int take)
+        {
+            if (userId.IsEmpty())
+            {
+                throw new ArgumentException("User id cannot be empty.", nameof(userId));
+            }
+
+            var normalizedSkip = Math.Max(0, skip);
+            var normalizedTake = Math.Max(1, take);
+
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var query = dbContext.ContentRequests
+                    .AsNoTracking()
+                    .Where(request => request.UserId.Equals(userId));
+
+                var totalRecordCount = await query.CountAsync().ConfigureAwait(false);
+                var rows = await query
+                    .OrderByDescending(request => request.RequestedAt)
+                    .Skip(normalizedSkip)
+                    .Take(normalizedTake)
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                return new ContentRequestListResult
+                {
+                    TotalRecordCount = totalRecordCount,
+                    Items = rows.Select(row => ToContractModel(row)).ToList()
                 };
             }
         }
@@ -194,6 +232,7 @@ namespace Jellyfin.Server.Implementations.ContentRequests
 
                 var totalRecordCount = await publicQuery.CountAsync().ConfigureAwait(false);
                 var rows = await publicQuery
+                    .Include(request => request.User)
                     .OrderByDescending(request => request.RequestedAt)
                     .Skip(skip)
                     .Take(take)
@@ -203,7 +242,146 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 return new ContentRequestListResult
                 {
                     TotalRecordCount = totalRecordCount,
-                    Items = rows.Select(row => ToContractModel(row)).ToList()
+                    Items = rows.Select(row => ToContractModel(row, row.User?.Username)).ToList()
+                };
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<IReadOnlyList<ContentRequestUserSuggestion>> SearchUsersForAdmin(string query, int take)
+        {
+            var normalizedQuery = (query ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+            {
+                return [];
+            }
+
+            var normalizedTake = take <= 0 ? _defaultAdminSuggestionTake : Math.Min(take, _maxAdminSuggestionTake);
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var likePattern = $"%{normalizedQuery}%";
+                var rows = await dbContext.Users
+                    .AsNoTracking()
+                    .Where(user => EF.Functions.Like(EF.Functions.Collate(user.Username, "NOCASE"), likePattern))
+                    .OrderBy(user => user.Username)
+                    .Take(normalizedTake)
+                    .Select(user => new ContentRequestUserSuggestion
+                    {
+                        UserId = user.Id,
+                        Username = user.Username
+                    })
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                return rows;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<ContentRequestAdminUserQuotaResult> GetAdminUserQuota(Guid userId)
+        {
+            if (userId.IsEmpty())
+            {
+                throw new ArgumentException("User id cannot be empty.", nameof(userId));
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var username = await dbContext.Users
+                    .AsNoTracking()
+                    .Where(user => user.Id.Equals(userId))
+                    .Select(user => user.Username)
+                    .FirstOrDefaultAsync()
+                    .ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(username))
+                {
+                    throw new ContentRequestNotFoundException("User not found.");
+                }
+
+                var quota = await BuildQuotaInfoAsync(dbContext, userId, nowUtc).ConfigureAwait(false);
+                return new ContentRequestAdminUserQuotaResult
+                {
+                    UserId = userId,
+                    Username = username,
+                    Quota = quota
+                };
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<ContentRequestAdminUserQuotaResult> GrantAdminRewardQuota(Guid userId, int movieCount, int seriesCount)
+        {
+            if (userId.IsEmpty())
+            {
+                throw new ArgumentException("User id cannot be empty.", nameof(userId));
+            }
+
+            if (movieCount < 0 || seriesCount < 0)
+            {
+                throw new ArgumentException("Reward counts cannot be negative.");
+            }
+
+            if (movieCount == 0 && seriesCount == 0)
+            {
+                throw new ArgumentException("At least one reward count must be greater than zero.");
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                var user = await dbContext.Users
+                    .AsNoTracking()
+                    .Where(dbUser => dbUser.Id.Equals(userId))
+                    .Select(dbUser => new
+                    {
+                        dbUser.Id,
+                        dbUser.Username
+                    })
+                    .FirstOrDefaultAsync()
+                    .ConfigureAwait(false);
+
+                if (user is null)
+                {
+                    throw new ContentRequestNotFoundException("User not found.");
+                }
+
+                var rewardBalance = await dbContext.ContentRequestRewardBalances
+                    .FirstOrDefaultAsync(balance => balance.UserId.Equals(userId))
+                    .ConfigureAwait(false);
+
+                if (rewardBalance is null)
+                {
+                    rewardBalance = new ContentRequestRewardBalance
+                    {
+                        UserId = userId,
+                        MovieCount = Math.Max(0, movieCount),
+                        SeriesCount = Math.Max(0, seriesCount),
+                        CreatedAtUtc = nowUtc,
+                        UpdatedAtUtc = nowUtc
+                    };
+
+                    dbContext.ContentRequestRewardBalances.Add(rewardBalance);
+                }
+                else
+                {
+                    rewardBalance.MovieCount = AddWithCap(rewardBalance.MovieCount, movieCount);
+                    rewardBalance.SeriesCount = AddWithCap(rewardBalance.SeriesCount, seriesCount);
+                    rewardBalance.UpdatedAtUtc = nowUtc;
+                }
+
+                await dbContext.SaveChangesAsync().ConfigureAwait(false);
+
+                var quota = await BuildQuotaInfoAsync(dbContext, userId, nowUtc).ConfigureAwait(false);
+                return new ContentRequestAdminUserQuotaResult
+                {
+                    UserId = userId,
+                    Username = user.Username,
+                    Quota = quota
                 };
             }
         }
@@ -214,21 +392,7 @@ namespace Jellyfin.Server.Implementations.ContentRequests
             var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
             await using (dbContext.ConfigureAwait(false))
             {
-                var unseenPendingRows = await dbContext.ContentRequests
-                    .Where(request => request.Status == Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Pending
-                        && !request.IsAdminViewed)
-                    .ToListAsync()
-                    .ConfigureAwait(false);
-
-                if (unseenPendingRows.Count > 0)
-                {
-                    foreach (var unseenPendingRow in unseenPendingRows)
-                    {
-                        unseenPendingRow.IsAdminViewed = true;
-                    }
-
-                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                }
+                await MarkUnseenPendingRowsViewedAsync(dbContext).ConfigureAwait(false);
 
                 var rows = await dbContext.ContentRequests
                     .AsNoTracking()
@@ -240,6 +404,37 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 return rows
                     .Select(request => ToContractModel(request, request.User?.Username))
                     .ToList();
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<ContentRequestListResult> GetAdminRequestsPaged(int skip, int take)
+        {
+            var normalizedSkip = Math.Max(0, skip);
+            var normalizedTake = Math.Max(1, take);
+
+            var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
+            await using (dbContext.ConfigureAwait(false))
+            {
+                await MarkUnseenPendingRowsViewedAsync(dbContext).ConfigureAwait(false);
+
+                var query = dbContext.ContentRequests
+                    .AsNoTracking()
+                    .Include(request => request.User);
+
+                var totalRecordCount = await query.CountAsync().ConfigureAwait(false);
+                var rows = await query
+                    .OrderByDescending(request => request.RequestedAt)
+                    .Skip(normalizedSkip)
+                    .Take(normalizedTake)
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                return new ContentRequestListResult
+                {
+                    TotalRecordCount = totalRecordCount,
+                    Items = rows.Select(request => ToContractModel(request, request.User?.Username)).ToList()
+                };
             }
         }
 
@@ -353,6 +548,27 @@ namespace Jellyfin.Server.Implementations.ContentRequests
             {
                 // Do not block request flows on milestone sync failures.
             }
+        }
+
+        private static async Task MarkUnseenPendingRowsViewedAsync(JellyfinDbContext dbContext)
+        {
+            var unseenPendingRows = await dbContext.ContentRequests
+                .Where(request => request.Status == Jellyfin.Database.Implementations.Enums.ContentRequestStatus.Pending
+                    && !request.IsAdminViewed)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            if (unseenPendingRows.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var unseenPendingRow in unseenPendingRows)
+            {
+                unseenPendingRow.IsAdminViewed = true;
+            }
+
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
 
         private async Task TryRecordApprovedRequestAsync(Guid userId)
@@ -546,13 +762,102 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                 IsAdminViewed = row.IsAdminViewed
             };
 
-        private static int GetCoinRedeemCost(ContentRequestType type, (int UsedMovies, int UsedSeries) usage)
+        private static bool HasBaseQuota(ContentRequestType type, (int UsedMovies, int UsedSeries) usage)
             => type switch
             {
-                ContentRequestType.Movie when usage.UsedMovies >= _movieCap => _movieRedeemCoinCost,
-                ContentRequestType.Series when usage.UsedSeries >= _seriesCap => _seriesRedeemCoinCost,
+                ContentRequestType.Movie => usage.UsedMovies < _movieCap,
+                ContentRequestType.Series => usage.UsedSeries < _seriesCap,
+                _ => false
+            };
+
+        private static int GetRewardBalanceForType(ContentRequestRewardBalance? rewardBalance, ContentRequestType type)
+        {
+            if (rewardBalance is null)
+            {
+                return 0;
+            }
+
+            return type switch
+            {
+                ContentRequestType.Movie => Math.Max(0, rewardBalance.MovieCount),
+                ContentRequestType.Series => Math.Max(0, rewardBalance.SeriesCount),
                 _ => 0
             };
+        }
+
+        private static void ConsumeRewardBalanceForType(ContentRequestRewardBalance rewardBalance, ContentRequestType type)
+        {
+            if (type == ContentRequestType.Movie)
+            {
+                rewardBalance.MovieCount = Math.Max(0, rewardBalance.MovieCount - 1);
+                return;
+            }
+
+            if (type == ContentRequestType.Series)
+            {
+                rewardBalance.SeriesCount = Math.Max(0, rewardBalance.SeriesCount - 1);
+            }
+        }
+
+        private static int AddWithCap(int left, int right)
+        {
+            if (right <= 0)
+            {
+                return left;
+            }
+
+            var cappedLeft = Math.Max(0, left);
+            var maxAddable = int.MaxValue - cappedLeft;
+            return cappedLeft + Math.Min(right, maxAddable);
+        }
+
+        private static async Task<(int RewardMovies, int RewardSeries)> GetRewardBalancesAsync(
+            JellyfinDbContext dbContext,
+            Guid userId)
+        {
+            var row = await dbContext.ContentRequestRewardBalances
+                .AsNoTracking()
+                .FirstOrDefaultAsync(balance => balance.UserId.Equals(userId))
+                .ConfigureAwait(false);
+
+            if (row is null)
+            {
+                return (0, 0);
+            }
+
+            return (Math.Max(0, row.MovieCount), Math.Max(0, row.SeriesCount));
+        }
+
+        private static async Task<ContentRequestQuotaInfo> BuildQuotaInfoAsync(
+            JellyfinDbContext dbContext,
+            Guid userId,
+            DateTime nowUtc)
+        {
+            var cycleInfo = await ResolveSubscriptionCycleAsync(dbContext, userId, nowUtc).ConfigureAwait(false);
+            var usage = cycleInfo.IsSubscriptionActive
+                ? await GetCycleUsageAsync(dbContext, userId, cycleInfo.CycleStartDate).ConfigureAwait(false)
+                : (UsedMovies: 0, UsedSeries: 0);
+            var rewards = await GetRewardBalancesAsync(dbContext, userId).ConfigureAwait(false);
+
+            var baseRemainingMovies = cycleInfo.IsSubscriptionActive ? Math.Max(0, _movieCap - usage.UsedMovies) : 0;
+            var baseRemainingSeries = cycleInfo.IsSubscriptionActive ? Math.Max(0, _seriesCap - usage.UsedSeries) : 0;
+            var totalRemainingMovies = cycleInfo.IsSubscriptionActive ? baseRemainingMovies + rewards.RewardMovies : 0;
+            var totalRemainingSeries = cycleInfo.IsSubscriptionActive ? baseRemainingSeries + rewards.RewardSeries : 0;
+
+            return new ContentRequestQuotaInfo
+            {
+                CycleStartDate = cycleInfo.CycleStartDate,
+                IsSubscriptionActive = cycleInfo.IsSubscriptionActive,
+                MovieCap = _movieCap,
+                SeriesCap = _seriesCap,
+                UsedMovies = usage.UsedMovies,
+                UsedSeries = usage.UsedSeries,
+                RemainingMovies = totalRemainingMovies,
+                RemainingSeries = totalRemainingSeries,
+                RewardMovies = rewards.RewardMovies,
+                RewardSeries = rewards.RewardSeries
+            };
+        }
 
         private static async Task<(int EarnedCoins, int SpentCoins)> GetCoinTotalsAsync(
             JellyfinDbContext dbContext,

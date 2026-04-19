@@ -6,16 +6,21 @@ import { type ContentRequestRow } from 'utils/contentRequestsApi';
 import AdminRequestActions from './AdminRequestActions';
 import RequestCard, { type RequestCardMetaRow } from './RequestCard';
 import RequestEmptyState from './RequestEmptyState';
+import RequestPagination from './RequestPagination';
 import RequestStatusBadge from './RequestStatusBadge';
 import RequestTable, { type RequestTableColumn } from './RequestTable';
 import useRequestIsMobileLayout from './useRequestIsMobileLayout';
 
 interface AdminRequestTableProps {
     rows: ContentRequestRow[]
+    pageIndex: number
+    pageSize: number
+    totalRecordCount: number
     isBusy: boolean
     onApprove: (requestId: string) => void
     onReject: (requestId: string) => void
     onComplete: (row: ContentRequestRow) => void
+    onPageChange: (nextPageIndex: number) => void
 }
 
 const formatDateTime = (value: string) => {
@@ -33,10 +38,14 @@ const formatDateTime = (value: string) => {
 
 const AdminRequestTable: FC<AdminRequestTableProps> = ({
     rows,
+    pageIndex,
+    pageSize,
+    totalRecordCount,
     isBusy,
     onApprove,
     onReject,
-    onComplete
+    onComplete,
+    onPageChange
 }) => {
     const preferCardsLayout = useRequestIsMobileLayout();
 
@@ -152,6 +161,13 @@ const AdminRequestTable: FC<AdminRequestTableProps> = ({
                     <RequestEmptyState message={globalize.translate('RequestNoRows')} />
                 )}
             </div>
+            <RequestPagination
+                pageIndex={pageIndex}
+                pageSize={pageSize}
+                totalRecordCount={totalRecordCount}
+                isBusy={isBusy}
+                onPageChange={onPageChange}
+            />
         </>
     );
 };

@@ -21,6 +21,8 @@ export interface ContentRequestRow {
 
 export interface PublicContentRequestRow {
     id: string
+    userId: string
+    username: string
     title: string
     type: ContentRequestType
     seasonNumber: number | null
@@ -38,6 +40,8 @@ export interface ContentRequestQuotaSummary {
     usedSeries: number
     remainingMovies: number
     remainingSeries: number
+    rewardMovies: number
+    rewardSeries: number
 }
 
 export interface MyContentRequestsResult {
@@ -45,9 +49,31 @@ export interface MyContentRequestsResult {
     quota: ContentRequestQuotaSummary
 }
 
+export interface MyContentRequestsPagedResult {
+    items: ContentRequestRow[]
+    totalRecordCount: number
+    quota: ContentRequestQuotaSummary
+}
+
 export interface PublicContentRequestListResult {
     items: PublicContentRequestRow[]
     totalRecordCount: number
+}
+
+export interface AdminContentRequestListResult {
+    items: ContentRequestRow[]
+    totalRecordCount: number
+}
+
+export interface ContentRequestUserSuggestion {
+    userId: string
+    username: string
+}
+
+export interface ContentRequestAdminUserQuota {
+    userId: string
+    username: string
+    quota: ContentRequestQuotaSummary
 }
 
 export interface ContentRequestWebPushSubscriptionPayload {
@@ -171,6 +197,8 @@ const toContentRequestRow = (source: unknown): ContentRequestRow => ({
 
 const toPublicContentRequestRow = (source: unknown): PublicContentRequestRow => ({
     id: toStringValue(read(source, 'Id', 'id')),
+    userId: toStringValue(read(source, 'UserId', 'userId')),
+    username: toStringValue(read(source, 'Username', 'username')),
     title: toStringValue(read(source, 'Title', 'title')),
     type: toContentRequestType(read(source, 'Type', 'type')),
     seasonNumber: toNullableNumber(read(source, 'SeasonNumber', 'seasonNumber')),
@@ -187,12 +215,25 @@ const toQuota = (source: unknown): ContentRequestQuotaSummary => ({
     usedMovies: toNumber(read(source, 'UsedMovies', 'usedMovies')),
     usedSeries: toNumber(read(source, 'UsedSeries', 'usedSeries')),
     remainingMovies: toNumber(read(source, 'RemainingMovies', 'remainingMovies')),
-    remainingSeries: toNumber(read(source, 'RemainingSeries', 'remainingSeries'))
+    remainingSeries: toNumber(read(source, 'RemainingSeries', 'remainingSeries')),
+    rewardMovies: toNumber(read(source, 'RewardMovies', 'rewardMovies')),
+    rewardSeries: toNumber(read(source, 'RewardSeries', 'rewardSeries'))
 });
 
 const toArray = (value: unknown): unknown[] => (
     Array.isArray(value) ? value : []
 );
+
+const toUserSuggestion = (source: unknown): ContentRequestUserSuggestion => ({
+    userId: toStringValue(read(source, 'UserId', 'userId')),
+    username: toStringValue(read(source, 'Username', 'username'))
+});
+
+const toAdminUserQuota = (source: unknown): ContentRequestAdminUserQuota => ({
+    userId: toStringValue(read(source, 'UserId', 'userId')),
+    username: toStringValue(read(source, 'Username', 'username')),
+    quota: toQuota(read(source, 'Quota', 'quota'))
+});
 
 export const createContentRequest = async (
     title: string,
@@ -234,6 +275,29 @@ export const getMyContentRequests = async (apiClient?: ApiClient): Promise<MyCon
     };
 };
 
+export const getMyContentRequestsPaged = async (
+    skip = 0,
+    take = 10,
+    apiClient?: ApiClient
+): Promise<MyContentRequestsPagedResult> => {
+    const client = getApiClient(apiClient);
+    const response = await client.ajax({
+        type: 'GET',
+        url: client.getUrl('Request/My/Paged', {
+            skip: Math.max(0, skip),
+            take: Math.max(1, take)
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return {
+        items: toArray(read(response, 'Items', 'items')).map(toContentRequestRow),
+        totalRecordCount: toNumber(read(response, 'TotalRecordCount', 'totalRecordCount')),
+        quota: toQuota(read(response, 'Quota', 'quota'))
+    };
+};
+
 export const getPublicContentRequests = async (
     skip = 0,
     take = 50,
@@ -268,6 +332,28 @@ export const getAdminContentRequests = async (apiClient?: ApiClient): Promise<Co
     return toArray(response).map(toContentRequestRow);
 };
 
+export const getAdminContentRequestsPaged = async (
+    skip = 0,
+    take = 10,
+    apiClient?: ApiClient
+): Promise<AdminContentRequestListResult> => {
+    const client = getApiClient(apiClient);
+    const response = await client.ajax({
+        type: 'GET',
+        url: client.getUrl('Request/Admin/Paged', {
+            skip: Math.max(0, skip),
+            take: Math.max(1, take)
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return {
+        items: toArray(read(response, 'Items', 'items')).map(toContentRequestRow),
+        totalRecordCount: toNumber(read(response, 'TotalRecordCount', 'totalRecordCount'))
+    };
+};
+
 export const getAdminUnseenPendingCount = async (apiClient?: ApiClient): Promise<number> => {
     const client = getApiClient(apiClient);
     const response = await client.ajax({
@@ -278,6 +364,69 @@ export const getAdminUnseenPendingCount = async (apiClient?: ApiClient): Promise
     });
 
     return toNumber(read(response, 'Count', 'count'));
+};
+
+export const searchAdminContentRequestUsers = async (
+    query: string,
+    take = 8,
+    apiClient?: ApiClient
+): Promise<ContentRequestUserSuggestion[]> => {
+    const client = getApiClient(apiClient);
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+        return [];
+    }
+
+    const response = await client.ajax({
+        type: 'GET',
+        url: client.getUrl('Request/Admin/UserSuggestions', {
+            query: normalizedQuery,
+            take: Math.max(1, take)
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return toArray(response).map(toUserSuggestion);
+};
+
+export const getAdminContentRequestUserQuota = async (
+    userId: string,
+    apiClient?: ApiClient
+): Promise<ContentRequestAdminUserQuota> => {
+    const client = getApiClient(apiClient);
+    const response = await client.ajax({
+        type: 'GET',
+        url: client.getUrl('Request/Admin/UserQuota', {
+            userId
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return toAdminUserQuota(response);
+};
+
+export const grantAdminContentRequestRewardQuota = async (
+    userId: string,
+    movieCount: number,
+    seriesCount: number,
+    apiClient?: ApiClient
+): Promise<ContentRequestAdminUserQuota> => {
+    const client = getApiClient(apiClient);
+    const response = await client.ajax({
+        type: 'POST',
+        url: client.getUrl('Request/Admin/RewardQuota'),
+        data: JSON.stringify({
+            UserId: userId,
+            MovieCount: Math.max(0, Math.trunc(movieCount)),
+            SeriesCount: Math.max(0, Math.trunc(seriesCount))
+        }),
+        dataType: 'json',
+        contentType: 'application/json'
+    });
+
+    return toAdminUserQuota(response);
 };
 
 export const approveContentRequest = async (requestId: string, apiClient?: ApiClient) => {

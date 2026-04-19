@@ -183,6 +183,44 @@ public class RequestController : BaseJellyfinApiController
     }
 
     /// <summary>
+    /// Gets paged current user request rows and cap summary.
+    /// </summary>
+    /// <param name="skip">Rows to skip.</param>
+    /// <param name="take">Rows to take.</param>
+    /// <returns>Paged my requests response.</returns>
+    [HttpGet("My/Paged")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<MyContentRequestsPagedResponse>> GetMyRequestsPaged([FromQuery] int skip = 0, [FromQuery] int take = 10)
+    {
+        var userId = User.GetUserId();
+        if (userId.IsEmpty())
+        {
+            return BadRequest("User is not authenticated.");
+        }
+
+        var normalizedSkip = Math.Max(0, skip);
+        var normalizedTake = take <= 0 ? 10 : Math.Min(take, _maxTake);
+
+        try
+        {
+            var list = await _contentRequestService.GetMyRequestsPaged(userId, normalizedSkip, normalizedTake).ConfigureAwait(false);
+            var summary = await _contentRequestService.GetMyRequests(userId).ConfigureAwait(false);
+            return new MyContentRequestsPagedResponse
+            {
+                Items = list.Items.Select(ToDto).ToList(),
+                TotalRecordCount = list.TotalRecordCount,
+                Quota = ToQuotaDto(summary.Quota)
+            };
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Gets public content requests.
     /// </summary>
     /// <param name="skip">Rows to skip.</param>
@@ -198,6 +236,86 @@ public class RequestController : BaseJellyfinApiController
 
         var response = await _contentRequestService.GetPublicRequests(normalizedSkip, normalizedTake).ConfigureAwait(false);
         return ToDto(response);
+    }
+
+    /// <summary>
+    /// Searches users for admin reward assignment suggestions.
+    /// </summary>
+    /// <param name="query">Search text.</param>
+    /// <param name="take">Maximum suggestion rows.</param>
+    /// <returns>User suggestions.</returns>
+    [HttpGet("Admin/UserSuggestions")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<AdminContentRequestUserSuggestionDto>>> GetAdminUserSuggestions([FromQuery] string query, [FromQuery] int take = 8)
+    {
+        try
+        {
+            var rows = await _contentRequestService.SearchUsersForAdmin(query, take).ConfigureAwait(false);
+            return rows.Select(ToDto).ToList();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Gets quota details for a target user as admin.
+    /// </summary>
+    /// <param name="userId">Target user id.</param>
+    /// <returns>User quota details.</returns>
+    [HttpGet("Admin/UserQuota")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AdminContentRequestUserQuotaResponse>> GetAdminUserQuota([FromQuery, Required] Guid userId)
+    {
+        try
+        {
+            var result = await _contentRequestService.GetAdminUserQuota(userId).ConfigureAwait(false);
+            return ToDto(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (ContentRequestNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Grants additional rewarded request slots to a user.
+    /// </summary>
+    /// <param name="request">Reward grant payload.</param>
+    /// <returns>Updated user quota details.</returns>
+    [HttpPost("Admin/RewardQuota")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AdminContentRequestUserQuotaResponse>> RewardQuota([FromBody, Required] AdminRewardContentRequestQuotaRequest request)
+    {
+        try
+        {
+            var result = await _contentRequestService
+                .GrantAdminRewardQuota(request.UserId, request.MovieCount, request.SeriesCount)
+                .ConfigureAwait(false);
+
+            return ToDto(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (ContentRequestNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     /// <summary>
@@ -269,6 +387,27 @@ public class RequestController : BaseJellyfinApiController
     {
         var rows = await _contentRequestService.GetAdminRequests().ConfigureAwait(false);
         return rows.Select(ToDto).ToList();
+    }
+
+    /// <summary>
+    /// Gets paged admin request rows and marks unseen pending rows as viewed.
+    /// </summary>
+    /// <param name="skip">Rows to skip.</param>
+    /// <param name="take">Rows to take.</param>
+    /// <returns>Paged admin request rows.</returns>
+    [HttpGet("Admin/Paged")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<AdminContentRequestListResponse>> GetAdminRequestsPaged([FromQuery] int skip = 0, [FromQuery] int take = 10)
+    {
+        var normalizedSkip = Math.Max(0, skip);
+        var normalizedTake = take <= 0 ? 10 : Math.Min(take, _maxTake);
+        var rows = await _contentRequestService.GetAdminRequestsPaged(normalizedSkip, normalizedTake).ConfigureAwait(false);
+        return new AdminContentRequestListResponse
+        {
+            Items = rows.Items.Select(ToDto).ToList(),
+            TotalRecordCount = rows.TotalRecordCount
+        };
     }
 
     /// <summary>
@@ -408,6 +547,8 @@ public class RequestController : BaseJellyfinApiController
         => new()
         {
             Id = row.Id,
+            UserId = row.UserId,
+            Username = row.Username ?? string.Empty,
             Title = row.Title,
             Type = row.Type,
             SeasonNumber = row.SeasonNumber,
@@ -427,16 +568,36 @@ public class RequestController : BaseJellyfinApiController
         => new()
         {
             Requests = result.Requests.Select(ToDto).ToList(),
-            Quota = new ContentRequestCapSummaryDto
-            {
-                CycleStartDate = result.Quota.CycleStartDate,
-                IsSubscriptionActive = result.Quota.IsSubscriptionActive,
-                MovieCap = result.Quota.MovieCap,
-                SeriesCap = result.Quota.SeriesCap,
-                UsedMovies = result.Quota.UsedMovies,
-                UsedSeries = result.Quota.UsedSeries,
-                RemainingMovies = result.Quota.RemainingMovies,
-                RemainingSeries = result.Quota.RemainingSeries
-            }
+            Quota = ToQuotaDto(result.Quota)
+        };
+
+    private static AdminContentRequestUserSuggestionDto ToDto(ContentRequestUserSuggestion row)
+        => new()
+        {
+            UserId = row.UserId,
+            Username = row.Username
+        };
+
+    private static AdminContentRequestUserQuotaResponse ToDto(ContentRequestAdminUserQuotaResult result)
+        => new()
+        {
+            UserId = result.UserId,
+            Username = result.Username,
+            Quota = ToQuotaDto(result.Quota)
+        };
+
+    private static ContentRequestCapSummaryDto ToQuotaDto(ContentRequestQuotaInfo quota)
+        => new()
+        {
+            CycleStartDate = quota.CycleStartDate,
+            IsSubscriptionActive = quota.IsSubscriptionActive,
+            MovieCap = quota.MovieCap,
+            SeriesCap = quota.SeriesCap,
+            UsedMovies = quota.UsedMovies,
+            UsedSeries = quota.UsedSeries,
+            RemainingMovies = quota.RemainingMovies,
+            RemainingSeries = quota.RemainingSeries,
+            RewardMovies = quota.RewardMovies,
+            RewardSeries = quota.RewardSeries
         };
 }

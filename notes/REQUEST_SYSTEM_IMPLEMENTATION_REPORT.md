@@ -518,3 +518,306 @@ Added in `jellyfin-android`:
 
 - Current mobile alerts are app-side polling based and do not introduce FCM/APNs server push infrastructure.
 - Users receive these notifications when the app process is active/resumed and session is available; a future push pipeline can be layered later without changing request API contracts.
+
+## Post-Report Addendum (2026-04-19, request pool visibility + admin reward quota)
+
+### Scope
+
+Implemented two new request-system capabilities across API, service logic, DB schema, web user UI, and web admin UI:
+
+- User Request tab now includes a searchable/filterable "Current Request Pool" of requests from other users.
+- Admin Request tab now includes "Reward Request Quota" tooling to grant extra Movie/Series request counts to any user with debounced username suggestion and confirmation flow.
+
+### Backend/API changes (`jellyfin`)
+
+Updated:
+
+- `jellyfin/Jellyfin.Api/Controllers/RequestController.cs`
+- `jellyfin/Jellyfin.Server.Implementations/ContentRequests/ContentRequestService.cs`
+- `jellyfin/MediaBrowser.Controller/ContentRequests/IContentRequestService.cs`
+- `jellyfin/MediaBrowser.Controller/ContentRequests/ContentRequestQuotaInfo.cs`
+
+Added DTOs:
+
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/AdminContentRequestUserSuggestionDto.cs`
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/AdminContentRequestUserQuotaResponse.cs`
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/AdminRewardContentRequestQuotaRequest.cs`
+
+Added contract models:
+
+- `jellyfin/MediaBrowser.Controller/ContentRequests/ContentRequestUserSuggestion.cs`
+- `jellyfin/MediaBrowser.Controller/ContentRequests/ContentRequestAdminUserQuotaResult.cs`
+
+Adjusted DTOs:
+
+- `PublicContentRequestRowDto` now includes requester identity fields:
+- `UserId`
+- `Username`
+- `ContentRequestCapSummaryDto` and contract quota now include:
+- `RewardMovies`
+- `RewardSeries`
+
+New admin endpoints:
+
+1. `GET Request/Admin/UserSuggestions?query=<text>&take=<n>`
+- partial username search for autosuggest.
+2. `GET Request/Admin/UserQuota?userId=<guid>`
+- returns selected user's current quota state and reward balances.
+3. `POST Request/Admin/RewardQuota`
+- payload: `{ UserId, MovieCount, SeriesCount }`
+- grants extra request slots.
+
+### Reward quota behavior
+
+Added persistent reward-balance store:
+
+- Entity: `ContentRequestRewardBalance`
+- Files:
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Implementations/Entities/ContentRequestRewardBalance.cs`
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Implementations/ModelConfiguration/ContentRequestRewardBalanceConfiguration.cs`
+- `DbSet` added in:
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Implementations/JellyfinDbContext.cs`
+
+Migration added:
+
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Providers.Sqlite/Migrations/20260418215347_AddContentRequestRewardBalances.cs`
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Providers.Sqlite/Migrations/20260418215347_AddContentRequestRewardBalances.Designer.cs`
+- Snapshot updated:
+- `jellyfin/src/Jellyfin.Database/Jellyfin.Database.Providers.Sqlite/Migrations/JellyfinDbModelSnapshot.cs`
+
+Runtime semantics:
+
+- Base monthly cap is still enforced first (`Movie=5`, `Series=2`).
+- If cap is exhausted and user has reward balance, one reward slot is consumed.
+- Coin top-up is charged only when both base cap and reward balance are exhausted.
+- `Request/My` quota now reports reward balances explicitly (`RewardMovies`, `RewardSeries`).
+
+### User Request tab UI (`jellyfin-web`)
+
+Added:
+
+- `jellyfin-web/src/components/contentRequests/PublicRequestPool.tsx`
+
+Integrated into:
+
+- `jellyfin-web/src/apps/stable/routes/request/index.tsx`
+
+Behavior:
+
+- Fetches from existing `GET Request/Public`.
+- Shows requests from other users in a native request-table/card section.
+- Includes:
+- search box
+- type filter (All/Movie/Series)
+- scope filter (`Current` = Pending+Approved, or `All`)
+- Uses existing request styles so it matches current page design.
+
+### Admin Request tab UI (`jellyfin-web`)
+
+Added:
+
+- `jellyfin-web/src/components/contentRequests/AdminRewardQuotaManager.tsx`
+
+Integrated into:
+
+- `jellyfin-web/src/apps/dashboard/routes/requests/index.tsx`
+
+Behavior:
+
+- Username autosuggest with **2-second idle debounce** before API search.
+- Partial match suggestions from `Request/Admin/UserSuggestions`.
+- On user selection, loads current quota counts from `Request/Admin/UserQuota`.
+- Admin can add Movie/Series counts via number input + quick-pick dropdown.
+- Add button enables only when:
+- a user is selected
+- at least one count is > 0
+- confirmation dialog accepted
+- Success/failure handled with toast feedback.
+
+Supporting updates:
+
+- `jellyfin-web/src/utils/contentRequestsApi.ts` (new admin methods + expanded models)
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss` (new panel/filter styles)
+- `jellyfin-web/src/strings/en-us.json` (new request-pool/admin-reward strings)
+
+### Tests and validation
+
+Updated integration tests:
+
+- `jellyfin/tests/Jellyfin.Server.Integration.Tests/Controllers/ContentRequestControllerTests.cs`
+
+New/expanded coverage:
+
+1. Public request rows include requester identity (`UserId` + `Username`).
+2. Admin user suggestion endpoint returns partial username matches.
+3. Admin reward quota grant increases remaining counts and allows post-cap request without coin charge while consuming reward balance.
+
+Executed validation:
+
+- `dotnet build Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj -c Release` passed.
+- `dotnet build Jellyfin.Api/Jellyfin.Api.csproj -c Release` passed.
+- `dotnet test tests/Jellyfin.Server.Integration.Tests/Jellyfin.Server.Integration.Tests.csproj -c Release --filter FullyQualifiedName~ContentRequestControllerTests` passed (`15/15`).
+- `dotnet test tests/Jellyfin.Server.Implementations.Tests/Jellyfin.Server.Implementations.Tests.csproj -c Release --filter FullyQualifiedName~EfMigrationTests` passed (`1/1`).
+- `npm run build:production` in `jellyfin-web` passed (existing bundle-size warnings only).
+
+## Post-Report Addendum (2026-04-19, pagination + layout refinement pass)
+
+### Scope
+
+Applied the requested follow-up UX/data-loading refinements:
+
+- User Request page:
+- improved table readability/spacing
+- made top panels balanced
+- moved `Current Request Pool` to full-width section below
+- added server-side pagination for `My Requests` (10 rows/page)
+- Admin Request page:
+- changed reward username search placeholder text to shorter label
+- added server-side pagination for Request Management (10 rows/page)
+
+### Backend/API updates (`jellyfin`)
+
+Updated service contract:
+
+- `jellyfin/MediaBrowser.Controller/ContentRequests/IContentRequestService.cs`
+- Added:
+- `GetMyRequestsPaged(Guid userId, int skip, int take)`
+- `GetAdminRequestsPaged(int skip, int take)`
+
+Updated implementation:
+
+- `jellyfin/Jellyfin.Server.Implementations/ContentRequests/ContentRequestService.cs`
+- Implemented both paged methods with:
+- stable descending order by `RequestedAt`
+- `Skip/Take` slicing
+- total count return for page controls
+- Reused unseen-pending mark-as-viewed behavior for admin via shared helper so existing semantics remain unchanged.
+
+Added API DTOs:
+
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/MyContentRequestsPagedResponse.cs`
+- `jellyfin/Jellyfin.Api/Models/ContentRequestDtos/AdminContentRequestListResponse.cs`
+
+Updated controller:
+
+- `jellyfin/Jellyfin.Api/Controllers/RequestController.cs`
+- Added endpoints:
+1. `GET Request/My/Paged?skip=<n>&take=<n>`
+2. `GET Request/Admin/Paged?skip=<n>&take=<n>`
+
+### Web updates (`jellyfin-web`)
+
+API utility changes:
+
+- `jellyfin-web/src/utils/contentRequestsApi.ts`
+- Added paged client calls:
+- `getMyContentRequestsPaged(...)`
+- `getAdminContentRequestsPaged(...)`
+
+New shared component:
+
+- `jellyfin-web/src/components/contentRequests/RequestPagination.tsx`
+- Prev/Next controls + page label.
+
+User Request page updates:
+
+- `jellyfin-web/src/apps/stable/routes/request/index.tsx`
+- `jellyfin-web/src/components/contentRequests/RequestList.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+- Changes:
+- `My Requests` now pulls only current page from server (10/page).
+- page index resets to first page after successful new submit.
+- `My Requests` and `Submit a New Request` columns are balanced to same width.
+- `Current Request Pool` moved below top grid to use full page width for better row text visibility.
+- widened title-area allocation to reduce wrapping/truncation pressure.
+
+Admin Request page updates:
+
+- `jellyfin-web/src/apps/dashboard/routes/requests/index.tsx`
+- `jellyfin-web/src/components/contentRequests/AdminRequestTable.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+- Changes:
+- Request Management now loads server-paged rows (10/page).
+- pagination controls added below admin table.
+
+String updates:
+
+- `jellyfin-web/src/strings/en-us.json`
+- `RequestAdminRewardUserPlaceholder` changed from:
+- `Type username to search (API runs after 2 seconds idle)`
+- to:
+- `Type username to search`
+- Added `RequestPaginationPageLabel` for shared paginator text.
+
+### Tests and validation
+
+Updated integration tests:
+
+- `jellyfin/tests/Jellyfin.Server.Integration.Tests/Controllers/ContentRequestControllerTests.cs`
+- Added coverage for:
+1. `My/Paged` slicing + total count contract
+2. `Admin/Paged` slicing + total count contract
+
+Validation run:
+
+- `dotnet build jellyfin/Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj -c Release` passed.
+- `dotnet build jellyfin/Jellyfin.Api/Jellyfin.Api.csproj -c Release` passed.
+- `dotnet test jellyfin/tests/Jellyfin.Server.Integration.Tests/Jellyfin.Server.Integration.Tests.csproj -c Release --filter FullyQualifiedName~ContentRequestControllerTests` passed (`17/17`).
+- `npm run build:production` in `jellyfin-web` passed (existing webpack size warnings only, no compile errors).
+
+### Before vs after behavior summary
+
+- Before:
+- user/admin request tables depended on full-list fetches and local rendering, causing crowding and unnecessary data load as rows grow.
+- user top layout left limited width for newly introduced request-pool table text.
+- admin username placeholder was long/noisy.
+- After:
+- both user `My Requests` and admin Request Management are true paged views (10 rows/page) backed by API slicing.
+- user top two sections are balanced and request pool gets full-width area below for cleaner readability.
+- admin placeholder text is short and cleaner.
+- lower payload per page improves perceived responsiveness under larger datasets.
+
+### Follow-up UX hotfix (2026-04-19, same day)
+
+Applied an additional layout correction based on feedback:
+
+- `Submit a New Request` panel was made too wide in the previous pass.
+- Desktop grid ratio is now intentionally asymmetric:
+- left (`Submit a New Request`) narrower
+- right (`My Requests`) wider
+
+Files adjusted:
+
+- `jellyfin-web/src/apps/stable/routes/request/index.tsx`
+- `jellyfin-web/src/components/contentRequests/RequestList.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+
+Result:
+
+- `My Requests` gets more horizontal room again, reducing table text wrapping pressure.
+- `Submit a New Request` no longer occupies equal-width space.
+
+### Follow-up UX tweak (2026-04-19, same day, latest)
+
+Applied one more narrow-scope layout adjustment:
+
+- Desktop top-grid columns were set back to equal width for:
+- `Submit a New Request`
+- `My Requests`
+
+No other sizing/spacing/length changes were made in this tweak.
+
+### Follow-up UX tweak (2026-04-19, My Requests readability)
+
+Applied a focused readability update for the user `My Requests` view:
+
+- Removed `Request ID` from `My Requests` table.
+- Reduced `Season` column width (optimized for small numeric values).
+- Increased `Title` column space.
+- Switched title rendering from single-line truncation to multi-line wrapping.
+- Title wrapping now prefers normal word boundaries (space-aware wrapping).
+
+Files updated:
+
+- `jellyfin-web/src/components/contentRequests/RequestList.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`

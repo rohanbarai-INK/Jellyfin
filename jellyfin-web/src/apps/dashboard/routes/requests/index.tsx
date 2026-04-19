@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import AdminCompleteModal from 'components/contentRequests/AdminCompleteModal';
+import AdminRewardQuotaManager from 'components/contentRequests/AdminRewardQuotaManager';
 import AdminRequestTable from 'components/contentRequests/AdminRequestTable';
 import RequestHeader from 'components/contentRequests/RequestHeader';
 import RequestPageContainer from 'components/contentRequests/RequestPageContainer';
@@ -14,13 +15,13 @@ import {
     type ContentRequestRow,
     approveContentRequest,
     completeContentRequest,
+    getAdminContentRequestsPaged,
     rejectContentRequest
 } from 'utils/contentRequestsApi';
 
 import { CONTENT_REQUEST_QUERY_KEYS } from 'apps/dashboard/features/contentRequests/api/queryKeys';
-import { useAdminContentRequests } from 'apps/dashboard/features/contentRequests/api/useAdminContentRequests';
-
 import './requests.scss';
+const ADMIN_PAGE_SIZE = 10;
 
 const getErrorMessage = async (error: unknown) => {
     if (!error || typeof error !== 'object') {
@@ -59,31 +60,49 @@ const getErrorMessage = async (error: unknown) => {
 
 export const Component = () => {
     const { __legacyApiClient__: apiClient } = useApi();
-    const {
-        data: rows = [],
-        isLoading,
-        refetch
-    } = useAdminContentRequests();
+    const [ rows, setRows ] = useState<ContentRequestRow[]>([]);
+    const [ totalRecordCount, setTotalRecordCount ] = useState(0);
+    const [ pageIndex, setPageIndex ] = useState(0);
+    const [ isLoading, setIsLoading ] = useState(true);
+    const [ isTableLoading, setIsTableLoading ] = useState(false);
 
     const [ isBusy, setIsBusy ] = useState(false);
     const [ pageMessage, setPageMessage ] = useState('');
     const [ pageError, setPageError ] = useState(false);
     const [ completeTarget, setCompleteTarget ] = useState<ContentRequestRow | null>(null);
 
-    useEffect(() => {
-        if (!isLoading) {
-            void queryClient.invalidateQueries({
-                queryKey: [ CONTENT_REQUEST_QUERY_KEYS.adminUnseenPendingCount ]
-            });
+    const refreshData = useCallback(async (targetPageIndex = pageIndex) => {
+        if (!apiClient) {
+            return;
         }
-    }, [ isLoading, rows.length ]);
 
-    const refreshData = useCallback(async () => {
-        await refetch();
+        if (isLoading) {
+            setIsLoading(true);
+        } else {
+            setIsTableLoading(true);
+        }
+        try {
+            const response = await getAdminContentRequestsPaged(
+                targetPageIndex * ADMIN_PAGE_SIZE,
+                ADMIN_PAGE_SIZE,
+                apiClient
+            );
+
+            setRows(response.items);
+            setTotalRecordCount(response.totalRecordCount);
+        } finally {
+            setIsLoading(false);
+            setIsTableLoading(false);
+        }
+
         await queryClient.invalidateQueries({
             queryKey: [ CONTENT_REQUEST_QUERY_KEYS.adminUnseenPendingCount ]
         });
-    }, [ refetch ]);
+    }, [ apiClient, pageIndex ]);
+
+    useEffect(() => {
+        void refreshData(pageIndex);
+    }, [ pageIndex, refreshData ]);
 
     const runAction = useCallback(async (action: () => Promise<unknown>) => {
         setIsBusy(true);
@@ -159,6 +178,17 @@ export const Component = () => {
         >
             <RequestPageContainer>
                 <section className='requestSection'>
+                    <RequestHeader
+                        title={globalize.translate('RequestAdminRewardTitle')}
+                        subtitle={globalize.translate('RequestAdminRewardSubtitle')}
+                    />
+                    <AdminRewardQuotaManager
+                        apiClient={apiClient || undefined}
+                        isBusy={isBusy}
+                        onRewardApplied={refreshData}
+                    />
+                </section>
+                <section className='requestSection'>
                     <RequestHeader title={globalize.translate('RequestAdminTitle')} />
                     {!!pageMessage && (
                         <p className={`requestFormMessage${pageError ? ' error' : ''}`}>
@@ -167,10 +197,14 @@ export const Component = () => {
                     )}
                     <AdminRequestTable
                         rows={rows}
-                        isBusy={isBusy}
+                        pageIndex={pageIndex}
+                        pageSize={ADMIN_PAGE_SIZE}
+                        totalRecordCount={totalRecordCount}
+                        isBusy={isBusy || isTableLoading}
                         onApprove={onApprove}
                         onReject={onReject}
                         onComplete={onOpenCompleteFlow}
+                        onPageChange={setPageIndex}
                     />
                 </section>
             </RequestPageContainer>

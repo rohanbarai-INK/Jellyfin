@@ -491,6 +491,137 @@
     min-width: 0;
 }
 
+.requestListStack {
+    display: grid;
+    gap: 1rem;
+}
+
+.requestFilterTools {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.requestFilterRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.requestFilterField {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.requestFilterField > span {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.86rem;
+}
+
+.requestSelect {
+    padding-right: 2.2rem;
+}
+
+.adminRewardGrid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.adminRewardUserField {
+    max-width: 38rem;
+}
+
+.adminRewardSuggestMeta {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.86rem;
+}
+
+.adminRewardSuggestions {
+    display: grid;
+    gap: 0.4rem;
+    max-width: 38rem;
+}
+
+.adminRewardSuggestionButton {
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.62rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.6);
+    color: var(--jf-palette-text-primary);
+    text-align: left;
+    padding: 0.5rem 0.65rem;
+    cursor: pointer;
+}
+
+.adminRewardQuotaPanel {
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.7rem;
+    padding: 0.72rem;
+    background: rgba(var(--jf-palette-background-defaultChannel) / 0.56);
+}
+
+.adminRewardQuotaHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+}
+
+.adminRewardQuotaHeader span {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.84rem;
+}
+
+.adminRewardQuotaStats {
+    margin-top: 0.65rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.adminRewardQuotaStats > div {
+    border: 1px solid var(--jf-palette-divider);
+    border-radius: 0.6rem;
+    padding: 0.48rem 0.58rem;
+    display: grid;
+    gap: 0.2rem;
+    background: rgba(var(--jf-palette-background-paperChannel) / 0.58);
+}
+
+.adminRewardQuotaStats > div > span {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.84rem;
+}
+
+.adminRewardQuotaStats > div > strong {
+    font-size: 0.95rem;
+}
+
+.adminRewardQuotaEmpty {
+    margin-top: 0.65rem;
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.9rem;
+}
+
+.adminRewardInputGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.adminRewardInlineInput {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 8.25rem;
+    gap: 0.45rem;
+}
+
+.adminRewardQuickSelect {
+    min-height: 2.75rem;
+}
+
+.adminRewardActionRow {
+    max-width: 20rem;
+}
+
 @keyframes requestSearchAmbientSweep {
     0% {
         background-position: 0 0, 0% 50%;
@@ -671,7 +802,7 @@
     border-bottom: 1px solid var(--jf-palette-divider);
     font-size: 0.92rem;
     vertical-align: middle;
-    overflow-wrap: break-word;
+    overflow-wrap: normal;
     word-break: normal;
 }
 
@@ -685,7 +816,7 @@
 }
 
 .requestColTitle {
-    width: 30%;
+    width: 58%;
 }
 
 .requestColType {
@@ -693,7 +824,7 @@
 }
 
 .requestColSeason {
-    width: 4.8rem;
+    width: 3.2rem;
 }
 
 .requestColDate {
@@ -726,6 +857,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     vertical-align: middle;
+}
+
+.requestCellWrap {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
 }
 
 .requestStatusBadge.status-pending {
@@ -829,6 +968,19 @@
 
 .requestCardActions {
     margin-top: 0.7rem;
+}
+
+.requestPagination {
+    margin-top: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.requestPaginationLabel {
+    color: var(--jf-palette-text-secondary);
+    font-size: 0.9rem;
 }
 
 .adminRequestActions {
@@ -952,14 +1104,28 @@
 @media (min-width: 1080px) {
     .requestMainGrid {
         display: grid;
-        grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.42fr);
+        grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
         gap: 1rem;
         align-items: start;
+    }
+
+    .requestCreateColumn {
+        min-width: 0;
+    }
+
+    .requestMyRequestsColumn {
+        min-width: 0;
     }
 }
 
 @media (max-width: 767px) {
     .requestFormGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .requestFilterRow,
+    .adminRewardInputGrid,
+    .adminRewardInlineInput {
         grid-template-columns: 1fr;
     }
 
@@ -1012,6 +1178,10 @@
     .requestColType,
     .requestColSeason {
         width: auto;
+    }
+
+    .requestPagination {
+        justify-content: space-between;
     }
 }
 
