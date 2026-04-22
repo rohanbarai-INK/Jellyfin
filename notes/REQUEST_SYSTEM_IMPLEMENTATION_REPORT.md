@@ -2,6 +2,20 @@
 
 Date: 2026-02-26
 
+## April 22, 2026 Follow-Up Fixes (Web Push Subscription Stability)
+
+Observed production issue:
+- `RequestController.SubscribeWebPush` could fail in `ContentRequestWebPushService.UpsertSubscription` due to duplicate endpoint rows and/or concurrent upsert races.
+
+Root cause:
+- Subscription upsert assumed a single endpoint row and did not explicitly self-heal duplicate endpoint data before update/save.
+- Concurrent insert/update calls for the same endpoint could surface EF update exceptions instead of gracefully converging to one record.
+
+Fix applied:
+- Upsert now loads all rows for the endpoint, keeps the newest row, and removes duplicates in the same transaction.
+- Added race-safe retry behavior: when concurrent writes conflict, service re-reads endpoint rows, updates survivor row, removes extras, and saves again.
+- Result is a stable endpoint record without surfacing transient DB write failures to the API caller.
+
 ## Scope Completed
 
 Implemented a full Request System across server, database, web user UI, web admin UI, and notification UX.

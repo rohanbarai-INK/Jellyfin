@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Database.Implementations;
 using Jellyfin.Database.Implementations.Entities;
@@ -361,6 +362,7 @@ namespace Jellyfin.Server.Implementations.Leaderboard
             ";
 
             await dbContext.Database.ExecuteSqlRawAsync(Sql).ConfigureAwait(false);
+            var existingColumns = await GetExistingColumnsAsync(dbContext, "UserSeasonStats").ConfigureAwait(false);
 
             // Try adding new columns to existing table - ignore errors for columns that already exist
             foreach (var alterLine in AlterSql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -370,19 +372,95 @@ namespace Jellyfin.Server.Implementations.Leaderboard
                     continue;
                 }
 
+                if (TryExtractAddedColumnName(alterLine, out var columnName)
+                    && existingColumns.Contains(columnName))
+                {
+                    continue;
+                }
+
                 try
                 {
 #pragma warning disable EF1003
                     await dbContext.Database.ExecuteSqlRawAsync(alterLine + ";").ConfigureAwait(false);
 #pragma warning restore EF1003
+                    if (TryExtractAddedColumnName(alterLine, out columnName))
+                    {
+                        existingColumns.Add(columnName);
+                    }
                 }
                 catch (Microsoft.Data.Sqlite.SqliteException)
                 {
-                    // Column already exists - expected
+                    // Column already exists or a concurrent startup race.
                 }
             }
 
             _tableVerified = true;
+        }
+
+        private static async Task<HashSet<string>> GetExistingColumnsAsync(JellyfinDbContext dbContext, string tableName)
+        {
+            var connection = dbContext.Database.GetDbConnection();
+            var shouldClose = false;
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                await connection.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+                shouldClose = true;
+            }
+
+            try
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = $"PRAGMA table_info({tableName});";
+                await using var reader = await command.ExecuteReaderAsync(CancellationToken.None).ConfigureAwait(false);
+
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var nameOrdinal = reader.GetOrdinal("name");
+                while (await reader.ReadAsync(CancellationToken.None).ConfigureAwait(false))
+                {
+                    var name = await reader.IsDBNullAsync(nameOrdinal, CancellationToken.None).ConfigureAwait(false)
+                        ? string.Empty
+                        : reader.GetString(nameOrdinal);
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        columns.Add(name.Trim());
+                    }
+                }
+
+                return columns;
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    await connection.CloseAsync().ConfigureAwait(false);
+                }
+            }
+        }
+
+        private static bool TryExtractAddedColumnName(string alterSql, out string columnName)
+        {
+            columnName = string.Empty;
+            if (string.IsNullOrWhiteSpace(alterSql))
+            {
+                return false;
+            }
+
+            const string marker = "ADD COLUMN";
+            var markerIndex = alterSql.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex < 0)
+            {
+                return false;
+            }
+
+            var afterMarker = alterSql[(markerIndex + marker.Length)..].Trim();
+            if (afterMarker.Length == 0)
+            {
+                return false;
+            }
+
+            var firstSpace = afterMarker.IndexOf(' ', StringComparison.Ordinal);
+            columnName = (firstSpace < 0 ? afterMarker : afterMarker[..firstSpace]).Trim().Trim('"');
+            return !string.IsNullOrWhiteSpace(columnName);
         }
 
         private async Task<UserSeasonStats> GetOrCreateSeasonStats(JellyfinDbContext dbContext, Guid userId, int seasonYear)

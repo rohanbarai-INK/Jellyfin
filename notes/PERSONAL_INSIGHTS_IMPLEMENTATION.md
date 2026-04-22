@@ -22,6 +22,28 @@ Fix applied:
 - Genre aggregation for episodes now falls back to parent series genres when episode genre metadata is missing.
 - Smart Insight avoids low-signal statements like `0% <genre>` and switches to a neutral "exploring multiple genres" message when top-genre share is below 1%.
 
+## April 22, 2026 Follow-Up Fix (Episode Completion Accuracy from Playback Stop Signal)
+
+Observed production issue:
+- Personal Insights could show high `Total Watch Time` but low `Episodes Watched` for users who had clearly finished multiple episodes.
+
+Root cause:
+- Aggregation used a hardcoded completion rule (`validatedTicks >= 90% runtime`) to increment `CompletedEpisodes`.
+- In real playback flows, anti-abuse validation may undercount validated ticks even when Jellyfin itself already marks playback as completed at stop time.
+- This made completion counters stricter than Jellyfin's own `PlayedToCompletion` outcome.
+
+Fix applied:
+- `WatchSessionTrackingService` now forwards `PlaybackStopEventArgs.PlayedToCompletion` to aggregation.
+- `WatchSessionAggregationService` now treats a session as completed when either:
+  - playback stop reports `PlayedToCompletion = true`, or
+  - validated ticks still satisfy the fallback runtime threshold.
+- This keeps watch-time anti-abuse validation intact while aligning completion counts with authoritative stop-time completion state.
+
+Validation:
+- Added regression test:
+  - `PlaybackStopPlayedToCompletion_MarksEpisodeCompletedForInsights`
+- The test covers an episode session below 90% validated ticks that is still marked completed by stop signal and now correctly increments `CompletedEpisodes`.
+
 ---
 
 ## Overview

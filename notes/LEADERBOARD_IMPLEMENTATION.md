@@ -347,6 +347,21 @@ await EnsureSeasonRowsForAllUsersAsync(dbContext, seasonYear).ConfigureAwait(fal
 - Rebuilt backend: `dotnet build Jellyfin.Server.Implementations/Jellyfin.Server.Implementations.csproj`
 - Build succeeded (existing package vulnerability warning unrelated to this change)
 
+## April 22, 2026 Follow-Up Fix (Startup Log Noise for Existing UserSeasonStats Columns)
+
+Observed production issue:
+- Startup/runtime logs repeatedly showed EF Core command errors for:
+  - `ALTER TABLE UserSeasonStats ADD COLUMN ...`
+
+Root cause:
+- `EnsureTableExistsAsync` attempted each `ALTER TABLE ... ADD COLUMN ...` on every startup and relied on exception handling when columns already existed.
+- SQLite rejected already-existing columns, and EF logged those rejected commands as errors.
+
+Fix applied:
+- Added schema pre-check using `PRAGMA table_info(UserSeasonStats)`.
+- The service now executes `ALTER TABLE ... ADD COLUMN ...` only for columns that are genuinely missing.
+- Existing behavior of self-healing older schemas is preserved, but expected-no-op alter attempts are skipped.
+
 ---
 
 ## Deployment Notes

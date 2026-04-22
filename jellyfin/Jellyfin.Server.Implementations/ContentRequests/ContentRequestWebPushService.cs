@@ -98,10 +98,19 @@ namespace Jellyfin.Server.Implementations.ContentRequests
             var dbContext = await _dbProvider.CreateDbContextAsync().ConfigureAwait(false);
             await using (dbContext.ConfigureAwait(false))
             {
-                var existing = await dbContext.ContentRequestWebPushSubscriptions
-                    .FirstOrDefaultAsync(subscription => subscription.Endpoint == normalizedEndpoint)
+                var matches = await dbContext.ContentRequestWebPushSubscriptions
+                    .Where(subscription => subscription.Endpoint == normalizedEndpoint)
+                    .OrderByDescending(subscription => subscription.UpdatedAt)
+                    .ThenByDescending(subscription => subscription.Id)
+                    .ToListAsync()
                     .ConfigureAwait(false);
 
+                if (matches.Count > 1)
+                {
+                    dbContext.ContentRequestWebPushSubscriptions.RemoveRange(matches.Skip(1));
+                }
+
+                var existing = matches.FirstOrDefault();
                 if (existing is null)
                 {
                     dbContext.ContentRequestWebPushSubscriptions.Add(new ContentRequestWebPushSubscription
@@ -123,7 +132,39 @@ namespace Jellyfin.Server.Implementations.ContentRequests
                     existing.UpdatedAt = nowUtc;
                 }
 
-                await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                try
+                {
+                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
+                catch (DbUpdateException)
+                {
+                    // Another request may have inserted the same endpoint concurrently.
+                    // Retry once against the now-existing row to avoid surfacing a 500.
+                    var currentRows = await dbContext.ContentRequestWebPushSubscriptions
+                        .Where(subscription => subscription.Endpoint == normalizedEndpoint)
+                        .OrderByDescending(subscription => subscription.UpdatedAt)
+                        .ThenByDescending(subscription => subscription.Id)
+                        .ToListAsync()
+                        .ConfigureAwait(false);
+
+                    if (currentRows.Count == 0)
+                    {
+                        throw;
+                    }
+
+                    var survivor = currentRows[0];
+                    survivor.UserId = userId;
+                    survivor.P256dh = normalizedP256dh;
+                    survivor.Auth = normalizedAuth;
+                    survivor.UpdatedAt = nowUtc;
+
+                    if (currentRows.Count > 1)
+                    {
+                        dbContext.ContentRequestWebPushSubscriptions.RemoveRange(currentRows.Skip(1));
+                    }
+
+                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
             }
         }
 

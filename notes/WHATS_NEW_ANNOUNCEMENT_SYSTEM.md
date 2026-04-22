@@ -168,3 +168,19 @@ The web layer resolves builtin tokens to bundled assets.
 5. Sign in with a regular user and verify active campaign uses updated values.
 6. Verify per-session, per-day, and total impression limits behave correctly.
 7. Create multiple published active campaigns and verify slide navigation appears.
+
+---
+
+## April 22, 2026 Follow-Up Fix (Noisy Startup Logs on Existing Columns)
+
+Observed after deployment:
+- Server logs could show repeated EF Core "Failed executing DbCommand" errors for:
+  - `ALTER TABLE FeatureAnnouncements ADD COLUMN ...`
+
+Root cause:
+- Defensive schema hydration attempted to `ADD COLUMN` every startup and relied on catching SQLite exceptions.
+- EF Core logs the failed command as an error even when the exception is caught and ignored.
+
+Fix applied:
+- Before running each `ALTER TABLE ... ADD COLUMN ...`, the service now checks existing columns via `PRAGMA table_info(FeatureAnnouncements)` and only runs missing alters.
+- This avoids scary-looking errors in production logs while keeping the schema self-healing behavior.

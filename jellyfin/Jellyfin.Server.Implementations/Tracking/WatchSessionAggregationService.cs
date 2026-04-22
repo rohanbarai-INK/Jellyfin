@@ -57,8 +57,9 @@ namespace Jellyfin.Server.Implementations.Tracking
         /// Processes a finalized watch session into aggregated tables.
         /// </summary>
         /// <param name="session">Finalized session.</param>
+        /// <param name="playedToCompletion">Whether the playback stop event reported completion via Jellyfin playstate logic.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        public async Task ProcessSession(UserWatchSession session)
+        public async Task ProcessSession(UserWatchSession session, bool playedToCompletion = false)
         {
             ArgumentNullException.ThrowIfNull(session);
 
@@ -77,7 +78,8 @@ namespace Jellyfin.Server.Implementations.Tracking
             var runtimeTicks = Math.Max(0, item.RunTimeTicks ?? 0);
             var isMovie = item is Movie;
             var isEpisode = item is Episode;
-            var isCompleted = runtimeTicks > 0 && session.ValidatedTicks >= (long)Math.Floor(runtimeTicks * 0.9D);
+            var isCompleted = playedToCompletion
+                || (runtimeTicks > 0 && session.ValidatedTicks >= (long)Math.Floor(runtimeTicks * 0.9D));
             var hourlyTickDistribution = BuildHourlyTickDistribution(session);
             var hourBuckets = hourlyTickDistribution.Keys.ToArray();
             var genres = ResolveGenresForAggregation(item);

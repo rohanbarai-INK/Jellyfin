@@ -573,6 +573,46 @@ public class WatchSessionTrackingAndAggregationTests
     }
 
     [Fact]
+    public async Task PlaybackStopPlayedToCompletion_MarksEpisodeCompletedForInsights()
+    {
+        var userId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var user = CreateUser(userId);
+        var episode = new MediaBrowser.Controller.Entities.TV.Episode
+        {
+            Id = episodeId,
+            Name = "Completion Signal Episode",
+            ParentIndexNumber = 1,
+            IndexNumber = 1,
+            RunTimeTicks = TimeSpan.FromMinutes(60).Ticks
+        };
+
+        await using var context = await CreateContextAsync(new DateTimeOffset(2026, 3, 18, 13, 0, 0, TimeSpan.Zero));
+        await context.RegisterItemAsync(episode);
+
+        await context.TrackingService.HandlePlaybackStart(CreateStartEvent(user, episode, "episode-complete-signal", 0));
+        context.TimeProvider.Advance(TimeSpan.FromMinutes(40));
+        await context.TrackingService.HandlePlaybackProgress(CreateProgressEvent(
+            user,
+            episode,
+            "episode-complete-signal",
+            TimeSpan.FromMinutes(40).Ticks));
+        await context.TrackingService.HandlePlaybackStop(CreateStopEvent(
+            user,
+            episode,
+            "episode-complete-signal",
+            TimeSpan.FromMinutes(40).Ticks,
+            playedToCompletion: true));
+
+        await using var dbContext = await context.DbFactory.CreateDbContextAsync();
+        var monthStats = await dbContext.UserPeriodStats
+            .SingleAsync(stats => stats.UserId.Equals(userId)
+                && stats.PeriodType == PeriodType.Month
+                && stats.PeriodKey == "2026-03");
+        Assert.Equal(1, monthStats.CompletedEpisodes);
+    }
+
+    [Fact]
     public async Task SmallBackwardSeekJitter_DoesNotInvalidateSession()
     {
         var userId = Guid.NewGuid();
@@ -908,7 +948,13 @@ public class WatchSessionTrackingAndAggregationTests
             IsAutomated = isAutomated
         };
 
-    private static PlaybackStopEventArgs CreateStopEvent(User user, BaseItem item, string playSessionId, long positionTicks, string deviceName = "Device")
+    private static PlaybackStopEventArgs CreateStopEvent(
+        User user,
+        BaseItem item,
+        string playSessionId,
+        long positionTicks,
+        string deviceName = "Device",
+        bool playedToCompletion = false)
         => new()
         {
             Users = new List<User> { user },
@@ -922,7 +968,8 @@ public class WatchSessionTrackingAndAggregationTests
             PlaySessionId = playSessionId,
             DeviceId = deviceName,
             DeviceName = deviceName,
-            ClientName = "TestClient"
+            ClientName = "TestClient",
+            PlayedToCompletion = playedToCompletion
         };
 
     private static UserWatchSession CreateValidSession(

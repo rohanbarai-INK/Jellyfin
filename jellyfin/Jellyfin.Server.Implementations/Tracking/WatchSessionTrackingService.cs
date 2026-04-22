@@ -163,7 +163,7 @@ namespace Jellyfin.Server.Implementations.Tracking
                 });
 
                 await PersistSessionAsync(state.Session).ConfigureAwait(false);
-                await _aggregationService.ProcessSession(state.Session).ConfigureAwait(false);
+                await _aggregationService.ProcessSession(state.Session, eventArgs.PlayedToCompletion).ConfigureAwait(false);
             }
         }
 
