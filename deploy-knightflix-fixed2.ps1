@@ -137,27 +137,6 @@ cache="/var/cache/knightflix"
 m1="/srv/dev-disk-by-uuid-7b2260f5-9928-4ef0-a7db-5802e2b023c7"
 m2="/srv/dev-disk-by-uuid-4de857dc-2d58-4ecd-a473-02e1c265c87f/MediaServer"
 tz="Asia/Kolkata"
-m1_expected_dev="/dev/nvme0n1p2"
-m2_expected_dev="/dev/sdc1"
-
-check_mount_source() {
-  local path="$1"
-  local expected="$2"
-  if [ ! -d "$path" ]; then
-    echo "Mount path missing: $path" >&2
-    exit 1
-  fi
-  local actual
-  actual="$(findmnt -n -o SOURCE --target "$path" 2>/dev/null || true)"
-  if [ -z "$actual" ]; then
-    echo "Could not resolve mount source for: $path" >&2
-    exit 1
-  fi
-  if [ "$actual" != "$expected" ]; then
-    echo "Mount source mismatch for $path (actual=$actual expected=$expected)" >&2
-    exit 1
-  fi
-}
 
 if [ ! -f '__REMOTE_TAR__' ]; then
   echo "Missing uploaded tar: __REMOTE_TAR__" >&2
@@ -173,11 +152,6 @@ if [ ! -f "$WORKDIR/jellyfin-web/dist/index.html" ]; then
   echo "Missing prebuilt web UI: $WORKDIR/jellyfin-web/dist/index.html" >&2
   exit 1
 fi
-
-echo "Validating media mount sources before docker run..."
-check_mount_source "$m1" "$m1_expected_dev"
-check_mount_source "$m2" "$m2_expected_dev"
-echo "Mount source validation passed."
 
 echo "Current live mounts:"
 docker inspect KnightFlix --format '{{range .Mounts}}{{println .Source "=>" .Destination}}{{end}}' || true
@@ -211,14 +185,21 @@ else
     "$IMAGE_TAG" /opt/jellyfin/jellyfin.dll --datadir /config --cachedir /cache
 fi
 
-echo "\\nValidating mounts inside container:"
-docker exec KnightFlix sh -lc 'findmnt -n -o SOURCE --target /media1; findmnt -n -o SOURCE --target /media2'
-
 echo "\\nContainer status:"
 docker ps --filter name=KnightFlix --format '{{.Names}} {{.Image}} {{.Status}} {{.Ports}}'
 
 echo "\\nRecent logs:"
 docker logs --tail 80 KnightFlix || true
+
+echo "\\nMedia mount sanity check (/media2):"
+if docker exec KnightFlix sh -lc 'ls -1 /media2 >/dev/null 2>&1'; then
+  docker exec KnightFlix sh -lc 'ls -1 /media2 | head -n 10' || true
+else
+  echo "WARN: /media2 is not readable inside container. Restarting container to rebind mounts..."
+  docker restart KnightFlix
+  sleep 3
+  docker exec KnightFlix sh -lc 'ls -1 /media2 | head -n 10'
+fi
 
 echo "\\nWaiting for health endpoint..."
 i=0

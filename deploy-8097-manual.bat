@@ -17,14 +17,14 @@ REM Usage:
 REM   deploy-8097-manual.bat
 REM
 REM Optional env vars:
-REM   CONFIG=Debug|Release      (default Debug)
+REM   CONFIG=Debug|Release      (default Release)
 REM   SKIP_WEB_BUILD=1         Skip npm web build (default: build every run)
 REM   SKIP_WEB_COPY=1          Skip robocopy of jellyfin-web\dist
 REM   SKIP_STOP=1              Skip stopping existing process on 8097
 REM   JELLYFIN_FFMPEG=...      Explicit ffmpeg.exe path (optional)
 
 set "PORT=8097"
-if "%CONFIG%"=="" set "CONFIG=Debug"
+if "%CONFIG%"=="" set "CONFIG=Release"
 
 set "ROOT=%~dp0"
 pushd "%ROOT%" >nul

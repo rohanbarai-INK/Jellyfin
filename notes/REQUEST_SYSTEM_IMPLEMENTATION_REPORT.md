@@ -835,3 +835,16 @@ Files updated:
 
 - `jellyfin-web/src/components/contentRequests/RequestList.tsx`
 - `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+
+### Follow-up UX tweak (2026-04-24, Current Request Pool overlap)
+
+Applied a targeted table-column fix for `Current Request Pool`:
+
+- Increased dedicated space for `Requested By` so long usernames do not overlap into `Title`.
+- Added pool-specific title column sizing so the column layout remains stable.
+- Kept rendering as single-line truncate with tooltip to prevent text collision.
+
+Files updated:
+
+- `jellyfin-web/src/components/contentRequests/PublicRequestPool.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`

@@ -186,6 +186,12 @@ Fix (restore the correct DB into `KNIGHTFLIX_CONFIG_DIR/data/jellyfin.db`, then 
 
 ### 4.2 Media path exists on host but missing in container
 Symptom: logs show `Could not find file '/media2/...mp4'` and ffmpeg exits with code `254`.
+Fast verify:
+```bash
+# Host has file but container cannot read it
+ls -l "/srv/dev-disk-by-uuid-4de857dc-2d58-4ecd-a473-02e1c265c87f/MediaServer/TVSeries/Key & Peele/Season 01/Key & Peele - S01E01 - I Said Bitch.mp4"
+docker exec KnightFlix sh -lc 'test -f "/media2/TVSeries/Key & Peele/Season 01/Key & Peele - S01E01 - I Said Bitch.mp4" && echo PRESENT || echo MISSING'
+```
 Fix: restart the container so Docker rebinds the mount:
 ```bash
 docker restart KnightFlix

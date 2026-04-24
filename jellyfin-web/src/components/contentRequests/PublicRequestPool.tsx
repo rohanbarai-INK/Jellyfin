@@ -68,12 +68,17 @@ const PublicRequestPool: FC<PublicRequestPoolProps> = ({
         {
             key: 'username',
             label: globalize.translate('RequestRequesterColumn'),
-            render: row => row.username || '-'
+            className: 'requestColRequester',
+            render: row => (
+                <span className='requestCellTruncate' title={row.username || '-'}>
+                    {row.username || '-'}
+                </span>
+            )
         },
         {
             key: 'title',
             label: globalize.translate('LabelTitle'),
-            className: 'requestColTitle',
+            className: 'requestColPoolTitle',
             render: row => (
                 <span className='requestCellTruncate' title={row.title}>
                     {row.title}

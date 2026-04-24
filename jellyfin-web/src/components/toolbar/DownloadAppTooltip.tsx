@@ -7,6 +7,9 @@ import appIconUrl from 'assets/branding/icon-transparent.png';
 export const APK_DOWNLOAD_URL = 'https://www.dropbox.com/scl/fi/lt80pztxgnfo28juvqfdy/KnightFlix-v0.0.1.apk?rlkey=9mizp5qaqrvr7a0tujx5wcm5i&st=6hyvbtrm&dl=1';
 export const APK_FILE_NAME = 'KnightFlix-v0.0.1.apk';
 
+export const TV_APK_DOWNLOAD_URL = 'https://www.dropbox.com/scl/fi/kshxwsf9vuy2r62bhhdmt/KnightFlixTV-v.0.0.1.apk?rlkey=x0eaigq4fxjzjdrw9otws3url&st=qehuzmlm&dl=1';
+export const TV_APK_FILE_NAME = 'KnightFlixTV-v0.0.1.apk';
+
 interface DownloadAppTooltipProps {
     onDownloadClick: () => void;
 }
@@ -17,6 +20,16 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
             const link = document.createElement('a');
             link.href = APK_DOWNLOAD_URL;
             link.download = APK_FILE_NAME;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            onDownloadClick();
+        };
+
+        const handleTvDownload = () => {
+            const link = document.createElement('a');
+            link.href = TV_APK_DOWNLOAD_URL;
+            link.download = TV_APK_FILE_NAME;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -127,7 +140,7 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                         {/* Divider */}
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} />
 
-                        {/* CTA Button */}
+                        {/* Mobile App CTA */}
                         <button
                             onClick={handleDownload}
                             style={{
@@ -157,9 +170,44 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                             }}
                         >
                             <svg style={{ width: '16px', height: '16px' }} fill='currentColor' viewBox='0 0 24 24'>
-                                <path d='M12 2a1 1 0 0 1 1 1v10.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 17a1 1 0 0 1 1 1v1h14v-1a1 1 0 1 1 2 0v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a1 1 0 0 1 1-1z' />
+                                <path d='M17.523 2.236l1.644 2.84a.5.5 0 0 1-.183.684.5.5 0 0 1-.684-.183L16.6 2.8a9.14 9.14 0 0 0-4.6-1.3 9.14 9.14 0 0 0-4.6 1.3L5.7 5.577a.5.5 0 0 1-.684.183.5.5 0 0 1-.183-.684l1.644-2.84C3.06 4.2 1 7.6 1 11.5h22c0-3.9-2.06-7.3-5.477-9.264zM7 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM1 12v7a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-7H1z' />
                             </svg>
-                            Download APK
+                            Mobile App
+                        </button>
+
+                        {/* Android TV App CTA */}
+                        <button
+                            onClick={handleTvDownload}
+                            style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '10px',
+                                padding: '10px 0',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(to right, #7c3aed, #a855f7)',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                boxShadow: '0 4px 20px rgba(124,58,237,0.25)',
+                                transition: 'transform 0.15s, box-shadow 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                                (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.02)';
+                                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 24px rgba(124,58,237,0.4)';
+                            }}
+                            onMouseLeave={e => {
+                                (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+                                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(124,58,237,0.25)';
+                            }}
+                        >
+                            <svg style={{ width: '16px', height: '16px' }} fill='currentColor' viewBox='0 0 24 24'>
+                                <path d='M21 3H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7v2H8v2h8v-2h-2v-2h7a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 14H3V5h18v12z' />
+                            </svg>
+                            Android TV App
                         </button>
 
                         <p style={{
