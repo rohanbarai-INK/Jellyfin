@@ -29,6 +29,7 @@ export const ASYNC_ADMIN_ROUTES: AsyncRoute[] = [
     { path: 'subscription-command-center', type: AppType.Dashboard },
     { path: 'tasks', type: AppType.Dashboard },
     { path: 'tasks/:id', page: 'tasks/task', type: AppType.Dashboard },
+    { path: 'trending', type: AppType.Dashboard },
     { path: 'users', type: AppType.Dashboard },
     { path: 'users/access', type: AppType.Dashboard },
     { path: 'users/add', type: AppType.Dashboard },

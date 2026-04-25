@@ -4,6 +4,38 @@
 **Commit**: `f0416c31829fdf5fb52c37e938c818ec90c2b8de`
 **Context**: Added a personal analytics dashboard for users (watch time, peak hours, binge streaks, and genre preferences) with backend aggregation and a new frontend page.
 
+## April 2026 Enhancement (Category / Library Viewing Distribution)
+
+Added a new Personal Insights visualization:
+- `Your Category Mix`
+- donut/radial-style chart showing how validated watch activity is distributed across the user's top-level libraries/categories for the selected period
+
+What it uses:
+- validated watch sessions only
+- period-aware filtering (`month`, `year`, `all`)
+- top-level item grouping from `BaseItems.TopParentId` joined back to the top parent item name
+
+Why this source was chosen:
+- it aligns with Jellyfin's top-level library/view grouping
+- it is more user-meaningful than item type alone
+- it works across movies, shows, anime, kids, and similar collection folders
+
+Response shape added:
+- `LibraryDistribution`
+- `Libraries[]`
+- each row includes:
+  - `Name`
+  - `Minutes`
+  - `Percentage`
+  - `SessionCount`
+  - `TitleCount`
+  - plus section-level `HasViewingActivity` and `InsightText`
+
+Edge-case handling:
+- no activity -> friendly empty state + neutral summary text
+- many tiny buckets -> top 5 are shown, remainder grouped into `Other`
+- missing top-parent mapping -> falls back to `Other`
+
 ## April 2026 Follow-Up Fixes (Data Consistency + Peak Hours + Streak Reliability + Genre Signal Quality)
 
 Observed production issue:
@@ -120,6 +152,7 @@ Builds the final response by combining:
 - Current + previous period stats (for deltas)
 - Hourly distribution (24 points)
 - Top genres (top 3)
+- Library/category distribution (top-level folders by validated watch time, top 5 + `Other`)
 - Binge history (recent 3)
 - Continue-watching items (top 5 from `UserData`)
 - Generated insight text (based on top genre)
@@ -135,6 +168,17 @@ Peak viewing logic:
 - `HourlyDistribution` is sourced from `UserPeriodHourlyStats` for the selected period.
 - `HasViewingActivity = any(HourlyDistribution.Minutes > 0)`.
 - If `HasViewingActivity` is false, the service returns a neutral label (`"No activity yet"`) and does not pretend there is a meaningful peak hour.
+
+Library/category distribution logic:
+- reads validated sessions for the selected period from `UserWatchSessions`
+- joins each watched item to `BaseItems`
+- resolves the top-level grouping from `BaseItems.TopParentId`
+- groups by the top-parent item name and sums validated ticks
+- returns the top 5 groups by watch time, with any remaining groups merged into `Other`
+- generates section-level smart text such as:
+  - biggest category this month
+  - mostly watch X and Y
+  - spread across X, Y, Z
 
 ### 5) API Endpoint
 File: `jellyfin/Jellyfin.Api/Controllers/PersonalInsightsController.cs`
@@ -155,6 +199,8 @@ DTO response:
 - `PersonalInsightsContinueWatchingDto`
 - `PersonalInsightsBingeDto` + `PersonalInsightsRecentBingeDto`
 - `PersonalInsightsGenreDto`
+- `PersonalInsightsLibraryDistributionDto`
+- `PersonalInsightsLibraryDto`
 
 ### 6) Data Model (Entities)
 Key entities:
@@ -197,6 +243,7 @@ Key UI features:
 - Continue Watching list
 - Binge highlights + recent streaks
 - Genre donut chart + hover detail
+- Category/library donut chart + breakdown legend
 - Smart Insight text block
 
 Peak viewing UI notes:
@@ -219,6 +266,7 @@ Coverage includes:
 - Watch session tracking correctness
 - Aggregation into period/hour/genre/binge tables
 - Insight payload integrity
+- Library/category mix resolves top-level folders and groups low-volume remainder into `Other`
 - Completion counts are sourced from aggregated stats (not `UserData`)
 - "No activity" periods do not claim peak viewing
 - Sparse final-stop sessions recover realistic validated watch time.

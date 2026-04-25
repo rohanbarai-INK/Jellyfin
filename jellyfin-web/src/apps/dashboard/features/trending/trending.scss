@@ -1,0 +1,373 @@
+.trendingAdminRoot {
+    display: grid;
+    gap: 1.25rem;
+    padding: 1rem 0 2rem;
+}
+
+.trendingAdminHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.trendingAdminHeader h1 {
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+.trendingAdminHeader p {
+    margin: 0.45rem 0 0;
+    max-width: 48rem;
+    color: rgb(192 203 214 / 80%);
+    line-height: 1.55;
+}
+
+.trendingAdminHeaderActions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.trendingAdminHeaderActions button,
+.trendingAdminActionRow button,
+.trendingAdminSearchButton {
+    border: 1px solid rgb(255 255 255 / 10%);
+    border-radius: 0.8rem;
+    background: rgb(255 255 255 / 5%);
+    color: inherit;
+    padding: 0.7rem 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.trendingAdminActionRow .danger {
+    border-color: rgb(248 113 113 / 20%);
+    color: rgb(254 202 202 / 94%);
+}
+
+.trendingAdminSettingControl {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 14rem;
+    max-width: 20rem;
+}
+
+.trendingAdminSettingControlRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.trendingAdminSettingControlRow input {
+    flex: 1 1 7rem;
+    min-width: 7rem;
+    border: 1px solid rgb(255 255 255 / 10%);
+    border-radius: 0.8rem;
+    background: rgb(6 10 16 / 82%);
+    color: inherit;
+    padding: 0.58rem 0.7rem;
+}
+
+.trendingAdminSettingControlRow button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.trendingAdminLayout {
+    display: grid;
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+    gap: 1.25rem;
+}
+
+.trendingAdminListPanel,
+.trendingAdminFormPanel {
+    border: 1px solid rgb(255 255 255 / 7%);
+    border-radius: 1rem;
+    background: rgb(12 16 24 / 72%);
+    padding: 1rem;
+}
+
+.trendingAdminListPanel h2,
+.trendingAdminPreview h3,
+.trendingAdminAudit h3 {
+    margin: 0 0 0.75rem;
+}
+
+.trendingAdminMuted {
+    margin: 0;
+    color: rgb(192 203 214 / 72%);
+}
+
+.trendingAdminList {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.trendingAdminListItem {
+    width: 100%;
+    border: 1px solid rgb(255 255 255 / 6%);
+    border-radius: 0.9rem;
+    background: rgb(255 255 255 / 3%);
+    color: inherit;
+    padding: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.trendingAdminListItem.selected {
+    border-color: rgb(56 189 248 / 30%);
+    background: rgb(14 26 39 / 86%);
+}
+
+.trendingAdminListItemTop {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.trendingAdminListItemTop strong {
+    font-size: 0.98rem;
+}
+
+.trendingAdminListItem p {
+    margin: 0.35rem 0 0;
+    color: rgb(192 203 214 / 78%);
+    font-size: 0.82rem;
+}
+
+.trendingAdminListMeta {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 0.65rem;
+    color: rgb(212 220 230 / 82%);
+    font-size: 0.74rem;
+}
+
+.trendingAdminStatusBadge {
+    border-radius: 999px;
+    padding: 0.22rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.trendingAdminStatusBadge.enabled {
+    background: rgb(34 197 94 / 16%);
+    color: rgb(220 252 231 / 95%);
+}
+
+.trendingAdminStatusBadge.disabled {
+    background: rgb(248 113 113 / 14%);
+    color: rgb(254 202 202 / 95%);
+}
+
+.trendingAdminFormPanel {
+    display: grid;
+    gap: 1rem;
+}
+
+.trendingAdminFormGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(15rem, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+.trendingAdminFormGrid label {
+    display: grid;
+    gap: 0.45rem;
+    font-size: 0.88rem;
+    color: rgb(226 232 240 / 92%);
+    min-width: 0;
+    align-content: start;
+}
+
+.trendingAdminFormGrid input,
+.trendingAdminFormGrid select,
+.trendingAdminFormGrid textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgb(255 255 255 / 10%);
+    border-radius: 0.8rem;
+    background: rgb(6 10 16 / 82%);
+    color: inherit;
+    padding: 0.68rem 0.8rem;
+}
+
+.trendingAdminFormGrid textarea {
+    resize: vertical;
+    min-height: 7rem;
+}
+
+.trendingAdminFieldHeader {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.trendingAdminTooltip {
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 999px;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(255 255 255 / 6%);
+    color: rgb(219 234 254 / 95%);
+    font-size: 0.7rem;
+    cursor: help;
+    line-height: 1;
+}
+
+.trendingAdminToggleLabel {
+    align-content: start;
+}
+
+.trendingAdminToggleLabel input {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.15rem;
+}
+
+.trendingAdminSearchBox {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.trendingAdminSearchControls {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr) auto;
+    gap: 0.55rem;
+}
+
+.trendingAdminSelectedContent {
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 0.75rem;
+    background: rgb(255 255 255 / 2%);
+    color: rgb(212 220 230 / 86%);
+    padding: 0.55rem 0.7rem;
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+}
+
+.trendingAdminSearchResults {
+    display: grid;
+    gap: 0.4rem;
+    max-height: 12rem;
+    overflow: auto;
+    border: 1px solid rgb(255 255 255 / 7%);
+    border-radius: 0.75rem;
+    background: rgb(7 10 16 / 72%);
+    padding: 0.45rem;
+}
+
+.trendingAdminSearchResult {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    width: 100%;
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 0.65rem;
+    background: rgb(255 255 255 / 3%);
+    color: inherit;
+    text-align: left;
+    padding: 0.55rem 0.65rem;
+    cursor: pointer;
+}
+
+.trendingAdminSearchResult:hover,
+.trendingAdminSearchResult:focus-visible {
+    border-color: rgb(56 189 248 / 35%);
+    background: rgb(17 31 44 / 85%);
+}
+
+.trendingAdminActionRow {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.trendingAdminPreviewCard {
+    display: grid;
+    gap: 0.7rem;
+    border: 1px solid rgb(255 255 255 / 7%);
+    border-radius: 1rem;
+    background: linear-gradient(180deg, rgb(15 23 32 / 90%), rgb(10 15 22 / 96%));
+    padding: 1rem;
+}
+
+.trendingAdminPreviewBadge {
+    justify-self: start;
+    border-radius: 999px;
+    background: rgb(14 165 233 / 15%);
+    color: rgb(224 242 254 / 96%);
+    padding: 0.3rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.trendingAdminPreviewCard strong {
+    font-size: 1.08rem;
+}
+
+.trendingAdminPreviewCard p,
+.trendingAdminAudit p {
+    margin: 0;
+    color: rgb(202 213 224 / 80%);
+    line-height: 1.55;
+}
+
+.trendingAdminPreviewMeta {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    color: rgb(219 234 254 / 84%);
+    font-size: 0.78rem;
+}
+
+.trendingAdminMessage {
+    margin: 0;
+    border-radius: 0.85rem;
+    background: rgb(34 197 94 / 12%);
+    color: rgb(220 252 231 / 94%);
+    padding: 0.85rem 1rem;
+}
+
+.trendingAdminMessage.error {
+    background: rgb(239 68 68 / 12%);
+    color: rgb(254 202 202 / 95%);
+}
+
+.span-two {
+    grid-column: span 2;
+}
+
+@media all and (max-width: 60em) {
+    .trendingAdminLayout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media all and (max-width: 56em) {
+    .trendingAdminFormGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .span-two {
+        grid-column: span 1;
+    }
+
+    .trendingAdminSearchControls {
+        grid-template-columns: 1fr;
+    }
+}

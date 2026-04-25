@@ -35,6 +35,7 @@ using MediaBrowser.Controller.Lyrics;
 using MediaBrowser.Controller.Net;
 using MediaBrowser.Controller.PersonalInsights;
 using MediaBrowser.Controller.Security;
+using MediaBrowser.Controller.Trending;
 using MediaBrowser.Controller.Trickplay;
 using MediaBrowser.Model.Activity;
 using MediaBrowser.Providers.Lyric;
@@ -107,6 +108,10 @@ namespace Jellyfin.Server
             serviceCollection.AddSingleton<WatchSessionAggregationService>();
             serviceCollection.AddSingleton<WatchSessionTrackingService>();
             serviceCollection.AddSingleton<IPersonalInsightsService, PersonalInsightsService>();
+            serviceCollection.AddSingleton<TrendingBaseService>();
+            serviceCollection.AddSingleton<TrendingPersonalizationService>();
+            serviceCollection.AddSingleton<ITrendingPromotionService, TrendingPromotionService>();
+            serviceCollection.AddSingleton<ITrendingNowService, TrendingNowService>();
 
             // TODO search the assemblies instead of adding them manually?
             serviceCollection.AddSingleton<IWebSocketListener, SessionWebSocketListener>();

@@ -330,6 +330,62 @@
     width: 100%;
 }
 
+.personalInsightsLibraryLayout {
+    align-items: flex-start;
+}
+
+.personalInsightsLibraryList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+}
+
+.personalInsightsLibraryRow {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 0.8rem;
+    color: #d1d5db;
+    background: rgb(17 24 39 / 45%);
+    cursor: pointer;
+}
+
+.personalInsightsLibraryRow.isActive,
+.personalInsightsLibraryRow:hover {
+    color: #fff;
+    border-color: rgb(249 115 22 / 28%);
+    background: rgb(30 41 59 / 72%);
+}
+
+.personalInsightsLibraryRow:focus-visible {
+    outline: 2px solid rgb(147 197 253 / 70%);
+    outline-offset: 2px;
+}
+
+.personalInsightsLibraryMeta {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.22rem;
+}
+
+.personalInsightsLibrarySubvalue {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.personalInsightsLibraryValue {
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .personalInsightsGenreRow {
     display: flex;
     align-items: center;
@@ -412,5 +468,14 @@
 
     .personalInsightsPeriodSelect {
         width: 100%;
+    }
+
+    .personalInsightsLibraryRow {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .personalInsightsLibraryValue {
+        white-space: normal;
     }
 }

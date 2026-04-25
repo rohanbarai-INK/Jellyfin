@@ -1,0 +1,284 @@
+.trendingNowHomeSection {
+    position: relative;
+}
+
+.trendingNowHomeHeader {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.trendingNowHomeHeaderCopy {
+    min-width: 0;
+}
+
+.trendingNowHomeSubtitle {
+    margin-top: 0.35rem;
+    color: rgb(196 212 230 / 80%);
+    font-size: 0.84rem;
+    line-height: 1.45;
+    max-width: 44rem;
+}
+
+.trendingNowHomePeriodBadge {
+    border: 1px solid rgb(255 255 255 / 10%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 5%);
+    color: rgb(226 236 247 / 92%);
+    padding: 0.42rem 0.8rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.trendingNowHomeStatus {
+    margin-top: 0.5rem;
+    color: rgb(186 206 226 / 78%);
+    font-size: 0.84rem;
+}
+
+.trendingNowHomeStatus.is-error {
+    color: rgb(254 202 202 / 96%);
+}
+
+.trendingNowHomeHero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.4rem;
+    min-height: 22rem;
+    margin-top: 0.7rem;
+    background:
+        radial-gradient(circle at top right, rgb(12 39 62 / 30%), transparent 38%),
+        linear-gradient(135deg, rgb(14 18 27 / 98%), rgb(9 13 20 / 94%));
+    border: 1px solid rgb(255 255 255 / 6%);
+    box-shadow: 0 1.2rem 2.8rem rgb(0 0 0 / 24%);
+}
+
+.trendingNowHomeHeroBackdrop,
+.trendingNowHomeHeroOverlay {
+    position: absolute;
+    inset: 0;
+}
+
+.trendingNowHomeHeroBackdrop {
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    opacity: 0.44;
+    transform: scale(1.02);
+}
+
+.trendingNowHomeHeroOverlay {
+    background:
+        linear-gradient(90deg, rgb(7 10 16 / 96%) 0%, rgb(7 10 16 / 86%) 40%, rgb(7 10 16 / 58%) 62%, rgb(7 10 16 / 92%) 100%),
+        linear-gradient(180deg, rgb(7 10 16 / 10%) 0%, rgb(7 10 16 / 72%) 100%);
+}
+
+.trendingNowHomeHeroContent {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(9rem, 11rem) minmax(0, 1fr);
+    gap: 1.2rem;
+    align-items: center;
+    padding: 1.1rem 3.5rem;
+    min-height: 22rem;
+}
+
+.trendingNowHomeHeroMedia {
+    display: flex;
+    align-items: center;
+}
+
+.trendingNowHomeHeroPoster {
+    width: 100%;
+    max-width: 11rem;
+    border-radius: 0.9rem;
+    box-shadow: 0 0.9rem 2rem rgb(0 0 0 / 34%);
+    background: rgb(24 31 43 / 92%);
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+}
+
+.trendingNowHomeHeroPosterFallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(214 227 238 / 92%);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.trendingNowHomeHeroInfo {
+    max-width: 36rem;
+}
+
+.trendingNowHomeBadgeRow {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.trendingNowHomeBadge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: rgb(22 163 74 / 18%);
+    border: 1px solid rgb(74 222 128 / 24%);
+    color: rgb(220 252 231 / 96%);
+    padding: 0.34rem 0.72rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.trendingNowHomeBadge + .trendingNowHomeBadge {
+    background: rgb(14 165 233 / 14%);
+    border-color: rgb(56 189 248 / 22%);
+    color: rgb(224 242 254 / 94%);
+}
+
+.trendingNowHomeHeroTitle {
+    margin: 0.7rem 0 0;
+    color: rgb(245 248 252 / 98%);
+    font-size: clamp(1.5rem, 1.7vw + 0.9rem, 2.4rem);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+}
+
+.trendingNowHomeHeroMeta {
+    margin-top: 0.55rem;
+    color: rgb(214 227 238 / 82%);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.trendingNowHomeHeroOverview {
+    margin: 0.75rem 0 0;
+    color: rgb(233 240 247 / 90%);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 34rem;
+}
+
+.trendingNowHomeHeroReasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.trendingNowHomeReason {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.75rem;
+    background: rgb(15 23 42 / 48%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    color: rgb(244 247 251 / 94%);
+    padding: 0.42rem 0.72rem;
+    font-size: 0.76rem;
+    line-height: 1.3;
+}
+
+.trendingNowHomeReason.subtle {
+    color: rgb(203 216 227 / 84%);
+}
+
+.trendingNowHomeActions {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-top: 0.85rem;
+}
+
+.trendingNowHomeActionPlay,
+.trendingNowHomeActionInfo {
+    min-width: 7.8rem;
+}
+
+.trendingNowHomeNavButton {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    transform: translateY(-50%);
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 999px;
+    background: rgb(10 15 23 / 26%);
+    color: rgb(236 244 252 / 94%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.trendingNowHomeNavButton span {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.trendingNowHomeNavButton.prev {
+    left: 0.75rem;
+}
+
+.trendingNowHomeNavButton.next {
+    right: 0.75rem;
+}
+
+.trendingNowHomeNavButton:hover,
+.trendingNowHomeNavButton:focus-visible {
+    background: rgb(10 15 23 / 56%);
+    border-color: rgb(56 189 248 / 45%);
+}
+
+@media all and (max-width: 70em) {
+    .trendingNowHomeHeroContent {
+        grid-template-columns: minmax(7.8rem, 9.5rem) minmax(0, 1fr);
+        padding: 1rem 3rem;
+    }
+}
+
+@media all and (max-width: 50em) {
+    .trendingNowHomeHeader {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .trendingNowHomeHero {
+        min-height: 0;
+    }
+
+    .trendingNowHomeHeroContent {
+        grid-template-columns: 1fr;
+        gap: 0.9rem;
+        min-height: 0;
+        padding: 1rem 2.5rem;
+    }
+
+    .trendingNowHomeHeroPoster {
+        max-width: 7.25rem;
+    }
+
+    .trendingNowHomeHeroTitle {
+        font-size: 1.45rem;
+    }
+
+    .trendingNowHomeNavButton {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .trendingNowHomeNavButton.prev {
+        left: 0.4rem;
+    }
+
+    .trendingNowHomeNavButton.next {
+        right: 0.4rem;
+    }
+}

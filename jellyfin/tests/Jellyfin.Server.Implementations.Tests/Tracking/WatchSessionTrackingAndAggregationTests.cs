@@ -900,6 +900,103 @@ public class WatchSessionTrackingAndAggregationTests
         Assert.All(monthResult.PeakViewing.HourlyDistribution, hour => Assert.Equal(0, hour.Minutes));
     }
 
+    [Fact]
+    public async Task PersonalInsights_LibraryDistribution_UsesTopLevelLibraries_AndGroupsTailIntoOther()
+    {
+        var userId = Guid.NewGuid();
+        var baseTime = new DateTime(2026, 3, 19, 10, 0, 0, DateTimeKind.Utc);
+
+        await using var context = await CreateContextAsync(new DateTimeOffset(baseTime, TimeSpan.Zero));
+        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
+        {
+            var libraryDefinitions = new[]
+            {
+                ("Movies", TimeSpan.FromMinutes(150).Ticks),
+                ("TV Shows", TimeSpan.FromMinutes(30).Ticks),
+                ("Anime", TimeSpan.FromMinutes(20).Ticks),
+                ("Kids", TimeSpan.FromMinutes(10).Ticks),
+                ("Documentaries", TimeSpan.FromMinutes(8).Ticks),
+                ("Sports", TimeSpan.FromMinutes(7).Ticks)
+            };
+
+            foreach (var (libraryName, _) in libraryDefinitions)
+            {
+                dbContext.BaseItems.Add(new BaseItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Type = "CollectionFolder",
+                    Name = libraryName,
+                    IsFolder = true,
+                    IsVirtualItem = false,
+                    IsInMixedFolder = false,
+                    IsLocked = false
+                });
+            }
+
+            await dbContext.SaveChangesAsync();
+
+            var topParents = await dbContext.BaseItems
+                .Where(item => item.Type == "CollectionFolder")
+                .ToDictionaryAsync(item => item.Name!, item => item.Id);
+
+            foreach (var (libraryName, _) in libraryDefinitions)
+            {
+                dbContext.BaseItems.Add(new BaseItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Type = nameof(Movie),
+                    Name = $"{libraryName} Title",
+                    TopParentId = topParents[libraryName],
+                    IsFolder = false,
+                    IsVirtualItem = false,
+                    IsInMixedFolder = false,
+                    IsLocked = false,
+                    IsMovie = true
+                });
+            }
+
+            await dbContext.SaveChangesAsync();
+
+            var contentItems = await dbContext.BaseItems
+                .Where(item => item.Type == nameof(Movie))
+                .ToDictionaryAsync(item => item.Name!, item => item.Id);
+
+            var sessionIndex = 0;
+            foreach (var (libraryName, validatedTicks) in libraryDefinitions)
+            {
+                dbContext.UserWatchSessions.Add(CreateValidSession(
+                    userId,
+                    contentItems[$"{libraryName} Title"],
+                    $"library-{sessionIndex}",
+                    baseTime.AddMinutes(sessionIndex),
+                    validatedTicks));
+                sessionIndex++;
+            }
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        await using (var dbContext = await context.DbFactory.CreateDbContextAsync())
+        {
+            var sessions = await dbContext.UserWatchSessions.AsNoTracking().ToListAsync();
+            foreach (var session in sessions)
+            {
+                await context.AggregationService.ProcessSession(session);
+            }
+        }
+
+        var personalInsightsService = new PersonalInsightsService(context.DbFactory, context.TimeProvider);
+        var result = await personalInsightsService.GetInsights(userId, PersonalInsightsPeriodType.Month);
+
+        Assert.True(result.LibraryDistribution.HasViewingActivity);
+        Assert.Equal(6, result.LibraryDistribution.Libraries.Count);
+        Assert.Equal("Movies", result.LibraryDistribution.Libraries[0].Name);
+        Assert.Equal("Other", result.LibraryDistribution.Libraries[^1].Name);
+        Assert.Equal(1, result.LibraryDistribution.Libraries[^1].SessionCount);
+        Assert.Equal(1, result.LibraryDistribution.Libraries[^1].TitleCount);
+        Assert.Contains("Movies", result.LibraryDistribution.InsightText, StringComparison.Ordinal);
+    }
+
     private static User CreateUser(Guid userId)
         => new("test-user", "default", "default")
         {

@@ -49,6 +49,7 @@ public class PersonalInsightsControllerTests
 
         var dto = Assert.IsType<PersonalInsightsResponseDto>(result.Value);
         Assert.Equal(payload.Summary.TotalWatchHours, dto.Summary.TotalWatchHours);
+        Assert.Single(dto.LibraryDistribution.Libraries);
         _mockPersonalInsightsService.Verify(service => service.GetInsights(authenticatedUserId, PersonalInsightsPeriodType.Month), Times.Once);
     }
 
@@ -134,6 +135,22 @@ public class PersonalInsightsControllerTests
                 RecentBinges = []
             },
             Genres = [],
+            LibraryDistribution = new PersonalInsightsLibraryDistributionResult
+            {
+                HasViewingActivity = true,
+                InsightText = "Anime has been your biggest category this month.",
+                Libraries =
+                [
+                    new PersonalInsightsLibraryResult
+                    {
+                        Name = "Anime",
+                        Minutes = 120,
+                        Percentage = 60,
+                        SessionCount = 4,
+                        TitleCount = 2
+                    }
+                ]
+            },
             InsightText = "You've spent 22% of your time watching Sci-Fi this month."
         };
 }

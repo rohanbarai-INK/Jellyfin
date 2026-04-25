@@ -59,6 +59,11 @@ public class JellyfinDbContext(DbContextOptions<JellyfinDbContext> options, ILog
     public DbSet<FeatureAnnouncement> FeatureAnnouncements => Set<FeatureAnnouncement>();
 
     /// <summary>
+    /// Gets the <see cref="DbSet{TEntity}"/> containing trending promotions.
+    /// </summary>
+    public DbSet<TrendingPromotion> TrendingPromotions => Set<TrendingPromotion>();
+
+    /// <summary>
     /// Gets the <see cref="DbSet{TEntity}"/> containing content request web push subscriptions.
     /// </summary>
     public DbSet<ContentRequestWebPushSubscription> ContentRequestWebPushSubscriptions => Set<ContentRequestWebPushSubscription>();

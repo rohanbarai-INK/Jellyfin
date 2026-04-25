@@ -33,6 +33,11 @@ namespace Jellyfin.Api.Models.ActivityDtos
         public IReadOnlyList<PersonalInsightsGenreDto> Genres { get; set; } = [];
 
         /// <summary>
+        /// Gets or sets library/category watch distribution.
+        /// </summary>
+        public PersonalInsightsLibraryDistributionDto LibraryDistribution { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets smart insight text.
         /// </summary>
         public string InsightText { get; set; } = string.Empty;

@@ -33,6 +33,11 @@ namespace MediaBrowser.Controller.PersonalInsights
         public IReadOnlyList<PersonalInsightsGenreResult> Genres { get; set; } = [];
 
         /// <summary>
+        /// Gets or sets library/category watch distribution.
+        /// </summary>
+        public PersonalInsightsLibraryDistributionResult LibraryDistribution { get; set; } = new();
+
+        /// <summary>
         /// Gets or sets generated insight text.
         /// </summary>
         public string InsightText { get; set; } = string.Empty;

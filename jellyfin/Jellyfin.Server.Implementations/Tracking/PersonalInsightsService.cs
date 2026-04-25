@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ namespace Jellyfin.Server.Implementations.Tracking
     /// </summary>
     public class PersonalInsightsService : IPersonalInsightsService
     {
+        private const int MaxVisibleLibraryBuckets = 5;
         private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
         private readonly TimeProvider _timeProvider;
 
@@ -74,6 +76,24 @@ namespace Jellyfin.Server.Implementations.Tracking
                         && stats.PeriodKey == currentPeriod.PeriodKey)
                     .OrderByDescending(stats => stats.TotalValidatedTicks)
                     .Take(3)
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                var libraryRows = await (
+                        from session in dbContext.UserWatchSessions.AsNoTracking()
+                        where session.UserId.Equals(userId)
+                              && session.IsValidSession
+                              && session.ValidatedTicks > 0
+                              && session.StartTimeUtc >= currentPeriod.PeriodStartUtc
+                              && session.StartTimeUtc < currentPeriod.PeriodEndUtc
+                        join item in dbContext.BaseItems.AsNoTracking() on session.ItemId equals item.Id into itemGroup
+                        from item in itemGroup.DefaultIfEmpty()
+                        join topParent in dbContext.BaseItems.AsNoTracking() on item.TopParentId equals topParent.Id into topParentGroup
+                        from topParent in topParentGroup.DefaultIfEmpty()
+                        select new LibrarySessionRow(
+                            session.ItemId,
+                            session.ValidatedTicks,
+                            topParent.Name))
                     .ToListAsync()
                     .ConfigureAwait(false);
 
@@ -196,6 +216,7 @@ namespace Jellyfin.Server.Implementations.Tracking
                         Percentage = currentTicks > 0 ? (genre.TotalValidatedTicks * 100D) / currentTicks : 0D
                     })
                     .ToList();
+                var libraryDistribution = BuildLibraryDistribution(libraryRows, currentTicks, currentPeriod.InsightPeriodLabel);
 
                 var result = new PersonalInsightsResult
                 {
@@ -227,6 +248,7 @@ namespace Jellyfin.Server.Implementations.Tracking
                         }).ToList()
                     },
                     Genres = genreResults,
+                    LibraryDistribution = libraryDistribution,
                     InsightText = BuildInsightText(genreResults, currentPeriod.InsightPeriodLabel)
                 };
 
@@ -300,6 +322,123 @@ namespace Jellyfin.Server.Implementations.Tracking
             return $"You've spent {percentage}% of your time watching {topGenre.Name} {periodLabel}.";
         }
 
+        private static PersonalInsightsLibraryDistributionResult BuildLibraryDistribution(
+            IReadOnlyCollection<LibrarySessionRow> libraryRows,
+            long currentTicks,
+            string periodLabel)
+        {
+            if (libraryRows.Count == 0)
+            {
+                return new PersonalInsightsLibraryDistributionResult
+                {
+                    HasViewingActivity = false,
+                    InsightText = "Start watching to see your category mix."
+                };
+            }
+
+            var groupedRows = libraryRows
+                .GroupBy(row => NormalizeLibraryName((string?)row.LibraryName))
+                .Select(group => new LibraryBucket(
+                    group.Key,
+                    group.Sum(row => (long)row.ValidatedTicks),
+                    group.Count(),
+                    group.Select(row => (Guid)row.ItemId).Distinct().Count()))
+                .Where(bucket => bucket.TotalValidatedTicks > 0)
+                .OrderByDescending(bucket => bucket.TotalValidatedTicks)
+                .ThenBy(bucket => bucket.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (groupedRows.Count == 0)
+            {
+                return new PersonalInsightsLibraryDistributionResult
+                {
+                    HasViewingActivity = false,
+                    InsightText = "Start watching to see your category mix."
+                };
+            }
+
+            var visibleBuckets = groupedRows.Take(MaxVisibleLibraryBuckets).ToList();
+            var remainingBuckets = groupedRows.Skip(MaxVisibleLibraryBuckets).ToList();
+            if (remainingBuckets.Count > 0)
+            {
+                visibleBuckets.Add(new LibraryBucket(
+                    "Other",
+                    remainingBuckets.Sum(bucket => bucket.TotalValidatedTicks),
+                    remainingBuckets.Sum(bucket => bucket.SessionCount),
+                    remainingBuckets.Sum(bucket => bucket.TitleCount)));
+            }
+
+            var totalTicks = currentTicks > 0
+                ? currentTicks
+                : visibleBuckets.Sum(bucket => bucket.TotalValidatedTicks);
+
+            var libraries = visibleBuckets
+                .Select(bucket => new PersonalInsightsLibraryResult
+                {
+                    Name = bucket.Name,
+                    Minutes = bucket.TotalValidatedTicks / (double)TimeSpan.TicksPerMinute,
+                    Percentage = totalTicks > 0 ? (bucket.TotalValidatedTicks * 100D) / totalTicks : 0D,
+                    SessionCount = bucket.SessionCount,
+                    TitleCount = bucket.TitleCount
+                })
+                .ToList();
+
+            return new PersonalInsightsLibraryDistributionResult
+            {
+                HasViewingActivity = libraries.Any(library => library.Minutes > 0D),
+                Libraries = libraries,
+                InsightText = BuildLibraryInsightText(libraries, periodLabel)
+            };
+        }
+
+        private static string BuildLibraryInsightText(
+            IReadOnlyList<PersonalInsightsLibraryResult> libraries,
+            string periodLabel)
+        {
+            if (libraries.Count == 0)
+            {
+                return "Start watching to see your category mix.";
+            }
+
+            var rankedLibraries = libraries
+                .Where(library => library.Percentage > 0D)
+                .OrderByDescending(library => library.Percentage)
+                .ToList();
+
+            if (rankedLibraries.Count == 0)
+            {
+                return "Start watching to see your category mix.";
+            }
+
+            var first = rankedLibraries[0];
+            if (rankedLibraries.Count == 1)
+            {
+                return $"{first.Name} has been your only active category {periodLabel}.";
+            }
+
+            var second = rankedLibraries[1];
+            if (first.Percentage >= 55D)
+            {
+                return $"{first.Name} has been your biggest category {periodLabel}.";
+            }
+
+            if ((first.Percentage + second.Percentage) >= 75D)
+            {
+                return $"You mostly watch {first.Name} and {second.Name} {periodLabel}.";
+            }
+
+            var third = rankedLibraries.Count > 2 ? rankedLibraries[2] : null;
+            if (third is not null)
+            {
+                return $"Your viewing is spread across {first.Name}, {second.Name}, and {third.Name} {periodLabel}.";
+            }
+
+            return $"Your viewing is split between {first.Name} and {second.Name} {periodLabel}.";
+        }
+
+        private static string NormalizeLibraryName(string? value)
+            => string.IsNullOrWhiteSpace(value) ? "Other" : value.Trim();
+
         private static PeriodDescriptor ResolveCurrentPeriod(PersonalInsightsPeriodType periodType, DateTime nowUtc)
         {
             var utcNow = DateTime.SpecifyKind(nowUtc, DateTimeKind.Utc);
@@ -367,5 +506,16 @@ namespace Jellyfin.Server.Implementations.Tracking
             DateTime PeriodStartUtc,
             DateTime PeriodEndUtc,
             string InsightPeriodLabel);
+
+        private readonly record struct LibraryBucket(
+            string Name,
+            long TotalValidatedTicks,
+            int SessionCount,
+            int TitleCount);
+
+        private readonly record struct LibrarySessionRow(
+            Guid ItemId,
+            long ValidatedTicks,
+            string? LibraryName);
     }
 }

@@ -59,6 +59,20 @@ interface GenrePayload {
     percentage: number;
 }
 
+interface LibraryDistributionEntry {
+    name: string;
+    minutes: number;
+    percentage: number;
+    sessionCount: number;
+    titleCount: number;
+}
+
+interface PersonalInsightsLibraryDistribution {
+    libraries: LibraryDistributionEntry[];
+    hasViewingActivity: boolean;
+    insightText: string;
+}
+
 interface DonutSegment {
     index: number;
     name: string;
@@ -75,10 +89,12 @@ interface PersonalInsightsResponse {
     continueWatching: ContinueWatchingItem[];
     binge: BingePayload;
     genres: GenrePayload[];
+    libraryDistribution: PersonalInsightsLibraryDistribution;
     insightText: string;
 }
 
 const donutColors = ['#8b5cf6', '#6366f1', '#3b82f6'];
+const libraryDonutColors = ['#f97316', '#fb923c', '#f59e0b', '#8b5cf6', '#3b82f6', '#14b8a6'];
 
 const toNumber = (value: unknown, fallback = 0): number => {
     const parsed = Number(value);
@@ -100,6 +116,8 @@ const normalizeInsightsResponse = (payload: unknown): PersonalInsightsResponse =
     const bingeSource = ((root.binge || root.Binge) || {}) as Record<string, unknown>;
     const continueSource = ((root.continueWatching || root.ContinueWatching) || []) as Array<Record<string, unknown>>;
     const genreSource = ((root.genres || root.Genres) || []) as Array<Record<string, unknown>>;
+    const libraryDistributionSource = ((root.libraryDistribution || root.LibraryDistribution) || {}) as Record<string, unknown>;
+    const librarySource = ((libraryDistributionSource.libraries || libraryDistributionSource.Libraries) || []) as Array<Record<string, unknown>>;
     const hourlySource = ((peakSource.hourlyDistribution || peakSource.HourlyDistribution) || []) as Array<Record<string, unknown>>;
     const recentBingesSource = ((bingeSource.recentBinges || bingeSource.RecentBinges) || []) as Array<Record<string, unknown>>;
     const normalizedHourlyDistribution = hourlySource.map(point => ({
@@ -149,6 +167,17 @@ const normalizeInsightsResponse = (payload: unknown): PersonalInsightsResponse =
             minutes: toNumber(item.minutes ?? item.Minutes),
             percentage: toNumber(item.percentage ?? item.Percentage)
         })),
+        libraryDistribution: {
+            libraries: librarySource.map(item => ({
+                name: toStringValue(item.name ?? item.Name),
+                minutes: toNumber(item.minutes ?? item.Minutes),
+                percentage: toNumber(item.percentage ?? item.Percentage),
+                sessionCount: Math.round(toNumber(item.sessionCount ?? item.SessionCount)),
+                titleCount: Math.round(toNumber(item.titleCount ?? item.TitleCount))
+            })),
+            hasViewingActivity: Boolean(libraryDistributionSource.hasViewingActivity ?? libraryDistributionSource.HasViewingActivity),
+            insightText: toStringValue(libraryDistributionSource.insightText ?? libraryDistributionSource.InsightText)
+        },
         insightText: toStringValue(root.insightText ?? root.InsightText)
     };
 };
@@ -219,6 +248,46 @@ const formatMinutesText = (minutes: number): string => {
     return `${rounded} minute${rounded === 1 ? '' : 's'}`;
 };
 
+const formatWatchDurationFromMinutes = (minutes: number): string => {
+    const safeMinutes = Math.max(0, minutes);
+    if (safeMinutes >= 60) {
+        return formatWatchHours(safeMinutes / 60);
+    }
+
+    return `${formatMinutes(safeMinutes)}m`;
+};
+
+const buildDonutSegments = <T extends { name: string; minutes: number; percentage: number }>(
+    entries: T[],
+    colors: string[]
+): DonutSegment[] => {
+    const circumference = 2 * Math.PI * 42;
+    const input = entries.map((entry, index) => ({
+        index,
+        name: entry.name,
+        minutes: entry.minutes,
+        percentage: Math.max(0, entry.percentage),
+        color: colors[index % colors.length]
+    }));
+    const totalPercentage = input.reduce((sum, entry) => sum + entry.percentage, 0);
+    const scaleFactor = totalPercentage > 100 ? 100 / totalPercentage : 1;
+    let runningPercentage = 0;
+
+    return input.map((entry) => {
+        const normalizedPercentage = entry.percentage * scaleFactor;
+        const segmentLength = circumference * (normalizedPercentage / 100);
+        const dashArray = `${segmentLength} ${Math.max(0, circumference - segmentLength)}`;
+        const dashOffset = -(circumference * (runningPercentage / 100));
+        runningPercentage += normalizedPercentage;
+        return {
+            ...entry,
+            percentage: normalizedPercentage,
+            dashArray,
+            dashOffset
+        };
+    });
+};
+
 const formatHourWithMinute = (hourValue: number, minuteValue: number): string => {
     const hour = Number(hourValue);
     if (Number.isNaN(hour)) {
@@ -257,6 +326,7 @@ const PersonalInsightsPage: FunctionComponent = () => {
     const [ errorMessage, setErrorMessage ] = useState('');
     const [ hoveredHour, setHoveredHour ] = useState<number | null>(null);
     const [ hoveredGenreIndex, setHoveredGenreIndex ] = useState<number | null>(null);
+    const [ hoveredLibraryIndex, setHoveredLibraryIndex ] = useState<number | null>(null);
 
     const targetUserName = useMemo(() => {
         if (requestedUserId && requestedUserId === currentUser?.Id) {
@@ -333,34 +403,9 @@ const PersonalInsightsPage: FunctionComponent = () => {
     }, [hourlyDistribution]);
 
     const topGenres = useMemo(() => insights?.genres.slice(0, 3) ?? [], [insights?.genres]);
-
-    const donutSegments = useMemo<DonutSegment[]>(() => {
-        const circumference = 2 * Math.PI * 42;
-        const input = topGenres.map((genre, index) => ({
-            index,
-            name: genre.name,
-            minutes: genre.minutes,
-            percentage: Math.max(0, genre.percentage),
-            color: donutColors[index % donutColors.length]
-        }));
-        const totalPercentage = input.reduce((sum, genre) => sum + genre.percentage, 0);
-        const scaleFactor = totalPercentage > 100 ? 100 / totalPercentage : 1;
-        let runningPercentage = 0;
-
-        return input.map((genre) => {
-            const normalizedPercentage = genre.percentage * scaleFactor;
-            const segmentLength = circumference * (normalizedPercentage / 100);
-            const dashArray = `${segmentLength} ${Math.max(0, circumference - segmentLength)}`;
-            const dashOffset = -(circumference * (runningPercentage / 100));
-            runningPercentage += normalizedPercentage;
-            return {
-                ...genre,
-                percentage: normalizedPercentage,
-                dashArray,
-                dashOffset
-            };
-        });
-    }, [topGenres]);
+    const libraryMix = useMemo(() => insights?.libraryDistribution.libraries ?? [], [insights?.libraryDistribution.libraries]);
+    const donutSegments = useMemo<DonutSegment[]>(() => buildDonutSegments(topGenres, donutColors), [topGenres]);
+    const libraryDonutSegments = useMemo<DonutSegment[]>(() => buildDonutSegments(libraryMix, libraryDonutColors), [libraryMix]);
 
     const hoveredHourPoint = useMemo(() => {
         if (hoveredHour === null) {
@@ -381,6 +426,18 @@ const PersonalInsightsPage: FunctionComponent = () => {
 
         return topGenres[hoveredGenreIndex] ?? topGenres[0];
     }, [hoveredGenreIndex, topGenres]);
+
+    const hoveredLibrary = useMemo(() => {
+        if (libraryMix.length === 0) {
+            return null;
+        }
+
+        if (hoveredLibraryIndex === null) {
+            return libraryMix[0];
+        }
+
+        return libraryMix[hoveredLibraryIndex] ?? libraryMix[0];
+    }, [hoveredLibraryIndex, libraryMix]);
 
     const periodLabel = period === 'month' ? 'this month' : period === 'year' ? 'this year' : 'all time';
     const subtitleLabel = period === 'month' ? 'this month' : period === 'year' ? 'this year' : 'all time';
@@ -605,6 +662,92 @@ const PersonalInsightsPage: FunctionComponent = () => {
                                         {insights.insightText || `You've spent 22% watching Sci-Fi ${periodLabel}.`}
                                     </p>
                                 </div>
+                            </div>
+
+                            <div className='personalInsightsCard'>
+                                <div className='personalInsightsSectionTitle'>Your Category Mix</div>
+                                <p className='personalInsightsSectionText'>
+                                    {insights.libraryDistribution.insightText || `Start watching to see your category mix ${periodLabel}.`}
+                                </p>
+                                {!insights.libraryDistribution.hasViewingActivity || libraryMix.length === 0 ? (
+                                    <div className='personalInsightsEmpty'>No category activity yet. Start watching to see your category mix.</div>
+                                ) : (
+                                    <>
+                                        <div className='personalInsightsGenreLayout personalInsightsLibraryLayout'>
+                                            <div className='personalInsightsDonut'>
+                                                <svg className='personalInsightsDonutSvg' viewBox='0 0 100 100' role='img' aria-label='Library watch distribution'>
+                                                    <circle className='personalInsightsDonutTrack' cx='50' cy='50' r='42' />
+                                                    {libraryDonutSegments.map((segment) => (
+                                                        <circle
+                                                            key={segment.name}
+                                                            cx='50'
+                                                            cy='50'
+                                                            r='42'
+                                                            className={`personalInsightsDonutSegment${hoveredLibraryIndex === segment.index ? ' isActive' : ''}`}
+                                                            style={{
+                                                                stroke: segment.color,
+                                                                strokeDasharray: segment.dashArray,
+                                                                strokeDashoffset: segment.dashOffset
+                                                            }}
+                                                            tabIndex={segment.percentage > 0 ? 0 : -1}
+                                                            role='button'
+                                                            aria-label={`${segment.name} - ${formatWatchDurationFromMinutes(segment.minutes)} (${Math.round(segment.percentage)}%) in ${subtitleLabel}`}
+                                                            onMouseEnter={() => setHoveredLibraryIndex(segment.index)}
+                                                            onMouseLeave={() => setHoveredLibraryIndex(null)}
+                                                            onFocus={() => setHoveredLibraryIndex(segment.index)}
+                                                            onBlur={() => setHoveredLibraryIndex(null)}
+                                                            onClick={() => setHoveredLibraryIndex(segment.index)}
+                                                        >
+                                                            <title>{`${segment.name}: ${formatWatchDurationFromMinutes(segment.minutes)} (${Math.round(segment.percentage)}%)`}</title>
+                                                        </circle>
+                                                    ))}
+                                                </svg>
+                                                <div className='personalInsightsDonutCenter'>
+                                                    <span className='personalInsightsDonutCenterMain'>
+                                                        {hoveredLibrary ? `${Math.round(hoveredLibrary.percentage)}%` : '0%'}
+                                                    </span>
+                                                    <span className='personalInsightsDonutCenterSub'>
+                                                        {hoveredLibrary?.name || 'No data'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className='personalInsightsLibraryList'>
+                                                {libraryMix.map((library, index) => (
+                                                    <div
+                                                        key={library.name}
+                                                        className={`personalInsightsLibraryRow${hoveredLibraryIndex === index ? ' isActive' : ''}`}
+                                                        tabIndex={0}
+                                                        role='button'
+                                                        onMouseEnter={() => setHoveredLibraryIndex(index)}
+                                                        onMouseLeave={() => setHoveredLibraryIndex(null)}
+                                                        onFocus={() => setHoveredLibraryIndex(index)}
+                                                        onBlur={() => setHoveredLibraryIndex(null)}
+                                                        onClick={() => setHoveredLibraryIndex(index)}
+                                                        aria-label={`${library.name} - ${formatWatchDurationFromMinutes(library.minutes)} across ${library.titleCount} titles and ${library.sessionCount} sessions (${Math.round(library.percentage)}%)`}
+                                                    >
+                                                        <span className='personalInsightsLibraryMeta'>
+                                                            <span className='personalInsightsGenreName'>
+                                                                <span className='personalInsightsGenreDot' style={{ background: libraryDonutColors[index % libraryDonutColors.length] }} />
+                                                                {library.name}
+                                                            </span>
+                                                            <span className='personalInsightsLibrarySubvalue'>
+                                                                {library.titleCount} titles · {library.sessionCount} sessions
+                                                            </span>
+                                                        </span>
+                                                        <span className='personalInsightsLibraryValue'>
+                                                            {formatWatchDurationFromMinutes(library.minutes)} ({Math.round(library.percentage)}%)
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {hoveredLibrary && (
+                                            <div className='personalInsightsHoverInfo'>
+                                                {`${hoveredLibrary.name}: ${formatWatchDurationFromMinutes(hoveredLibrary.minutes)} across ${hoveredLibrary.titleCount} titles and ${hoveredLibrary.sessionCount} sessions (${Math.round(hoveredLibrary.percentage)}%) in ${subtitleLabel}.`}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </>
                     )}

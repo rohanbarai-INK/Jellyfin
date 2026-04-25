@@ -848,3 +848,17 @@ Files updated:
 
 - `jellyfin-web/src/components/contentRequests/PublicRequestPool.tsx`
 - `jellyfin-web/src/components/contentRequests/contentRequests.scss`
+
+### Follow-up UX tweak (2026-04-25, Admin Request Management overlap)
+
+Applied a targeted desktop table-column fix for Admin `Request Management`:
+
+- Added dedicated admin `User` column sizing and truncation to prevent long usernames from colliding with `Title`.
+- Increased admin `User` + `Title` allocation.
+- Reduced admin `Type` + `Season` allocation as requested.
+- Kept table behavior consistent with existing desktop fixed-layout strategy.
+
+Files updated:
+
+- `jellyfin-web/src/components/contentRequests/AdminRequestTable.tsx`
+- `jellyfin-web/src/components/contentRequests/contentRequests.scss`

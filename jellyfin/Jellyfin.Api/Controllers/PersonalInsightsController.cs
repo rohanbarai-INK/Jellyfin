@@ -142,6 +142,19 @@ public class PersonalInsightsController : BaseJellyfinApiController
                 Minutes = genre.Minutes,
                 Percentage = genre.Percentage
             }).ToList(),
+            LibraryDistribution = new PersonalInsightsLibraryDistributionDto
+            {
+                Libraries = result.LibraryDistribution.Libraries.Select(library => new PersonalInsightsLibraryDto
+                {
+                    Name = library.Name,
+                    Minutes = library.Minutes,
+                    Percentage = library.Percentage,
+                    SessionCount = library.SessionCount,
+                    TitleCount = library.TitleCount
+                }).ToList(),
+                HasViewingActivity = result.LibraryDistribution.HasViewingActivity,
+                InsightText = result.LibraryDistribution.InsightText
+            },
             InsightText = result.InsightText
         };
 }

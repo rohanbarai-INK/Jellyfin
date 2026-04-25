@@ -13,6 +13,7 @@ import { loadLiveTV } from './sections/liveTv';
 import { loadNextUp } from './sections/nextUp';
 import { loadRecentlyAdded } from './sections/recentlyAdded';
 import { loadResume } from './sections/resume';
+import { loadTrendingNow } from './sections/trendingNow';
 
 import 'elements/emby-button/paper-icon-button-light';
 import 'elements/emby-itemscontainer/emby-itemscontainer';
@@ -62,9 +63,8 @@ export function loadSections(elem, apiClient, user, userSettings) {
 
             if (userViews.length) {
                 const userSectionCount = 10;
-                // TV layout can have an extra section to ensure libraries are visible
-                const totalSectionCount = layoutManager.tv ? userSectionCount + 1 : userSectionCount;
-                for (let i = 0; i < totalSectionCount; i++) {
+                const sections = [ HomeSectionType.TrendingNow, ...getAllSectionsToShow(userSettings, userSectionCount) ];
+                for (let i = 0; i < sections.length; i++) {
                     html += '<div class="verticalSection section' + i + '"></div>';
                 }
 
@@ -72,7 +72,6 @@ export function loadSections(elem, apiClient, user, userSettings) {
                 elem.classList.add('homeSectionsContainer');
 
                 const promises = [];
-                const sections = getAllSectionsToShow(userSettings, userSectionCount);
                 for (let i = 0; i < sections.length; i++) {
                     promises.push(loadSection(elem, apiClient, user, userSettings, userViews, sections, i));
                 }
@@ -146,6 +145,8 @@ function loadSection(page, apiClient, user, userSettings, userViews, allSections
     const options = { enableOverflow: enableScrollX() };
 
     switch (section) {
+        case HomeSectionType.TrendingNow:
+            return loadTrendingNow(elem, apiClient, user, options);
         case HomeSectionType.ActiveRecordings:
             loadRecordings(elem, true, apiClient, options);
             break;

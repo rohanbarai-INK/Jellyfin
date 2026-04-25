@@ -53,12 +53,17 @@ const AdminRequestTable: FC<AdminRequestTableProps> = ({
         {
             key: 'user',
             label: globalize.translate('HeaderUsers'),
-            render: row => row.username || '-'
+            className: 'requestColAdminUser',
+            render: row => (
+                <span className='requestCellTruncate' title={row.username || '-'}>
+                    {row.username || '-'}
+                </span>
+            )
         },
         {
             key: 'title',
             label: globalize.translate('LabelTitle'),
-            className: 'requestColTitle',
+            className: 'requestColTitle requestColAdminTitle',
             render: row => (
                 <span className='requestCellTruncate' title={row.title}>
                     {row.title}
@@ -68,13 +73,13 @@ const AdminRequestTable: FC<AdminRequestTableProps> = ({
         {
             key: 'type',
             label: globalize.translate('LabelType'),
-            className: 'requestColType',
+            className: 'requestColType requestColAdminType',
             render: row => row.type
         },
         {
             key: 'season',
             label: globalize.translate('Season'),
-            className: 'requestColSeason',
+            className: 'requestColSeason requestColAdminSeason',
             render: row => row.seasonNumber ?? '-'
         },
         {
