@@ -6,6 +6,8 @@ branding-assets
 jellyfin-android
 jellyfin-androidtv
 jellyfin-desktop
+**/.run
+**/build-out
 **/bin
 **/obj
 **/TestResults
@@ -15,3 +17,7 @@ jellyfin-desktop
 **/dist
 npm-debug.log*
 yarn-error.log*
+
+# We deploy the web client to the Pi by copying a prebuilt dist into the build context.
+!jellyfin-web/dist/
+!jellyfin-web/dist/**

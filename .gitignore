@@ -4,3 +4,8 @@
 # Ignore local deployment artifacts
 _deploy/
 jellyfin-pi-build.tar.gz
+jellyfin_test
+nul
+.local-jellyfin
+.local-jellyfin-8097
+.playwright-mcp
