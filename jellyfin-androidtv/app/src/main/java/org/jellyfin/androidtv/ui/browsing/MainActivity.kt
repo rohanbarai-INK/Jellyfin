@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
+import org.jellyfin.androidtv.data.service.MediaMountAutoHealStatusService
 import org.jellyfin.androidtv.databinding.ActivityMainBinding
 import org.jellyfin.androidtv.integration.LeanbackChannelWorker
 import org.jellyfin.androidtv.ui.InteractionTrackerViewModel
@@ -39,6 +40,7 @@ class MainActivity : FragmentActivity() {
 	private val navigationRepository by inject<NavigationRepository>()
 	private val sessionRepository by inject<SessionRepository>()
 	private val userRepository by inject<UserRepository>()
+	private val mediaMountAutoHealStatusService by inject<MediaMountAutoHealStatusService>()
 	private val interactionTrackerViewModel by viewModel<InteractionTrackerViewModel>()
 	private val workManager by inject<WorkManager>()
 
@@ -77,6 +79,7 @@ class MainActivity : FragmentActivity() {
 		binding = ActivityMainBinding.inflate(layoutInflater)
 		binding.background.setContent { AppBackground() }
 		binding.settings.setContent { MainActivitySettings() }
+		binding.autohealStatus.setContent { MediaMountAutoHealOverlay() }
 		binding.screensaver.setContent { InAppScreensaver() }
 		setContentView(binding.root)
 	}
@@ -89,6 +92,14 @@ class MainActivity : FragmentActivity() {
 		applyTheme()
 
 		interactionTrackerViewModel.activityPaused = false
+	}
+
+	override fun onStart() {
+		super.onStart()
+
+		if (validateAuthentication()) {
+			mediaMountAutoHealStatusService.start()
+		}
 	}
 
 	private fun validateAuthentication(): Boolean {
@@ -110,6 +121,7 @@ class MainActivity : FragmentActivity() {
 
 	override fun onStop() {
 		super.onStop()
+		mediaMountAutoHealStatusService.stop()
 
 		workManager.enqueue(OneTimeWorkRequestBuilder<LeanbackChannelWorker>().build())
 

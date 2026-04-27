@@ -2,6 +2,7 @@ using Jellyfin.Api.Controllers;
 using Jellyfin.Server.Implementations.SystemBackupService;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.AutoHeal;
 using MediaBrowser.Model.IO;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ namespace Jellyfin.Api.Tests.Controllers
                 Mock.Of<IServerApplicationHost>(),
                 Mock.Of<IServerApplicationPaths>(),
                 mockFileSystem.Object,
+                Mock.Of<IMediaMountAutoHealService>(),
                 Mock.Of<INetworkManager>(),
                 Mock.Of<ISystemManager>());
 

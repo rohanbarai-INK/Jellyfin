@@ -6,6 +6,7 @@ import { ApiProvider } from 'hooks/useApi';
 import { UserSettingsProvider } from 'hooks/useUserSettings';
 import { WebConfigProvider } from 'hooks/useWebConfig';
 import RewardSystemRoot from 'components/rewardSystem/RewardSystemRoot';
+import MediaMountRecoveryAlert from 'components/autoHeal/MediaMountRecoveryAlert';
 import GracePeriodTopAlert from 'components/subscription/GracePeriodTopAlert';
 import browser from 'scripts/browser';
 import { queryClient } from 'utils/query/queryClient';
@@ -21,6 +22,7 @@ const RootApp = () => (
             <UserSettingsProvider>
                 <WebConfigProvider>
                     <GracePeriodTopAlert />
+                    <MediaMountRecoveryAlert />
                     <RootAppRouter />
                     <RewardSystemRoot />
                 </WebConfigProvider>

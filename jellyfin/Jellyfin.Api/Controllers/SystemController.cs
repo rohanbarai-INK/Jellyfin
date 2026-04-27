@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Net.Mime;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Api.Attributes;
 using Jellyfin.Api.Models.SystemInfoDtos;
 using MediaBrowser.Common.Api;
@@ -11,6 +13,7 @@ using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller;
+using MediaBrowser.Controller.AutoHeal;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Model.System;
@@ -30,6 +33,7 @@ public class SystemController : BaseJellyfinApiController
     private readonly IServerApplicationHost _appHost;
     private readonly IApplicationPaths _appPaths;
     private readonly IFileSystem _fileSystem;
+    private readonly IMediaMountAutoHealService _mediaMountAutoHealService;
     private readonly INetworkManager _networkManager;
     private readonly ISystemManager _systemManager;
 
@@ -40,6 +44,7 @@ public class SystemController : BaseJellyfinApiController
     /// <param name="appPaths">Instance of <see cref="IServerApplicationPaths"/> interface.</param>
     /// <param name="appHost">Instance of <see cref="IServerApplicationHost"/> interface.</param>
     /// <param name="fileSystem">Instance of <see cref="IFileSystem"/> interface.</param>
+    /// <param name="mediaMountAutoHealService">Instance of <see cref="IMediaMountAutoHealService"/> interface.</param>
     /// <param name="networkManager">Instance of <see cref="INetworkManager"/> interface.</param>
     /// <param name="systemManager">Instance of <see cref="ISystemManager"/> interface.</param>
     public SystemController(
@@ -47,6 +52,7 @@ public class SystemController : BaseJellyfinApiController
         IServerApplicationHost appHost,
         IServerApplicationPaths appPaths,
         IFileSystem fileSystem,
+        IMediaMountAutoHealService mediaMountAutoHealService,
         INetworkManager networkManager,
         ISystemManager systemManager)
     {
@@ -54,6 +60,7 @@ public class SystemController : BaseJellyfinApiController
         _appHost = appHost;
         _appPaths = appPaths;
         _fileSystem = fileSystem;
+        _mediaMountAutoHealService = mediaMountAutoHealService;
         _networkManager = networkManager;
         _systemManager = systemManager;
     }
@@ -93,6 +100,17 @@ public class SystemController : BaseJellyfinApiController
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<PublicSystemInfo> GetPublicSystemInfo()
         => _systemManager.GetPublicSystemInfo(Request);
+
+    /// <summary>
+    /// Gets the current media mount auto-heal status.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The current media mount auto-heal status.</returns>
+    [HttpGet("AutoHeal/Status")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MediaMountAutoHealStatusInfo>> GetMediaMountAutoHealStatus(CancellationToken cancellationToken)
+        => Ok(await _mediaMountAutoHealService.GetStatusAsync(cancellationToken).ConfigureAwait(false));
 
     /// <summary>
     /// Pings the system.
