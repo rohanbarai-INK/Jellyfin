@@ -25,6 +25,7 @@ These define a status contract for clients and a service contract for server-sid
 Responsibilities:
 
 - Evaluates media path health (`/media1` and `/media2`, with required subpaths under `/media2`).
+- Required subpath rule is tolerant: when `KNIGHTFLIX_AUTOHEAL_REQUIRED_PATHS` is configured, at least one required subpath under `/media2` must exist. Auto-heal will not degrade just because one category folder is missing while others are available.
 - Persists state in config directory (`autoheal/media-mount-status.json`).
 - Maintains lifecycle states:
   - `healthy`
@@ -33,6 +34,9 @@ Responsibilities:
   - `degraded`
 - Supports controlled recovery attempts with cooldown and delay.
 - Includes Docker restart request path for runtime environments that expose Docker socket.
+- Sends Gotify notifications for each restart attempt:
+  - Pre-restart notification before Docker restart call.
+  - Post-restart notification after attempt completion (success or failure).
 
 ### DI registration
 
@@ -67,7 +71,8 @@ Behavior:
 - When API is temporarily unreachable (for example during container restart at app-open), shows:
   - `Server is unavailable, please check after some time.`
 - Uses faster polling while reconnecting.
-- Allows dismiss on non-reconnecting states.
+- Uses fast retry polling when status API is unreachable.
+- Allows dismiss on all popup states (`reconnecting`, `recovered`, `degraded`, `unavailable`) and keeps it hidden until state payload changes.
 - Uses a medium-size popup card with `system-loader.gif` on the left for retrying/unavailable states.
 
 ### Android TV transparency overlay
@@ -128,6 +133,25 @@ Supported settings:
 - `KNIGHTFLIX_AUTOHEAL_COOLDOWN_SECONDS` (default: `600`)
 - `KNIGHTFLIX_AUTOHEAL_RECOVERY_DELAY_SECONDS` (default: `30`)
 - `KNIGHTFLIX_AUTOHEAL_RECOVERED_BANNER_SECONDS` (default: `45`)
+- `KNIGHTFLIX_AUTOHEAL_UNHEALTHY_GRACE_SECONDS` (default: `20`, prevents short drift blips from immediately entering degraded/recovery)
+- `KNIGHTFLIX_AUTOHEAL_GOTIFY_ENABLED` (default: `false`)
+- `KNIGHTFLIX_AUTOHEAL_GOTIFY_BASE_URL` (example: `https://gotify.baraibrothers.ink`)
+- `KNIGHTFLIX_AUTOHEAL_GOTIFY_TOKEN` (required when Gotify is enabled)
+- `KNIGHTFLIX_AUTOHEAL_GOTIFY_PRIORITY` (default: `7`)
+
+## Gotify Payload
+
+Each restart-triggered notification includes detailed context:
+
+- phase (`PRE_RESTART` or `POST_RESTART_SUCCESS` / `POST_RESTART_FAILED`)
+- attempt number
+- UTC timestamp
+- host name
+- container name
+- current state
+- media paths (`/media1`, `/media2`)
+- required `/media2` directories
+- failure reason and error summary when available
 
 ## Notes
 

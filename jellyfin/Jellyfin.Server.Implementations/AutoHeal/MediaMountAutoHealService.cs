@@ -1,7 +1,10 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +30,11 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
         WriteIndented = true
     };
 
+    private static readonly HttpClient GotifyHttpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(5)
+    };
+
     private readonly ILogger<MediaMountAutoHealService> _logger;
     private readonly TimeProvider _timeProvider;
     private readonly string _statusFilePath;
@@ -35,12 +43,20 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
     private readonly string[] _requiredRelativePaths;
     private readonly string _containerName;
     private readonly string _dockerSocketPath;
+    private readonly bool _gotifyEnabled;
+    private readonly string _gotifyBaseUrl;
+    private readonly string _gotifyToken;
+    private readonly int _gotifyPriority;
     private readonly bool _enabled;
     private readonly TimeSpan _cooldown;
     private readonly TimeSpan _recoveryDelay;
     private readonly TimeSpan _recoveredVisibility;
+    private readonly TimeSpan _unhealthyGrace;
+    private readonly Func<Task> _restartContainerAction;
+    private readonly Func<string, string, int, CancellationToken, Task> _sendGotifyMessageAction;
     private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
     private Task? _pendingRepairTask;
+    private bool _didLogMissingGotifyConfigWarning;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MediaMountAutoHealService"/> class.
@@ -48,10 +64,14 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
     /// <param name="logger">The logger.</param>
     /// <param name="applicationPaths">The server application paths.</param>
     /// <param name="timeProvider">The time provider.</param>
+    /// <param name="restartContainerAction">Optional restart action override for tests.</param>
+    /// <param name="sendGotifyMessageAction">Optional Gotify send action override for tests.</param>
     public MediaMountAutoHealService(
         ILogger<MediaMountAutoHealService> logger,
         IServerApplicationPaths applicationPaths,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        Func<Task>? restartContainerAction = null,
+        Func<string, string, int, CancellationToken, Task>? sendGotifyMessageAction = null)
     {
         _logger = logger;
         _timeProvider = timeProvider;
@@ -61,9 +81,16 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
         _media1Path = ReadStringEnvironment("KNIGHTFLIX_AUTOHEAL_MEDIA1_PATH", "/media1");
         _media2Path = ReadStringEnvironment("KNIGHTFLIX_AUTOHEAL_MEDIA2_PATH", "/media2");
         _requiredRelativePaths = ReadRequiredPaths();
+        _gotifyEnabled = ReadBoolEnvironment("KNIGHTFLIX_AUTOHEAL_GOTIFY_ENABLED", false);
+        _gotifyBaseUrl = ReadStringEnvironment("KNIGHTFLIX_AUTOHEAL_GOTIFY_BASE_URL", string.Empty);
+        _gotifyToken = ReadStringEnvironment("KNIGHTFLIX_AUTOHEAL_GOTIFY_TOKEN", string.Empty);
+        _gotifyPriority = ReadIntEnvironment("KNIGHTFLIX_AUTOHEAL_GOTIFY_PRIORITY", 7, 1);
         _cooldown = TimeSpan.FromSeconds(ReadIntEnvironment("KNIGHTFLIX_AUTOHEAL_COOLDOWN_SECONDS", 600, 30));
         _recoveryDelay = TimeSpan.FromSeconds(ReadIntEnvironment("KNIGHTFLIX_AUTOHEAL_RECOVERY_DELAY_SECONDS", 30, 1));
         _recoveredVisibility = TimeSpan.FromSeconds(ReadIntEnvironment("KNIGHTFLIX_AUTOHEAL_RECOVERED_BANNER_SECONDS", 45, 5));
+        _unhealthyGrace = TimeSpan.FromSeconds(ReadIntEnvironment("KNIGHTFLIX_AUTOHEAL_UNHEALTHY_GRACE_SECONDS", 20, 0));
+        _restartContainerAction = restartContainerAction ?? RestartContainerAsync;
+        _sendGotifyMessageAction = sendGotifyMessageAction ?? SendGotifyMessageAsync;
 
         var statusDirectory = Path.Combine(applicationPaths.ConfigurationDirectoryPath, "autoheal");
         Directory.CreateDirectory(statusDirectory);
@@ -167,13 +194,27 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
             return (false, $"Media path '{_media2Path}' is unavailable.");
         }
 
+        if (_requiredRelativePaths.Length == 0)
+        {
+            return (true, null);
+        }
+
+        var foundRequiredPath = false;
         foreach (var relativePath in _requiredRelativePaths)
         {
             var fullPath = Path.Combine(_media2Path, relativePath);
             if (!Directory.Exists(fullPath))
             {
-                return (false, $"Required media directory '{fullPath}' is missing.");
+                continue;
             }
+
+            foundRequiredPath = true;
+            break;
+        }
+
+        if (!foundRequiredPath)
+        {
+            return (false, $"None of the required media directories are available under '{_media2Path}'. Expected one of: {string.Join(", ", _requiredRelativePaths)}");
         }
 
         return (true, null);
@@ -186,6 +227,20 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
         if (string.IsNullOrWhiteSpace(state.State))
         {
             state.State = StateHealthy;
+        }
+
+        if (health.IsHealthy)
+        {
+            if (state.FirstUnhealthyDetectedUtc.HasValue)
+            {
+                state.FirstUnhealthyDetectedUtc = null;
+                state.Dirty = true;
+            }
+        }
+        else if (!state.FirstUnhealthyDetectedUtc.HasValue)
+        {
+            state.FirstUnhealthyDetectedUtc = now;
+            state.Dirty = true;
         }
 
         if (state.State == StateReconnecting)
@@ -217,6 +272,11 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
         {
             if (!health.IsHealthy)
             {
+                if (!HasUnhealthyGraceElapsed(state, now))
+                {
+                    return state;
+                }
+
                 state.State = StateDegraded;
                 state.Message = "Service is temporarily unavailable. Please try again in 1-2 minutes.";
                 state.FailureReason ??= health.FailureReason;
@@ -249,6 +309,11 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
             return state;
         }
 
+        if (!HasUnhealthyGraceElapsed(state, now))
+        {
+            return state;
+        }
+
         state.State = StateDegraded;
         state.Message = "Service is temporarily unavailable. Please try again in 1-2 minutes.";
         state.FailureReason = health.FailureReason;
@@ -273,7 +338,22 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
             return false;
         }
 
+        if (!HasUnhealthyGraceElapsed(state, now))
+        {
+            return false;
+        }
+
         return _pendingRepairTask is null || _pendingRepairTask.IsCompleted;
+    }
+
+    private bool HasUnhealthyGraceElapsed(PersistedState state, DateTimeOffset now)
+    {
+        if (_unhealthyGrace <= TimeSpan.Zero)
+        {
+            return true;
+        }
+
+        return state.FirstUnhealthyDetectedUtc.HasValue && now - state.FirstUnhealthyDetectedUtc.Value >= _unhealthyGrace;
     }
 
     private PersistedState BeginRecoveryState(PersistedState existingState, DateTimeOffset now, string failureReason)
@@ -296,18 +376,21 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
             return;
         }
 
-        _pendingRepairTask = Task.Run(() => ExecuteRepairAsync(stateSnapshot.AttemptCount));
+        _pendingRepairTask = Task.Run(() => ExecuteRepairAsync(stateSnapshot.AttemptCount, stateSnapshot.FailureReason));
     }
 
-    private async Task ExecuteRepairAsync(int attemptCount)
+    private async Task ExecuteRepairAsync(int attemptCount, string? failureReason)
     {
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(750)).ConfigureAwait(false);
-            await RestartContainerAsync().ConfigureAwait(false);
+            await SendGotifyPreRestartAsync(attemptCount, failureReason).ConfigureAwait(false);
+            await _restartContainerAction().ConfigureAwait(false);
+            await SendGotifyPostRestartAsync(attemptCount, true, null).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
+            await SendGotifyPostRestartAsync(attemptCount, false, ex.Message).ConfigureAwait(false);
             _logger.LogError(ex, "Media mount auto-heal repair attempt failed.");
 
             await _gate.WaitAsync().ConfigureAwait(false);
@@ -327,6 +410,113 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
             {
                 _gate.Release();
             }
+        }
+    }
+
+    private async Task SendGotifyPreRestartAsync(int attemptCount, string? failureReason)
+    {
+        if (!CanSendGotify())
+        {
+            return;
+        }
+
+        var title = "KnightFlix Auto-Heal Restart Triggered (PRE)";
+        var message = BuildGotifyMessageBody(attemptCount, "PRE_RESTART", failureReason, null);
+        await SendGotifyWithWarningBoundaryAsync(title, message).ConfigureAwait(false);
+    }
+
+    private async Task SendGotifyPostRestartAsync(int attemptCount, bool succeeded, string? error)
+    {
+        if (!CanSendGotify())
+        {
+            return;
+        }
+
+        var outcome = succeeded ? "SUCCESS" : "FAILED";
+        var title = $"KnightFlix Auto-Heal Restart Completed ({outcome})";
+        var message = BuildGotifyMessageBody(attemptCount, $"POST_RESTART_{outcome}", null, error);
+        await SendGotifyWithWarningBoundaryAsync(title, message).ConfigureAwait(false);
+    }
+
+    private async Task SendGotifyWithWarningBoundaryAsync(string title, string message)
+    {
+        try
+        {
+            await _sendGotifyMessageAction(title, message, _gotifyPriority, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send auto-heal Gotify notification.");
+        }
+    }
+
+    private bool CanSendGotify()
+    {
+        if (!_gotifyEnabled)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_gotifyBaseUrl) && !string.IsNullOrWhiteSpace(_gotifyToken))
+        {
+            return true;
+        }
+
+        if (!_didLogMissingGotifyConfigWarning)
+        {
+            _didLogMissingGotifyConfigWarning = true;
+            _logger.LogWarning("Gotify is enabled but base URL or token is missing. Skipping notification send.");
+        }
+
+        return false;
+    }
+
+    private string BuildGotifyMessageBody(int attemptCount, string phase, string? failureReason, string? error)
+    {
+        var nowUtc = _timeProvider.GetUtcNow().ToString("O", CultureInfo.InvariantCulture);
+        var requiredPaths = _requiredRelativePaths.Length == 0 ? "(none)" : string.Join(", ", _requiredRelativePaths);
+
+        var builder = new StringBuilder();
+        builder.Append("phase: ").AppendLine(phase);
+        builder.Append("attempt: ").AppendLine(attemptCount.ToString(CultureInfo.InvariantCulture));
+        builder.Append("utc: ").AppendLine(nowUtc);
+        builder.Append("host: ").AppendLine(Environment.MachineName);
+        builder.Append("container: ").AppendLine(_containerName);
+        builder.Append("state: ").AppendLine(StateReconnecting);
+        builder.Append("media1_path: ").AppendLine(_media1Path);
+        builder.Append("media2_path: ").AppendLine(_media2Path);
+        builder.Append("required_media2_dirs: ").AppendLine(requiredPaths);
+
+        if (!string.IsNullOrWhiteSpace(failureReason))
+        {
+            builder.Append("failure_reason: ").AppendLine(failureReason);
+        }
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            builder.Append("error: ").AppendLine(error);
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private async Task SendGotifyMessageAsync(string title, string message, int priority, CancellationToken cancellationToken)
+    {
+        var endpoint = $"{_gotifyBaseUrl.TrimEnd('/')}/message?token={Uri.EscapeDataString(_gotifyToken)}";
+        var payload = new GotifyMessageRequest
+        {
+            Title = title,
+            Message = message,
+            Priority = priority
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await GotifyHttpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Gotify returned status {(int)response.StatusCode}.");
         }
     }
 
@@ -436,8 +626,19 @@ public sealed class MediaMountAutoHealService : IMediaMountAutoHealService, IDis
 
         public DateTimeOffset? RecoveredVisibleUntilUtc { get; set; }
 
+        public DateTimeOffset? FirstUnhealthyDetectedUtc { get; set; }
+
         public int AttemptCount { get; set; }
 
         public bool Dirty { get; set; }
+    }
+
+    private sealed class GotifyMessageRequest
+    {
+        public string Title { get; set; } = string.Empty;
+
+        public string Message { get; set; } = string.Empty;
+
+        public int Priority { get; set; }
     }
 }

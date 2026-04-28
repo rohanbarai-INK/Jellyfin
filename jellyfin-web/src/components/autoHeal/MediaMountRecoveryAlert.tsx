@@ -60,13 +60,7 @@ const getFallbackMessage = (state: string) => {
 const MediaMountRecoveryAlert = () => {
     const { __legacyApiClient__, user } = useApi();
     const [ status, setStatus ] = useState<AutoHealStatus | null>(null);
-    const [ isRecoveredDismissed, setIsRecoveredDismissed ] = useState(false);
-
-    useEffect(() => {
-        if (status?.state !== RECOVERED_STATE) {
-            setIsRecoveredDismissed(false);
-        }
-    }, [ status?.state ]);
+    const [ dismissedSignature, setDismissedSignature ] = useState<string | null>(null);
 
     useEffect(() => {
         if (!__legacyApiClient__ || !user?.Id) {
@@ -78,25 +72,29 @@ const MediaMountRecoveryAlert = () => {
         let timeoutId: number | undefined;
 
         const pollStatus = async () => {
+            let nextDelay = NORMAL_POLL_MS;
             try {
                 const response = await __legacyApiClient__.getJSON(__legacyApiClient__.getUrl('System/AutoHeal/Status'));
                 if (!isCancelled) {
-                    setStatus(parseStatus(response));
+                    const parsedStatus = parseStatus(response);
+                    setStatus(parsedStatus);
+                    nextDelay = parsedStatus.state === RECONNECTING_STATE ? RECOVERY_POLL_MS : NORMAL_POLL_MS;
                 }
             } catch (error) {
                 if (!isCancelled) {
-                    setStatus({
+                    const unavailableStatus = {
                         state: UNAVAILABLE_STATE,
                         message: getFallbackMessage(UNAVAILABLE_STATE),
                         failureReason: null,
                         retryAfterSeconds: 10
-                    });
+                    };
+                    setStatus(unavailableStatus);
+                    nextDelay = RECOVERY_POLL_MS;
                 }
 
                 console.debug('[MediaMountRecoveryAlert] status poll failed', error);
             } finally {
                 if (!isCancelled) {
-                    const nextDelay = status?.state === RECONNECTING_STATE ? RECOVERY_POLL_MS : NORMAL_POLL_MS;
                     timeoutId = window.setTimeout(() => {
                         void pollStatus();
                     }, nextDelay);
@@ -112,7 +110,20 @@ const MediaMountRecoveryAlert = () => {
                 window.clearTimeout(timeoutId);
             }
         };
-    }, [ __legacyApiClient__, status?.failureReason, status?.message, status?.retryAfterSeconds, status?.state, user?.Id ]);
+    }, [ __legacyApiClient__, user?.Id ]);
+
+    const statusSignature = useMemo(() => {
+        if (!status) {
+            return null;
+        }
+
+        return [
+            status.state,
+            status.message,
+            status.failureReason ?? '',
+            status.retryAfterSeconds ?? ''
+        ].join('|');
+    }, [ status ]);
 
     const visibleStatus = useMemo(() => {
         if (!status) {
@@ -123,7 +134,7 @@ const MediaMountRecoveryAlert = () => {
             return null;
         }
 
-        if (status.state === RECOVERED_STATE && isRecoveredDismissed) {
+        if (statusSignature && dismissedSignature === statusSignature) {
             return null;
         }
 
@@ -131,7 +142,7 @@ const MediaMountRecoveryAlert = () => {
             ...status,
             message: status.message || getFallbackMessage(status.state)
         };
-    }, [ isRecoveredDismissed, status ]);
+    }, [ dismissedSignature, status, statusSignature ]);
 
     if (!visibleStatus) {
         return null;
@@ -196,26 +207,24 @@ const MediaMountRecoveryAlert = () => {
                     position: 'relative'
                 }}
             >
-                {!isRetryingState && (
-                    <IconButton
-                        aria-label='Close media recovery alert'
-                        size='small'
-                        onClick={() => setIsRecoveredDismissed(true)}
-                        sx={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            color: accentColor,
-                            backgroundColor: 'rgba(255,255,255,0.55)',
-                            border: `1px solid ${accentColor}66`,
-                            '&:hover': {
-                                backgroundColor: 'rgba(255,255,255,0.82)'
-                            }
-                        }}
-                    >
-                        <CloseIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                )}
+                <IconButton
+                    aria-label='Close media recovery alert'
+                    size='small'
+                    onClick={() => setDismissedSignature(statusSignature)}
+                    sx={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 6,
+                        color: accentColor,
+                        backgroundColor: 'rgba(255,255,255,0.55)',
+                        border: `1px solid ${accentColor}66`,
+                        '&:hover': {
+                            backgroundColor: 'rgba(255,255,255,0.82)'
+                        }
+                    }}
+                >
+                    <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
                 <Stack direction='row' spacing={1.25} alignItems='flex-start'>
                     <Box sx={{ mt: 0.2, minWidth: 54, display: 'flex', justifyContent: 'center' }}>
                         {icon}
