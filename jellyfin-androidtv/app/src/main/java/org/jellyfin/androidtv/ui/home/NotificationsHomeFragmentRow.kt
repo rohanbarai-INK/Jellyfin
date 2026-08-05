@@ -52,7 +52,7 @@ class NotificationsHomeFragmentRow(
 
 	override fun onItemClicked(itemViewHolder: Presenter.ViewHolder?, item: Any?, rowViewHolder: RowPresenter.ViewHolder?, row: Row?) {
 		if (item !is AppNotification) return
-
+		if (item.actions.isNotEmpty()) return
 		notificationsRepository.dismissNotification(item)
 	}
 }

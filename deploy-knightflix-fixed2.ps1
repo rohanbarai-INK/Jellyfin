@@ -228,8 +228,11 @@ docker image prune -af || true
 echo "Cleanup finished"
 '@
 
-Set-Content -Path $localDeployScript -Value ($remoteScript.Replace('__REMOTE_TAR__', $RemoteTar)) -NoNewline
-Set-Content -Path $localCleanupScript -Value ($cleanupScript.Replace('__REMOTE_TAR__', $RemoteTar)) -NoNewline
+$deployContent = $remoteScript.Replace('__REMOTE_TAR__', $RemoteTar).Replace("`r`n", "`n")
+$cleanupContent = $cleanupScript.Replace('__REMOTE_TAR__', $RemoteTar).Replace("`r`n", "`n")
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllText($localDeployScript, $deployContent, $utf8NoBom)
+[System.IO.File]::WriteAllText($localCleanupScript, $cleanupContent, $utf8NoBom)
 
 Write-Step 'Opening SSH session'
 $sshSession = New-SSHSession -ComputerName $PiHost -Credential $credential -AcceptKey
@@ -245,7 +248,7 @@ try {
 
     Write-Step 'Running remote build + deploy'
     Write-Info "Allowing up to $RemoteCommandTimeoutSec seconds for the remote build/deploy step"
-    $result = Invoke-SSHCommand -SessionId $sessionId -Command "chmod +x $remoteDeployScript && bash $remoteDeployScript" -TimeOut $RemoteCommandTimeoutSec
+    $result = Invoke-SSHCommand -SessionId $sessionId -Command "sed -i 's/\r$//' $remoteDeployScript && chmod +x $remoteDeployScript && bash $remoteDeployScript" -TimeOut $RemoteCommandTimeoutSec
 
     if ($result.Output) {
         $result.Output | ForEach-Object { Write-Host $_ }
@@ -260,7 +263,7 @@ try {
     if (-not $SkipCleanup) {
         Write-Step 'Running remote cleanup'
         Write-Info "Allowing up to $CleanupTimeoutSec seconds for the remote cleanup step"
-        $cleanupResult = Invoke-SSHCommand -SessionId $sessionId -Command "chmod +x $remoteCleanupScript && bash $remoteCleanupScript" -TimeOut $CleanupTimeoutSec
+        $cleanupResult = Invoke-SSHCommand -SessionId $sessionId -Command "sed -i 's/\r$//' $remoteCleanupScript && chmod +x $remoteCleanupScript && bash $remoteCleanupScript" -TimeOut $CleanupTimeoutSec
         if ($cleanupResult.Output) {
             $cleanupResult.Output | ForEach-Object { Write-Host $_ }
         }

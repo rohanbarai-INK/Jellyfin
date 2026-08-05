@@ -46,11 +46,11 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinActivityViewModel
 
 enum class MainToolbarActiveButton {
-	User,
-	Home,
-	Search,
+    User,
+    Home,
+    Search,
 
-	None,
+    None,
 }
 
 @Composable
@@ -156,6 +156,8 @@ private fun MainToolbar(
 		},
 		end = {
 			ToolbarButtons {
+				DownloadAppToolbarButton()
+
 				IconButton(
 					onClick = { settingsViewModel.show() },
 				) {

@@ -9,6 +9,7 @@ import PlayCircle from '@mui/icons-material/PlayCircle';
 import Settings from '@mui/icons-material/Settings';
 import WorkspacePremium from '@mui/icons-material/WorkspacePremium';
 import Campaign from '@mui/icons-material/Campaign';
+import PhoneAndroid from '@mui/icons-material/PhoneAndroid';
 import LocalFireDepartment from '@mui/icons-material/LocalFireDepartment';
 import Collapse from '@mui/material/Collapse';
 import List from '@mui/material/List';
@@ -133,6 +134,14 @@ const ServerDrawerSection = () => {
                         <Campaign />
                     </ListItemIcon>
                     <ListItemText primary='Announcement' />
+                </ListItemLink>
+            </ListItem>
+            <ListItem disablePadding>
+                <ListItemLink to='/dashboard/app-download'>
+                    <ListItemIcon>
+                        <PhoneAndroid />
+                    </ListItemIcon>
+                    <ListItemText primary='App Downloads' />
                 </ListItemLink>
             </ListItem>
             <ListItem disablePadding>

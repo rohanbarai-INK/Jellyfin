@@ -8,6 +8,7 @@ import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.auth.model.Server
 import org.jellyfin.androidtv.auth.repository.ServerRepository
 import org.jellyfin.androidtv.data.model.AppNotification
+import org.jellyfin.androidtv.data.model.AppNotificationAction
 import org.jellyfin.androidtv.preference.SystemPreferences
 import org.jellyfin.androidtv.util.isTvDevice
 import org.jellyfin.sdk.model.ServerVersion
@@ -38,10 +39,11 @@ class NotificationsRepositoryImpl(
 
 	private fun addNotification(
 		message: String,
+		actions: List<AppNotificationAction> = emptyList(),
 		public: Boolean = false,
 		dismiss: () -> Unit = {}
 	): AppNotification {
-		val notification = AppNotification(message, dismiss, public)
+		val notification = AppNotification(message, actions, dismiss, public)
 		notifications.value += notification
 		return notification
 	}

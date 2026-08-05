@@ -3,6 +3,8 @@
 ## Overview
 A yellow pulsing download button appears in the top navbar (between the search/cast buttons and the User Menu avatar). Clicking it shows a floating tooltip with app info and two download buttons — **Mobile App** and **Android TV App**. Downloading either APK also opens a 4-step install guide modal.
 
+For **Android TV users**, this same normal user flow is now supported directly in TV browsers. The download panel becomes larger, centered, and D-pad friendly so users can select the APK using their remote.
+
 ## Where the Button Shows / Hides
 
 | Environment | Button Shown? |
@@ -10,35 +12,63 @@ A yellow pulsing download button appears in the top navbar (between the search/c
 | Web browser (PC / Desktop) | ✅ Yes |
 | Web browser (Android Chrome / Firefox) | ✅ Yes |
 | Web browser (iOS Safari / Chrome) | ✅ Yes |
+| **Android TV browser** | ✅ **Yes** |
 | **Jellyfin Android app (WebView)** | ❌ **No** (auto-detected via `window.NativeShell`) |
 | SmartTV / webOS / Tizen browsers | ❌ No (auto-detected) |
 
-Detection is in `DownloadAppButton.tsx` → `isAndroidNativeApp()` and `isTvBrowser()`.
+Detection is in `DownloadAppButton.tsx` and uses the shared browser/layout detection helpers to allow **Android TV** while still hiding the feature on unsupported smart-TV browsers.
+
+## Android TV User Flow
+
+- The navbar download icon remains available for Android TV browser users.
+- Press **OK / Enter** on the download icon to open the panel.
+- The panel opens in a **centered TV-friendly layout** instead of a small desktop-style dropdown.
+- The **Android TV App** button is focused first by default.
+- Use the **D-pad**:
+  - **Up / Left** → focus **Mobile App**
+  - **Down / Right** → focus **Android TV App**
+  - **OK / Enter** → trigger the selected download
+  - **Back / Escape** → close the panel
+- After download starts, the install guide modal still opens as before.
 
 ---
 
-## How to Set the APK Download Links (Dropbox)
+## How to Update APK Download Links (Admin Dashboard — No Redeploy Needed)
 
 1. Log in to Dropbox with **steinsgate00007@gmail.com** (via Google login).
-2. Upload your APK(s).
+2. Upload the new APK(s).
 3. Click **Share** on the file and copy the URL.
-4. In the copied URL, change the ending parameter from `dl=0` to `dl=1`.
-5. Open `jellyfin-web/src/components/toolbar/DownloadAppTooltip.tsx` and set:
+4. Change the `dl=0` parameter at the end of the URL to `dl=1`.
+5. Go to the Admin Dashboard → **App Downloads** (sidebar).
+6. Paste the new URL into the **Download URL** field for the relevant app.
+7. Update the **APK Filename** to match the new version (e.g. `KnightFlix-v0.0.2.apk`).
+8. Check **Show NEW badge** to enable the animated green "NEW" pill on that button so users know a new version is available.
+9. Click **Save**.
 
-### Mobile App
-   ```ts
-   export const APK_DOWNLOAD_URL = '<your_dropbox_link_with_dl=1>';
-   export const APK_FILE_NAME    = 'KnightFlix-v0.0.1.apk';
-   ```
+Changes take effect immediately — no code deployment required.
 
-### Android TV App
-   ```ts
-   export const TV_APK_DOWNLOAD_URL = '<your_dropbox_link_with_dl=1>';
-   export const TV_APK_FILE_NAME    = 'KnightFlixTV-v0.0.1.apk';
-   ```
+### Fallback (code-level defaults)
 
-  Keep changing the version number in the filename and the download link for each new release.
-  The install guide (side-load instructions) is the same for both Mobile and Android TV apps.
+If the admin dashboard has never been saved, the app falls back to the hardcoded constants in:
+`jellyfin-web/src/components/toolbar/DownloadAppTooltip.tsx`
+
+```ts
+export const APK_DOWNLOAD_URL    = '…';   // Mobile fallback
+export const APK_FILE_NAME       = 'KnightFlix-v0.0.1.apk';
+export const TV_APK_DOWNLOAD_URL = '…';   // TV fallback
+export const TV_APK_FILE_NAME    = 'KnightFlixTV-v0.0.1.apk';
+```
+
+The install guide (side-load instructions) is the same for both Mobile and Android TV apps.
+
+## NEW Badge Behaviour
+
+- When **Show NEW badge** is enabled for an app in the admin dashboard, a green animated **NEW** pill appears on that download button inside the tooltip.
+- A small green pulsing dot also appears on the toolbar download icon when any app is marked as new.
+- The badge automatically stops showing for a user after they click the download button a configurable number of times (per device, tracked in `localStorage`).
+- Admin can configure **"Max interactions before badge is hidden"** (default: 3). Set to `1` to show NEW only once per device.
+- The interaction counter resets automatically when the admin updates the APK URL — users see the NEW badge again for the new version.
+- Disable the badge (uncheck and save) once users have had time to see and download the update.
 ---
 
 ## How to Change the App Icon in the Tooltip
@@ -89,8 +119,8 @@ To replace screenshots in future:
 
 | File | Purpose |
 |---|---|
-| `src/components/toolbar/DownloadAppButton.tsx` | Main button + platform detection + state management |
-| `src/components/toolbar/DownloadAppTooltip.tsx` | Floating tooltip card (APK URL is configured here) |
+| `src/components/toolbar/DownloadAppButton.tsx` | Main button + platform detection + TV visibility rules + state management |
+| `src/components/toolbar/DownloadAppTooltip.tsx` | Floating tooltip card + Android TV-friendly D-pad download panel |
 | `src/components/toolbar/DownloadAppPopup.tsx` | 4-step install guide modal |
 | `src/assets/install-guide/install-step1.png` | Install guide screenshot step 1 |
 | `src/assets/install-guide/install-step2.png` | Install guide screenshot step 2 |

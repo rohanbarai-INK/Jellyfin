@@ -8,6 +8,7 @@ let versionMajor: number;
 declare namespace browser {
     export { version };
     export { versionMajor };
+    export let android: boolean;
     export let edge: boolean;
     export let edgeChromium: boolean;
     export let firefox: boolean;

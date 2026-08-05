@@ -2,6 +2,7 @@ package org.jellyfin.androidtv.ui.notification
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.Button
 import androidx.leanback.widget.Presenter
 import org.jellyfin.androidtv.data.model.AppNotification
 import org.jellyfin.androidtv.databinding.ViewCardNotificationBinding
@@ -17,6 +18,17 @@ class AppNotificationPresenter : Presenter() {
 		item as AppNotification
 
 		viewHolder.binding.message.text = item.message
+		viewHolder.binding.actionsContainer.removeAllViews()
+
+		item.actions.forEach { action ->
+			val button = Button(viewHolder.binding.root.context).apply {
+				text = action.label
+				isFocusable = true
+				isFocusableInTouchMode = true
+				setOnClickListener { action.onClick() }
+			}
+			viewHolder.binding.actionsContainer.addView(button)
+		}
 	}
 
 	override fun onUnbindViewHolder(viewHolder: ViewHolder) {
