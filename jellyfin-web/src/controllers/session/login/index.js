@@ -22,6 +22,8 @@ import { getDefaultBackgroundClass } from '../../../components/cardbuilder/cardB
 
 import './login.scss';
 
+import { renderComponent } from '../../../utils/reactUtils';
+
 const enableFocusTransform = !browser.slow && !browser.edge;
 
 function isTabKey(event) {
@@ -252,9 +254,35 @@ function loadUserList(context, apiClient, users) {
 
 export default function (view, params) {
     let hasWindowResizeListener = false;
+    let unmountDownloadApp = null;
     const handleResize = () => {
         updateDesktopDecorationsVisibility(view);
     };
+
+    function mountDownloadAppButton() {
+        const mount = view.querySelector('#downloadAppLoginMount');
+        if (!mount || unmountDownloadApp) {
+            return;
+        }
+
+        import('../../../components/toolbar/DownloadAppLoginButton').then(({ default: DownloadAppLoginButton }) => {
+            // Guard against rapid viewhide/viewshow races
+            if (!view.isConnected || unmountDownloadApp || !view.querySelector('#downloadAppLoginMount')) {
+                return;
+            }
+
+            unmountDownloadApp = renderComponent(DownloadAppLoginButton, {}, mount);
+        }).catch((error) => {
+            console.warn('[LoginPage] Failed to mount download app button', error);
+        });
+    }
+
+    function unmountDownloadAppButton() {
+        if (typeof unmountDownloadApp === 'function') {
+            unmountDownloadApp();
+            unmountDownloadApp = null;
+        }
+    }
 
     function getApiClient() {
         const serverId = params.serverid;
@@ -341,6 +369,8 @@ export default function (view, params) {
             hasWindowResizeListener = true;
         }
 
+        mountDownloadAppButton();
+
         loading.show('system');
         libraryMenu.setTransparentMenu(true);
 
@@ -396,6 +426,7 @@ export default function (view, params) {
             hasWindowResizeListener = false;
         }
 
+        unmountDownloadAppButton();
         libraryMenu.setTransparentMenu(false);
     });
 }

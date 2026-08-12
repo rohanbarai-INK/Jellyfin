@@ -63,7 +63,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 private const val DOWNLOAD_PREFS_NAME = "app_download_prefs"
-private const val DEFAULT_TV_APK_FILE_NAME = "KnightFlixTV-v0.0.1.apk"
+private const val DEFAULT_TV_APK_FILE_NAME = "KnightFlixTV-v0.0.3.apk"
 
 private data class ServerContext(
     val baseUrl: String,

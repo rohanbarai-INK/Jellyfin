@@ -16,13 +16,28 @@ interface DownloadAppTooltipProps {
     isTvMode: boolean;
     showMobileNew: boolean;
     showTvNew: boolean;
+    /** toolbar = navbar dropdown; login = centered under login-page action */
+    placement?: 'toolbar' | 'login';
     onRequestClose: () => void;
     onMobileDownload: () => void;
     onTvDownload: () => void;
 }
 
 const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
-    ({ config, isTvMode, showMobileNew, showTvNew, onRequestClose, onMobileDownload, onTvDownload }, ref) => {
+    ({ config, isTvMode, showMobileNew, showTvNew, placement = 'toolbar', onRequestClose, onMobileDownload, onTvDownload }, ref) => {
+        const isLoginPlacement = placement === 'login' && !isTvMode;
+        // Login uses fixed centering so it never clips under overflow parents on mobile.
+        const isCenteredOverlay = isTvMode || isLoginPlacement;
+        const centerTransform = isLoginPlacement
+            ? 'translate(-50%, -50%)'
+            : isTvMode
+                ? 'translateX(-50%)'
+                : undefined;
+        const slideInAnimation = isLoginPlacement
+            ? 'kfTooltipSlideInCentered 0.22s cubic-bezier(.21,1.02,.73,1) both'
+            : isTvMode
+                ? 'kfTooltipSlideInTv 0.22s cubic-bezier(.21,1.02,.73,1) both'
+                : 'kfTooltipSlideIn 0.22s cubic-bezier(.21,1.02,.73,1) both';
         const mobileButtonRef = useRef<HTMLButtonElement>(null);
         const tvButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -91,18 +106,22 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                 ref={ref}
                 onKeyDown={handleKeyDown}
                 style={{
-                    position: isTvMode ? 'fixed' : 'absolute',
-                    right: isTvMode ? 'auto' : 0,
-                    left: isTvMode ? '50%' : 'auto',
-                    top: isTvMode ? '88px' : '48px',
+                    position: isCenteredOverlay ? 'fixed' : 'absolute',
+                    right: isCenteredOverlay ? 'auto' : 0,
+                    left: isCenteredOverlay ? '50%' : 'auto',
+                    top: isLoginPlacement ? '50%' : isTvMode ? '88px' : '48px',
                     zIndex: 1400,
-                    width: isTvMode ? '440px' : '288px',
-                    maxWidth: isTvMode ? 'calc(100vw - 48px)' : 'calc(100vw - 24px)',
-                    transform: isTvMode ? 'translateX(-50%)' : undefined,
-                    animation: 'kfTooltipSlideIn 0.22s cubic-bezier(.21,1.02,.73,1) both'
+                    width: isTvMode ? '440px' : isLoginPlacement ? 'min(320px, calc(100vw - 24px))' : '288px',
+                    maxWidth: 'calc(100vw - 24px)',
+                    maxHeight: isLoginPlacement ? 'min(520px, calc(100vh - 24px))' : undefined,
+                    overflowY: isLoginPlacement ? 'auto' : undefined,
+                    WebkitOverflowScrolling: isLoginPlacement ? 'touch' : undefined,
+                    transform: centerTransform,
+                    animation: slideInAnimation,
+                    boxSizing: 'border-box'
                 }}
             >
-                {!isTvMode && (
+                {!isCenteredOverlay && (
                     <div style={{
                         position: 'absolute',
                         top: '-7px',
@@ -153,13 +172,16 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                                     style={{ width: isTvMode ? '38px' : '28px', height: isTvMode ? '38px' : '28px', objectFit: 'contain' }}
                                 />
                             </div>
-                            <div>
+                            <div style={{ minWidth: 0, flex: 1 }}>
                                 <p style={{
                                     margin: 0,
                                     color: '#fff',
                                     fontWeight: 600,
                                     fontSize: isTvMode ? '20px' : '14px',
-                                    lineHeight: 1.3
+                                    lineHeight: 1.3,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     {isTvMode ? 'KnightFlix Downloads for Android TV' : 'KnightFlix for Android'}
                                 </p>
@@ -167,7 +189,10 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                                     margin: 0,
                                     color: 'rgba(255,255,255,0.4)',
                                     fontSize: isTvMode ? '14px' : '12px',
-                                    marginTop: '2px'
+                                    marginTop: '2px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
                                 }}>
                                     {isTvMode ? 'Remote-friendly APK download flow' : 'Free · Direct APK download'}
                                 </p>
@@ -338,6 +363,14 @@ const DownloadAppTooltip = forwardRef<HTMLDivElement, DownloadAppTooltipProps>(
                     @keyframes kfTooltipSlideIn {
                         from { opacity: 0; transform: translateY(-8px) scale(0.95); }
                         to   { opacity: 1; transform: translateY(0) scale(1); }
+                    }
+                    @keyframes kfTooltipSlideInTv {
+                        from { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.95); }
+                        to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+                    }
+                    @keyframes kfTooltipSlideInCentered {
+                        from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); }
+                        to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
                     }
                     @keyframes kfNewBadgePop {
                         from { opacity: 0; transform: scale(0.5); }

@@ -9,14 +9,23 @@ For **Android TV users**, this same normal user flow is now supported directly i
 
 | Environment | Button Shown? |
 |---|---|
-| Web browser (PC / Desktop) | ✅ Yes |
+| Web browser (PC / Desktop) — **home toolbar** | ✅ Yes |
+| Web browser — **login page** | ✅ **Yes** (login-styled Download App action) |
 | Web browser (Android Chrome / Firefox) | ✅ Yes |
 | Web browser (iOS Safari / Chrome) | ✅ Yes |
 | **Android TV browser** | ✅ **Yes** |
 | **Jellyfin Android app (WebView)** | ❌ **No** (auto-detected via `window.NativeShell`) |
 | SmartTV / webOS / Tizen browsers | ❌ No (auto-detected) |
 
-Detection is in `DownloadAppButton.tsx` and uses the shared browser/layout detection helpers to allow **Android TV** while still hiding the feature on unsupported smart-TV browsers.
+Detection is in `DownloadAppButton.tsx` / `DownloadAppLoginButton.tsx` and uses the shared browser/layout detection helpers to allow **Android TV** while still hiding the feature on unsupported smart-TV browsers.
+
+### Login page (pre-auth)
+
+Users who cannot reach the homepage (e.g. after an APK URL change / forced update) can still download from `/login`:
+
+- A full-width **Download App** action sits above the Manual Login / Quick Connect buttons.
+- Styling matches the login page raised actions, with the yellow KnightFlix download accent.
+- The same tooltip + install-guide popup is reused, and **admin-configured APK URLs** are loaded anonymously via `GET /AppDownload/Config`.
 
 ## Android TV User Flow
 
@@ -120,15 +129,19 @@ To replace screenshots in future:
 | File | Purpose |
 |---|---|
 | `src/components/toolbar/DownloadAppButton.tsx` | Main button + platform detection + TV visibility rules + state management |
+| `src/components/toolbar/DownloadAppLoginButton.tsx` | Login-page Download App action (pre-auth) |
 | `src/components/toolbar/DownloadAppTooltip.tsx` | Floating tooltip card + Android TV-friendly D-pad download panel |
 | `src/components/toolbar/DownloadAppPopup.tsx` | 4-step install guide modal |
+| `src/controllers/session/login/index.html` | Login page markup (includes download mount) |
+| `src/controllers/session/login/index.js` | Mounts/unmounts login download React control |
+| `src/controllers/session/login/login.scss` | Login-page download button styles |
 | `src/assets/install-guide/install-step1.png` | Install guide screenshot step 1 |
 | `src/assets/install-guide/install-step2.png` | Install guide screenshot step 2 |
 | `src/assets/install-guide/install-step3.png` | Install guide screenshot step 3 |
 | `src/assets/install-guide/install-step4.png` | Install guide screenshot step 4 |
 | `src/apps/experimental/components/AppToolbar/index.tsx` | Where the button is placed in the toolbar |
 | `src/assets/branding/icon-transparent.png` | KnightFlix icon used in the tooltip |
-
+| `jellyfin/Jellyfin.Api/Controllers/AppDownloadController.cs` | Config API (`GET` is anonymous for login-page access) |
 ---
 
 ## Placing the APK File

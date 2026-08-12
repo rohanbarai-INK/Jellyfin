@@ -9,3 +9,6 @@ nul
 .local-jellyfin
 .local-jellyfin-8097
 .playwright-mcp
+.gradle-user-home/
+.android-user-home/
+jellyfin-android/buildSrc/.kotlin/

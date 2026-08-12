@@ -28,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.knightflix.mobile.BuildConfig
+import org.knightflix.mobile.MainActivity
 import org.knightflix.mobile.R
 import org.knightflix.mobile.app.ApiClientController
 import org.knightflix.mobile.app.AppPreferences
@@ -319,6 +320,9 @@ class WebViewFragment : Fragment(), BackPressInterceptor, JellyfinWebChromeClien
 
     private fun handleError() {
         connected = false
+        if ((activity as? MainActivity)?.mainViewModel?.trySwitchToFallbackServer(server.hostname) == true) {
+            return
+        }
         onSelectServer(error = true)
     }
 

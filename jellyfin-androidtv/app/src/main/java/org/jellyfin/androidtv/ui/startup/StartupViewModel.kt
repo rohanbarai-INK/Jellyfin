@@ -52,7 +52,14 @@ class StartupViewModel(
 
 	fun getHardcodedServerUrl(): String = normalizeServerAddress(BuildConfig.HARDCODED_SERVER_URL)
 
-	fun isHardcodedServerModeEnabled(): Boolean = getHardcodedServerUrl().isNotEmpty()
+	private fun getHardcodedFallbackServerUrl(): String = normalizeServerAddress(BuildConfig.HARDCODED_FALLBACK_SERVER_URL)
+
+	private fun getHardcodedServerUrls(): List<String> = listOf(
+		getHardcodedServerUrl(),
+		getHardcodedFallbackServerUrl()
+	).filter(String::isNotBlank).distinctBy(String::lowercase)
+
+	fun isHardcodedServerModeEnabled(): Boolean = getHardcodedServerUrls().isNotEmpty()
 
 	fun getServer(id: UUID) = serverRepository.storedServers.value
 		.find { it.id == id }
@@ -104,20 +111,23 @@ class StartupViewModel(
 	suspend fun updateServer(server: Server): Boolean = serverRepository.updateServer(server)
 
 	suspend fun resolveHardcodedServer(): Server? {
-		val hardcodedAddress = getHardcodedServerUrl()
-		if (hardcodedAddress.isBlank()) return null
-
 		serverRepository.loadStoredServers()
-		val existingServer = serverRepository.storedServers.value.firstOrNull { server ->
-			normalizeServerAddress(server.address).equals(hardcodedAddress, ignoreCase = true)
+		for (hardcodedAddress in getHardcodedServerUrls()) {
+			val existingServer = serverRepository.storedServers.value.firstOrNull { server ->
+				normalizeServerAddress(server.address).equals(hardcodedAddress, ignoreCase = true)
+			}
+			if (existingServer != null && serverRepository.updateServer(existingServer, force = true)) {
+				return serverRepository.getServer(existingServer.id) ?: existingServer
+			}
+
+			val connectedState = serverRepository.addServer(hardcodedAddress)
+				.firstOrNull { state -> state is ConnectedState } as? ConnectedState
+				?: continue
+
+			return serverRepository.getServer(connectedState.id)
+				?: serverRepository.storedServers.value.firstOrNull { server -> server.id == connectedState.id }
 		}
-		if (existingServer != null) return existingServer
 
-		val connectedState = serverRepository.addServer(hardcodedAddress)
-			.firstOrNull { state -> state is ConnectedState } as? ConnectedState
-			?: return null
-
-		return serverRepository.getServer(connectedState.id)
-			?: serverRepository.storedServers.value.firstOrNull { server -> server.id == connectedState.id }
+		return null
 	}
 }

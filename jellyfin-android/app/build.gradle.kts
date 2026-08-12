@@ -41,8 +41,12 @@ android {
 
         val serverUrl = (project.findProperty("jellyfin.server.url") as? String)
             ?: System.getenv("SERVER_URL")
-            ?: "http://10.0.2.2:8097/"
+            ?: "https://knightflix.in/"
+        val fallbackServerUrl = (project.findProperty("jellyfin.server.fallbackUrl") as? String)
+            ?: System.getenv("SERVER_FALLBACK_URL")
+            ?: "http://192.168.1.7:8097/"
         buildConfigField("String", "HARDCODED_SERVER_URL", "\"${serverUrl.replace("\"", "\\\"")}\"")
+        buildConfigField("String", "HARDCODED_FALLBACK_SERVER_URL", "\"${fallbackServerUrl.replace("\"", "\\\"")}\"")
     }
 
     val releaseSigningConfig = SigningHelper.loadSigningConfig(project)?.let { config ->

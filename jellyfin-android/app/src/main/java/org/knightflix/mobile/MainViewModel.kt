@@ -14,10 +14,15 @@ class MainViewModel(
     private val apiClientController: ApiClientController,
 ) : AndroidViewModel(app) {
     private val hardcodedServerUrl: String
-        get() = BuildConfig.HARDCODED_SERVER_URL.trim()
+        get() = normalizeServerUrl(BuildConfig.HARDCODED_SERVER_URL)
+
+    private val hardcodedFallbackServerUrl: String
+        get() = normalizeServerUrl(BuildConfig.HARDCODED_FALLBACK_SERVER_URL)
 
     private val hardcodedServerEnabled: Boolean
-        get() = hardcodedServerUrl.isNotEmpty()
+        get() = hardcodedServerUrl.isNotEmpty() || hardcodedFallbackServerUrl.isNotEmpty()
+
+    private var selectedHardcodedServerUrl: String? = null
 
     private val _serverState: MutableStateFlow<ServerState> = MutableStateFlow(ServerState.Pending)
     val serverState: StateFlow<ServerState> get() = _serverState
@@ -33,9 +38,25 @@ class MainViewModel(
         refreshServer()
     }
 
+    fun trySwitchToFallbackServer(currentHostname: String): Boolean {
+        val primaryUrl = hardcodedServerUrl
+        val fallbackUrl = hardcodedFallbackServerUrl
+        if (fallbackUrl.isEmpty() || fallbackUrl.equals(primaryUrl, ignoreCase = true)) return false
+        if (!normalizeServerUrl(currentHostname).equals(primaryUrl, ignoreCase = true)) return false
+
+        selectedHardcodedServerUrl = fallbackUrl
+        viewModelScope.launch {
+            refreshServer()
+        }
+        return true
+    }
+
     private suspend fun refreshServer() {
         val serverEntity = if (hardcodedServerEnabled) {
-            apiClientController.setupServer(hardcodedServerUrl)
+            val hardcodedUrl = selectedHardcodedServerUrl
+                ?: hardcodedServerUrl.takeIf(String::isNotEmpty)
+                ?: hardcodedFallbackServerUrl
+            apiClientController.setupServer(hardcodedUrl)
         } else {
             apiClientController.loadSavedServer()
         }
@@ -55,6 +76,8 @@ class MainViewModel(
 
         _serverState.value = ServerState.Available(serverEntity)
     }
+
+    private fun normalizeServerUrl(url: String): String = url.trim().trimEnd('/')
 
     /**
      * Temporarily unset the selected server to be able to connect to a different one

@@ -30,9 +30,13 @@ public class AppDownloadController : BaseJellyfinApiController
     /// <summary>
     /// Gets the current app download configuration.
     /// </summary>
+    /// <remarks>
+    /// Anonymous access is intentional so the login page can surface the latest
+    /// admin-configured APK URLs before a user authenticates.
+    /// </remarks>
     /// <returns>App download config.</returns>
     [HttpGet("Config")]
-    [Authorize]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<AppDownloadConfigDto>> GetConfig()
     {
